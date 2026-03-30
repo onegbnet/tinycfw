@@ -56,7 +56,7 @@ function esc(s) {
 }
 
 function clean(obj) {
-  var defaults = { countdown: 0, permanent: true, lightPage: true, ttl: 0, clicks: 0, redirectMode: "instant" };
+  var defaults = { countdown: 0, permanent: true, lightPage: true, ttl: 0, redirectMode: "instant" };
   var result = {};
   for (var k in obj) {
     if (!obj.hasOwnProperty(k)) continue;
@@ -113,6 +113,68 @@ function json(data, status = 200) {
     status,
     headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
   });
+}
+
+const BATCH_DEFAULT = 50;
+const BATCH_MIN = 1;
+const BATCH_MAX = 500;
+
+async function createOne(item, slug, validSlug, env, requestUrl) {
+  const target = (item.url || "").trim();
+  try { const u = new URL(target); if ((u.protocol !== "http:" && u.protocol !== "https:") || !/^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63}$/i.test(u.hostname)) throw 0; }
+  catch { return { error: "INVALID_URL" }; }
+
+  const redirectMode = item.redirectMode || 'instant';
+  if (Array.isArray(item.redirectMode) || (redirectMode !== 'instant' && redirectMode !== 'manual')) {
+    return { error: "INVALID_REDIRECT_MODE" };
+  }
+
+  let countdown = Math.floor(Number(item.countdown) || 0);
+  if (countdown < 0 || countdown > DELAY_MAX) countdown = 0;
+
+  const permanent = item.permanent !== false;
+  const manualBtnTitle = (item.manualBtnTitle || '').trim().slice(0, 128);
+  const lightPage = item.lightPage !== false;
+  const redirectPageTitle = (item.redirectPageTitle || "").trim().slice(0, DELAY_TITLE_MAX);
+  const redirectPageContent = (item.redirectPageContent || "").trim().slice(0, DELAY_HTML_MAX);
+  const defaultTtl = normalizeTtl(env.TTL || 0);
+  const ttl = normalizeTtl(item.ttl, defaultTtl);
+
+  let newSlug;
+  let warn = null;
+  if (validSlug) {
+    if (await env.DATA.get(slug) !== null) return { error: "SLUG_EXISTS" };
+    newSlug = slug;
+  } else {
+    if (slug) warn = "SLUG_IGNORED";
+    let tries = 0;
+    do { newSlug = makeSlug(); tries++; } while (await env.DATA.get(newSlug) !== null && tries < 5);
+    if (await env.DATA.get(newSlug) !== null) return { error: "SLUG_COLLISION" };
+  }
+
+  const generatedPassword = generatePassword();
+  const pwHash = await hashPassword(generatedPassword);
+  const now = new Date().toISOString();
+  const newEntry = clean({
+    url: target, pwHash, redirectMode, permanent, countdown,
+    redirectPageTitle: redirectPageTitle || null,
+    redirectPageContent: redirectPageContent || null,
+    manualBtnTitle: manualBtnTitle || null,
+    lightPage, ttl, createdAt: now, updatedAt: null,
+  });
+  const putOpts = { metadata: { url: target, createdAt: now } };
+  if (ttl > 0) putOpts.expirationTtl = ttl;
+  await env.DATA.put(newSlug, JSON.stringify(newEntry), putOpts);
+
+  const base = getBaseUrl(env, requestUrl);
+  const resp = { short_url: base + newSlug, slug: newSlug, target, password: generatedPassword };
+  if (warn) resp.warn = warn;
+  return resp;
+}
+
+function notFound(env, url) {
+  if (isValidUrl(env.DEFAULT)) return Response.redirect(env.DEFAULT, 302);
+  return Response.redirect(getBaseUrl(env, url).replace(/\/$/, '') || url.origin, 302);
 }
 
 async function checkAuth(req, env) {
@@ -181,7 +243,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "Network error",
     errSlugEmpty: "Enter a slug first",
     errSlugInvalid: "Invalid: 3-10 alphanumeric chars only",
-    slugFound: "Verified",
+    slugFound: "Verified", btnView: "View & Edit",
     slugNotFound: "Slug not found",
     slugAuthFail: "Check your identity key",
     defaultRedirectTitle: "Destination URL {url}",
@@ -192,6 +254,7 @@ const I18N_JSON = JSON.stringify({
     err_SLUG_EXISTS: "This slug already exists \u2013 use Modify mode with the password",
    
     err_SLUG_COLLISION: "Failed to generate slug, please try again",
+    warn_SLUG_IGNORED: "Custom slug was invalid and ignored, a random slug was assigned",
     err_NOT_FOUND: "Not found", err_VERIFY_FAILED: "Slug not found or wrong password",
     err_INVALID_REDIRECT_MODE: "Invalid redirect mode",
     tb_bold: "Bold", tb_italic: "Italic", tb_underline: "Underline", tb_h1: "Heading 1", tb_h2: "Heading 2", tb_h3: "Heading 3", tb_ul: "Bullet list", tb_ol: "Numbered list", tb_blockquote: "Blockquote", tb_code: "Inline code", tb_link: "Insert link", tb_hr: "Horizontal rule",
@@ -247,7 +310,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "网络错误",
     errSlugEmpty: "请先输入短码",
     errSlugInvalid: "无效：仅限 3-10 位字母数字",
-    slugFound: "验证通过",
+    slugFound: "验证通过", btnView: "查看并编辑",
     slugNotFound: "短码不存在",
     slugAuthFail: "请检查身份密钥",
     defaultRedirectTitle: "目标网址 {url}",
@@ -258,6 +321,7 @@ const I18N_JSON = JSON.stringify({
     err_SLUG_EXISTS: "该短码已存在 – 请切换到修改模式并输入密码",
    
     err_SLUG_COLLISION: "短码生成失败，请重试",
+    warn_SLUG_IGNORED: "自定义短码格式无效已忽略，已分配随机短码",
     err_NOT_FOUND: "未找到", err_VERIFY_FAILED: "短码不存在，或密码错误",
     err_INVALID_REDIRECT_MODE: "无效的跳转模式",
     tb_bold: "加粗", tb_italic: "斜体", tb_underline: "下划线", tb_h1: "标题 1", tb_h2: "标题 2", tb_h3: "标题 3", tb_ul: "无序列表", tb_ol: "有序列表", tb_blockquote: "引用", tb_code: "行内代码", tb_link: "插入链接", tb_hr: "水平线",
@@ -313,7 +377,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "網路錯誤",
     errSlugEmpty: "請先輸入短碼",
     errSlugInvalid: "無效：僅限 3-10 位英數字元",
-    slugFound: "驗證通過",
+    slugFound: "驗證通過", btnView: "查��並編輯",
     slugNotFound: "短碼不存在",
     slugAuthFail: "請檢查身分金鑰",
     defaultRedirectTitle: "目標網址 {url}",
@@ -323,6 +387,7 @@ const I18N_JSON = JSON.stringify({
     err_INVALID_SLUG: "短碼格式無效",
     err_SLUG_EXISTS: "該短碼已存在 – 請切換到修改模式並輸入密碼",
     err_SLUG_COLLISION: "短碼產生失敗，請重試",
+    warn_SLUG_IGNORED: "自訂短碼格式無效已忽略，已分配隨機短碼",
     err_NOT_FOUND: "未找到", err_VERIFY_FAILED: "短碼不存在，或密碼錯誤",
     err_INVALID_REDIRECT_MODE: "無效的跳轉模式",
     tb_bold: "粗體", tb_italic: "斜體", tb_underline: "底線", tb_h1: "標題 1", tb_h2: "標題 2", tb_h3: "標題 3", tb_ul: "無序清單", tb_ol: "有序清單", tb_blockquote: "引用", tb_code: "行內程式碼", tb_link: "插入連結", tb_hr: "水平線",
@@ -378,7 +443,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "ネットワークエラー",
     errSlugEmpty: "先にスラッグを入力してください",
     errSlugInvalid: "無効：英数字3〜10文字のみ",
-    slugFound: "確認済み",
+    slugFound: "確認済み", btnView: "表示・編集",
     slugNotFound: "スラッグが見つかりません",
     slugAuthFail: "認証キーを確認してください",
     defaultRedirectTitle: "転送先URL {url}",
@@ -389,6 +454,7 @@ const I18N_JSON = JSON.stringify({
     err_SLUG_EXISTS: "このスラッグは既に存在します – 変更モードでパスワードを入力してください",
    
     err_SLUG_COLLISION: "スラッグ生成に失敗しました。再試行してください",
+    warn_SLUG_IGNORED: "カスタムスラッグが無効のため無視され、ランダムスラッグが割り当てられました",
     err_NOT_FOUND: "見つかりません", err_VERIFY_FAILED: "スラッグが見つからないか、パスワードが違います",
     err_INVALID_REDIRECT_MODE: "無効なリダイレクトモード",
     tb_bold: "太字", tb_italic: "斜体", tb_underline: "下線", tb_h1: "見出し 1", tb_h2: "見出し 2", tb_h3: "見出し 3", tb_ul: "箇条書き", tb_ol: "番号付きリスト", tb_blockquote: "引用", tb_code: "インラインコード", tb_link: "リンクを挿入", tb_hr: "水平線",
@@ -444,7 +510,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "네트워크 오류",
     errSlugEmpty: "먼저 슬러그를 입력하세요",
     errSlugInvalid: "유효하지 않음: 영숫자 3-10자만",
-    slugFound: "확인됨",
+    slugFound: "확인됨", btnView: "보기 및 편집",
     slugNotFound: "슬러그를 찾을 수 없음",
     slugAuthFail: "인증 키를 확인하세요",
     defaultRedirectTitle: "대상 URL {url}",
@@ -455,6 +521,7 @@ const I18N_JSON = JSON.stringify({
     err_SLUG_EXISTS: "이 슬러그는 이미 존재합니다 – 수정 모드에서 비밀번호를 입력하세요",
    
     err_SLUG_COLLISION: "슬러그 생성 실패, 다시 시도하세요",
+    warn_SLUG_IGNORED: "사용자 지정 슬러그가 유효하지 않아 무시되었으며, 임의 슬러그가 할당되었습니다",
     err_NOT_FOUND: "찾을 수 없음", err_VERIFY_FAILED: "슬러그를 찾을 수 없거나 비밀번호가 틀렸습니다",
     err_INVALID_REDIRECT_MODE: "잘못된 리다이렉트 모드",
     tb_bold: "굵게", tb_italic: "기울임", tb_underline: "밑줄", tb_h1: "제목 1", tb_h2: "제목 2", tb_h3: "제목 3", tb_ul: "글머리 기호", tb_ol: "번호 목록", tb_blockquote: "인용", tb_code: "인라인 코드", tb_link: "링크 삽입", tb_hr: "구분선",
@@ -510,7 +577,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "Ralat rangkaian",
     errSlugEmpty: "Masukkan slug dahulu",
     errSlugInvalid: "Tidak sah: 3-10 aksara alfanumerik sahaja",
-    slugFound: "Disahkan",
+    slugFound: "Disahkan", btnView: "Lihat & Edit",
     slugNotFound: "Slug tidak ditemui",
     slugAuthFail: "Semak kunci identiti anda",
     defaultRedirectTitle: "URL sasaran {url}",
@@ -521,6 +588,7 @@ const I18N_JSON = JSON.stringify({
     err_SLUG_EXISTS: "Slug ini sudah wujud – gunakan mod Ubah dengan kata laluan",
    
     err_SLUG_COLLISION: "Gagal menjana slug, sila cuba lagi",
+    warn_SLUG_IGNORED: "Slug tersuai tidak sah dan diabaikan, slug rawak telah ditetapkan",
     err_NOT_FOUND: "Tidak ditemui", err_VERIFY_FAILED: "Slug tidak ditemui atau kata laluan salah",
     err_INVALID_REDIRECT_MODE: "Mod pengalihan tidak sah",
     tb_bold: "Tebal", tb_italic: "Condong", tb_underline: "Garis bawah", tb_h1: "Tajuk 1", tb_h2: "Tajuk 2", tb_h3: "Tajuk 3", tb_ul: "Senarai titik", tb_ol: "Senarai bernombor", tb_blockquote: "Petikan", tb_code: "Kod sebaris", tb_link: "Sisip pautan", tb_hr: "Garisan mendatar",
@@ -576,7 +644,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "Lỗi mạng",
     errSlugEmpty: "Nhập slug trước",
     errSlugInvalid: "Không hợp lệ: chỉ 3-10 ký tự chữ-số",
-    slugFound: "Đã xác minh",
+    slugFound: "Đã xác minh", btnView: "Xem & Sửa",
     slugNotFound: "Không tìm thấy slug",
     slugAuthFail: "Kiểm tra khóa xác thực",
     defaultRedirectTitle: "URL đích {url}",
@@ -587,6 +655,7 @@ const I18N_JSON = JSON.stringify({
     err_SLUG_EXISTS: "Slug này đã tồn tại – chuyển sang chế độ Sửa và nhập mật khẩu",
    
     err_SLUG_COLLISION: "Tạo slug thất bại, vui lòng thử lại",
+    warn_SLUG_IGNORED: "Slug tùy chỉnh không hợp lệ đã bị bỏ qua, slug ngẫu nhiên đã được gán",
     err_NOT_FOUND: "Không tìm thấy", err_VERIFY_FAILED: "Không tìm thấy slug hoặc sai mật khẩu",
     err_INVALID_REDIRECT_MODE: "Chế độ chuyển hướng không hợp lệ",
     tb_bold: "Đậm", tb_italic: "Nghiêng", tb_underline: "Gạch chân", tb_h1: "Tiêu đề 1", tb_h2: "Tiêu đề 2", tb_h3: "Tiêu đề 3", tb_ul: "Danh sách", tb_ol: "Danh sách số", tb_blockquote: "Trích dẫn", tb_code: "Mã nội dòng", tb_link: "Chèn liên kết", tb_hr: "Đường kẻ ngang",
@@ -642,7 +711,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "เครือข่ายผิดพลาด",
     errSlugEmpty: "กรุณาใส่ slug ก่อน",
     errSlugInvalid: "ไม่ถูกต้อง: ตัวอักษร-ตัวเลข 3-10 ตัวเท่านั้น",
-    slugFound: "ยืนยันแล้ว",
+    slugFound: "ยืนยันแล้ว", btnView: "ดู & แก้ไข",
     slugNotFound: "ไม่พบ slug",
     slugAuthFail: "ตรวจสอบคีย์ยืนยันตัวตน",
     defaultRedirectTitle: "URL ปลายทาง {url}",
@@ -653,6 +722,7 @@ const I18N_JSON = JSON.stringify({
     err_SLUG_EXISTS: "slug นี้มีอยู่แล้ว – ใช้โหมดแก้ไขพร้อมรหัสผ่าน",
    
     err_SLUG_COLLISION: "สร้าง slug ไม่สำเร็จ กรุณาลองใหม่",
+    warn_SLUG_IGNORED: "slug ที่กำหนดเองไม่ถูกต้องและถูกละเว้น ระบบได้กำหนด slug แบบสุ่มแล้ว",
     err_NOT_FOUND: "ไม่พบ", err_VERIFY_FAILED: "ไม่พบ slug หรือรหัสผ่านผิด",
     err_INVALID_REDIRECT_MODE: "โหมดเปลี่ยนเส้นทางไม่ถูกต้อง",
     tb_bold: "ตัวหนา", tb_italic: "ตัวเอียง", tb_underline: "ขีดเส้นใต้", tb_h1: "หัวข้อ 1", tb_h2: "หัวข้อ 2", tb_h3: "หัวข้อ 3", tb_ul: "รายการจุด", tb_ol: "รายการเลข", tb_blockquote: "คำพูด", tb_code: "โค้ดในบรรทัด", tb_link: "แทรกลิงก์", tb_hr: "เส้นแนวนอน",
@@ -708,7 +778,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "பிணையப் பிழை",
     errSlugEmpty: "முதலில் slug உள்ளிடுக",
     errSlugInvalid: "செல்லாது: 3-10 எழுத்து-எண் மட்டும்",
-    slugFound: "சரிபார்க்கப்பட்டது",
+    slugFound: "சரிபார்க்கப்பட்டது", btnView: "பார் & திருத்து",
     slugNotFound: "Slug கிடைக்கவில்லை",
     slugAuthFail: "அடையாள விசையை சரிபார்க்கவும்",
     defaultRedirectTitle: "இலக்கு URL {url}",
@@ -719,6 +789,7 @@ const I18N_JSON = JSON.stringify({
     err_SLUG_EXISTS: "இந்த slug ஏற்கனவே உள்ளது – கடவுச்சொல்லுடன் மாற்று முறையைப் பயன்படுத்தவும்",
    
     err_SLUG_COLLISION: "slug உருவாக்கம் தோல்வி, மீண்டும் முயற்சிக்கவும்",
+    warn_SLUG_IGNORED: "தனிப்பயன் slug செல்லாததால் புறக்கணிக்கப்பட்டது, சீரற்ற slug ஒதுக்கப்பட்டது",
     err_NOT_FOUND: "கிடைக்கவில்லை", err_VERIFY_FAILED: "Slug கிடைக்கவில்லை அல்லது கடவுச்சொல் தவறு",
     err_INVALID_REDIRECT_MODE: "தவறான திசைமாற்ற முறை",
     tb_bold: "தடிமன்", tb_italic: "சாய்வு", tb_underline: "அடிக்கோடு", tb_h1: "தலைப்பு 1", tb_h2: "தலைப்பு 2", tb_h3: "தலைப்பு 3", tb_ul: "புள்ளி பட்டியல்", tb_ol: "எண் பட்டியல்", tb_blockquote: "மேற்கோள்", tb_code: "இன்லைன் குறியீடு", tb_link: "இணைப்பு செருகு", tb_hr: "கிடைக்கோடு",
@@ -774,7 +845,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "שגיאת רשת",
     errSlugEmpty: "הכנס קוד תחילה",
     errSlugInvalid: "לא תקין: 3-10 אותיות וספרות בלבד",
-    slugFound: "אומת",
+    slugFound: "אומת", btnView: "צפה ועריכה",
     slugNotFound: "הקוד לא נמצא",
     slugAuthFail: "בדוק את מפתח הזהות",
     defaultRedirectTitle: "כתובת יעד {url}",
@@ -785,6 +856,7 @@ const I18N_JSON = JSON.stringify({
     err_SLUG_EXISTS: "קוד זה כבר קיים – השתמש במצב עריכה עם הסיסמה",
    
     err_SLUG_COLLISION: "יצירת קוד נכשלה, נסה שוב",
+    warn_SLUG_IGNORED: "הקוד המותאם אישית לא תקין והתעלמנו ממנו, הוקצה קוד אקראי",
     err_NOT_FOUND: "לא נמצא", err_VERIFY_FAILED: "הקוד לא נמצא או הסיסמה שגויה",
     err_INVALID_REDIRECT_MODE: "מצב הפניה לא תקין",
     tb_bold: "מודגש", tb_italic: "נטוי", tb_underline: "קו תחתון", tb_h1: "כותרת 1", tb_h2: "כותרת 2", tb_h3: "כותרת 3", tb_ul: "רשימת תבליטים", tb_ol: "רשימה ממוספרת", tb_blockquote: "ציטוט", tb_code: "קוד בשורה", tb_link: "הכנס קישור", tb_hr: "קו אופקי",
@@ -840,7 +912,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "خطأ في الشبكة",
     errSlugEmpty: "أدخل الرمز أولاً",
     errSlugInvalid: "غير صالح: 3-10 أحرف وأرقام فقط",
-    slugFound: "تم التحقق",
+    slugFound: "تم التحقق", btnView: "عرض وتعديل",
     slugNotFound: "الرمز غير موجود",
     slugAuthFail: "تحقق من مفتاح الهوية",
     defaultRedirectTitle: "الرابط الهدف {url}",
@@ -851,6 +923,7 @@ const I18N_JSON = JSON.stringify({
     err_SLUG_EXISTS: "هذا الرمز موجود بالفعل – استخدم وضع التعديل مع كلمة المرور",
    
     err_SLUG_COLLISION: "فشل في إنشاء الرمز، حاول مرة أخرى",
+    warn_SLUG_IGNORED: "الرمز المخصص غير صالح وتم تجاهله، تم تعيين رمز عشوائي",
     err_NOT_FOUND: "غير موجود", err_VERIFY_FAILED: "الرمز غير موجود أو كلمة المرور خاطئة",
     err_INVALID_REDIRECT_MODE: "وضع التوجيه غير صالح",
     tb_bold: "غامق", tb_italic: "مائل", tb_underline: "تسطير", tb_h1: "عنوان 1", tb_h2: "عنوان 2", tb_h3: "عنوان 3", tb_ul: "قائمة نقطية", tb_ol: "قائمة مرقمة", tb_blockquote: "اقتباس", tb_code: "كود سطري", tb_link: "إدراج رابط", tb_hr: "خط أفقي",
@@ -1021,6 +1094,10 @@ textarea{resize:vertical;min-height:60px}
 #slug-status,#url-status{font-size:.75rem;margin:-0.2rem 0 .6rem}
 #slug-status:empty,#url-status:empty{margin:0}
 .found{color:var(--s-found)}.free{color:var(--s-free)}.bad{color:var(--s-err)}
+.warn{margin-top:.5rem;padding:.5rem .75rem;border-radius:.4rem;background:#fef3c7;color:#92400e;font-size:.85rem;border:1px solid #f59e0b}
+@media(prefers-color-scheme:dark){.warn{background:#422006;color:#fbbf24}}
+[data-theme=light] .warn{background:#fef3c7;color:#92400e}
+[data-theme=dark] .warn{background:#422006;color:#fbbf24}
 .pw-box{margin-top:.75rem;padding:.75rem;border-radius:.5rem;background:var(--s-surface2);border:1px solid #f59e0b}
 .pw-box strong{color:var(--s-found);font-family:monospace;font-size:1rem;user-select:all}
 .pw-box p{font-size:.75rem;color:#f59e0b;margin-top:.3rem}
@@ -1103,18 +1180,26 @@ textarea{resize:vertical;min-height:60px}
   <label id="l-pw" class="field-label"></label>
   <div class="slug-row">
     <input id="p" type="password">
-    <button class="form-btn" onclick="checkSlug()" id="check-btn" disabled></button>
+    <button class="form-btn" onclick="verifySlug()" id="check-btn" disabled></button>
   </div>
   <p class="hint" id="h-pw"></p>
 </div>
 
+<div id="modify-actions" class="hidden">
+  <div class="btn-row">
+    <button class="form-btn" id="view-btn" onclick="loadEntry()"></button>
+    <button class="form-btn btn-delete" id="action-delete-btn" onclick="deleteSlug()"></button>
+  </div>
+</div>
+
+<div id="edit-form">
 <label id="l-url" class="field-label"></label>
 <input id="u" type="url" placeholder="https://mydomain.tld/long/path/to/shorten">
 <div id="url-status"></div>
 
 <div id="renew-pw-section" class="hidden" style="margin-bottom:.8rem">
   <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem;color:var(--s-text-muted);cursor:pointer">
-    <input type="checkbox" id="resetPassword" checked style="accent-color:var(--s-accent)">
+    <input type="checkbox" id="resetPassword" style="accent-color:var(--s-accent)">
     <span id="l-resetPassword"></span>
   </label>
 </div>
@@ -1202,7 +1287,7 @@ textarea{resize:vertical;min-height:60px}
 
 <div class="btn-row">
 <button class="form-btn" onclick="go()" id="submit-btn" disabled></button>
-<button class="form-btn btn-delete" onclick="deleteSlug()" id="delete-btn" disabled style="display:none"></button>
+</div>
 </div>
 <div id="r"></div>
 
@@ -1447,6 +1532,10 @@ function setMode(m){
   updateRdMode();
   document.getElementById('r').style.display='none';
   document.getElementById('renew-pw-section').className='hidden';
+  document.getElementById('modify-actions').className='hidden';
+  document.getElementById('edit-form').className=(m==='create'?'':'hidden');
+  document.getElementById('s').readOnly=false;
+  document.getElementById('p').readOnly=false;
   submitBtn.disabled=true;
   updateLabels();
   updateCheckBtn();
@@ -1459,10 +1548,8 @@ function updateLabels(){
   document.getElementById('s').required=mode==='modify';
   document.getElementById('pw-section').className=mode==='modify'?'':'hidden';
   document.getElementById('submit-btn').textContent=mode==='create'?t.btnCreate:t.btnUpdate;
-  var delBtn=document.getElementById('delete-btn');
-  delBtn.textContent=t.btnDelete;
-  delBtn.style.display=mode==='modify'?'':'none';
-  delBtn.disabled=true;
+  document.getElementById('view-btn').textContent=t.btnView;
+  document.getElementById('action-delete-btn').textContent=t.btnDelete;
   document.getElementById('h-slug').style.display=mode==='create'?'':'none';
   document.getElementById('ttl-toggle').textContent=(ttlOpen?'▼':'▶')+' '+t.ttlOptions;
   document.getElementById('adv-toggle').textContent=(advOpen?'▼':'▶')+' '+t.redirectOptions;
@@ -1523,7 +1610,7 @@ function toggleAdvanced(){
   document.getElementById('adv-toggle').textContent=(advOpen?'▼':'▶')+' '+t.redirectOptions;
 }
 
-async function checkSlug(){
+async function verifySlug(){
   var s=document.getElementById('s').value.trim();
   var k=document.getElementById('k').value.trim();
   var p=document.getElementById('p').value;
@@ -1533,29 +1620,47 @@ async function checkSlug(){
   if(!/^[a-zA-Z0-9]{3,10}$/.test(s)){st.textContent='❌ '+t.errSlugInvalid;st.className='bad';return}
 
   try{
-    var res=await fetch('/api/verify/'+s,{
+    var hdrs={'X-Password':p};
+    if(k) hdrs['X-API-Key']=k;
+    var res=await fetch('/'+s,{method:'HEAD',headers:hdrs});
+    if(res.ok){
+      st.textContent='✓ '+t.slugFound;st.className='free';
+      document.getElementById('modify-actions').className='';
+      document.getElementById('s').readOnly=true;
+      document.getElementById('p').readOnly=true;
+      document.getElementById('check-btn').disabled=true;
+    }else if(res.status===401){
+      st.textContent='❌ '+t.slugAuthFail;st.className='bad';
+    }else{
+      st.textContent='❌ '+t.err_VERIFY_FAILED;st.className='bad';
+    }
+  }catch(e){st.textContent='❌ '+t.errNet;st.className='bad'}
+}
+
+async function loadEntry(){
+  var s=document.getElementById('s').value.trim();
+  var k=document.getElementById('k').value.trim();
+  var p=document.getElementById('p').value;
+  var st=document.getElementById('slug-status');
+
+  try{
+    var res=await fetch('/'+s,{
       method:'POST',
-      headers:{'Content-Type':'application/json','X-API-Key':k},
-      body:JSON.stringify({password:p})
+      headers:{'X-API-Key':k,'X-Password':p}
     });
     if(res.ok){
       var d=await res.json();
-      st.textContent='✓ '+t.slugFound;st.className='free';
       document.getElementById('u').value=d.url;
-      // Set redirect mode radio
       var rdMode = d.redirectMode || 'instant';
       var rdRadio = document.querySelector('input[name="rdMode"][value="' + rdMode + '"]');
       if (rdRadio) rdRadio.checked = true;
-      // Set instant options
       document.getElementById('usePermanent').checked = d.permanent !== false;
-      // Set manual options
       document.getElementById('countdown').value = d.countdown || 0;
       document.getElementById('redirectPageTitle').value = d.redirectPageTitle || '';
       var loadedMd = d.redirectPageContent || '';
       mdPane.value = loadedMd;
       wysiwygPane.innerHTML = loadedMd ? mdToHtml(loadedMd) : '';
       if (loadedMd && editorMode !== 'md') {
-        // Switch to MD mode without overwriting mdPane
         editorMode = 'md';
         wysiwygPane.style.display = 'none';
         mdPane.style.display = 'block';
@@ -1568,19 +1673,15 @@ async function checkSlug(){
       document.getElementById('lightPage').checked = d.lightPage !== false;
       updateRdMode();
       document.getElementById('ttl').value=d.ttl||0;
-      // Show renew password section and enable submit
       document.getElementById('renew-pw-section').className='';
       submitBtn.disabled=false;
-      document.getElementById('delete-btn').disabled=false;
-      // Open advanced sections if they have values
+      document.getElementById('edit-form').className='';
       if(rdMode !== 'instant' && !advOpen) toggleAdvanced();
       if(!ttlOpen&&d.ttl) toggleTtl();
-    }else if(res.status===404){
-      st.textContent='❌ '+t.slugNotFound;st.className='bad';
-    }else if(res.status===403){
+    }else{
       var d2=await res.json();
       st.textContent='❌ '+(t['err_'+d2.error]||t.slugAuthFail);st.className='bad';
-    }else{st.textContent='❌ '+t.slugAuthFail;st.className='bad'}
+    }
   }catch(e){st.textContent='❌ '+t.errNet;st.className='bad'}
 }
 
@@ -1607,10 +1708,9 @@ async function go(){
   try{var uu=new URL(u);if((uu.protocol!=='http:'&&uu.protocol!=='https:')||!/^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z]{2,63}$/i.test(uu.hostname))throw 0}catch(e){r.textContent='❌ '+t.errUrlInvalid;r.className='err';r.style.display='block';return}
   if(mode==='modify'&&!s){r.textContent='❌ '+t.errSlug;r.className='err';r.style.display='block';return}
   if(mode==='modify'&&!p){r.textContent='❌ '+t.errPw;r.className='err';r.style.display='block';return}
-  const payload={url:u,mode:mode};
-  if(s) payload.slug=s;
+  const payload={url:u};
+  if(mode==='create'&&s) payload.slug=s;
   if(mode==='modify'){
-    payload.password=p;
     payload.resetPassword=document.getElementById('resetPassword').checked;
   }
   var ttlVal = parseInt(document.getElementById('ttl').value) || 0;
@@ -1629,12 +1729,16 @@ async function go(){
   payload.redirectPageContent=redirectPageContent;
   payload.manualBtnTitle=document.getElementById('manualBtnTitle').value.trim();
   payload.lightPage=document.getElementById('lightPage').checked;
+  var fetchUrl = mode==='modify' ? '/'+s : (s ? '/'+s : '/');
+  var fetchMethod = mode==='modify' ? 'PUT' : 'POST';
   try{
-    const res=await fetch('/api/shorten',{method:'POST',
-      headers:{'Content-Type':'application/json','X-API-Key':k},body:JSON.stringify(payload)});
+    var hdrs={'Content-Type':'application/json','X-API-Key':k};
+    if(mode==='modify') hdrs['X-Password']=p;
+    const res=await fetch(fetchUrl,{method:fetchMethod,headers:hdrs,body:JSON.stringify(payload)});
     const d=await res.json();
     if(res.ok){
       let html=(d.updated?t.updated:t.created)+' <a href="'+d.short_url+'" target="_blank">'+d.short_url+'</a>';
+      if(d.warn){html+='<div class="warn">⚠ '+(t['warn_'+d.warn]||d.warn)+'</div>';}
       if(d.password){
         html+='<div class="pw-box">'+t.pwBoxLabel+' <strong>'+d.password+'</strong>'
              +'<p>'+t.pwBoxWarn+'</p></div>';
@@ -1661,11 +1765,15 @@ async function confirmDelete(){
   var r=document.getElementById('r');
   if(!s) return;
   try{
-    var res=await fetch('/api/urls/'+s,{method:'DELETE',headers:{'X-API-Key':k}});
+    var p=document.getElementById('p').value;
+    var res=await fetch('/'+s,{method:'DELETE',headers:{'X-API-Key':k,'X-Password':p}});
     var d=await res.json();
     if(res.ok){
       r.textContent='✓';r.className='free';r.style.display='block';
-      document.getElementById('delete-btn').disabled=true;
+      document.getElementById('modify-actions').className='hidden';
+      document.getElementById('edit-form').className='hidden';
+      document.getElementById('s').readOnly=false;
+      document.getElementById('p').readOnly=false;
       submitBtn.disabled=true;
     }else{
       r.textContent='❌ '+(t['err_'+d.error]||d.error);r.className='err';r.style.display='block';
@@ -1689,27 +1797,137 @@ export default {
       return new Response(null, {
         headers: {
           "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type,X-API-Key,Authorization",
+          "Access-Control-Allow-Methods": "GET,HEAD,POST,PUT,DELETE,OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type,X-API-Key,X-Password,Authorization",
         },
       });
     }
 
-    // ── Landing page ──
-    if (path === "/" && request.method === "GET") {
-      const keyRequired = env.KEY ? 'true' : 'false';
-      const cdnHost = (request.cf && request.cf.country === 'CN') ? 'cdn.jsdmirror.com' : 'cdn.jsdelivr.net';
-      const page = HTML.replace('{{DEFAULT_TTL}}', String(normalizeTtl(env.TTL || 0))).replace('{{KEY_REQUIRED}}', keyRequired).replace('{{CDN_HOST}}', cdnHost);
-      return new Response(page, { headers: { "Content-Type": "text/html;charset=utf-8" } });
+    const slug = path.slice(1);
+    const method = request.method;
+
+    // ── GET: Landing page or redirect ──
+    if (method === "GET") {
+      if (!slug) {
+        const keyRequired = env.KEY ? 'true' : 'false';
+        const cdnHost = (request.cf && request.cf.country === 'CN') ? 'cdn.jsdmirror.com' : 'cdn.jsdelivr.net';
+        const page = HTML.replace('{{DEFAULT_TTL}}', String(normalizeTtl(env.TTL || 0))).replace('{{KEY_REQUIRED}}', keyRequired).replace('{{CDN_HOST}}', cdnHost);
+        return new Response(page, { headers: { "Content-Type": "text/html;charset=utf-8" } });
+      }
+      if (slug.includes("/")) return notFound(env, url);
+      const raw = await env.DATA.get(slug);
+      if (!raw) return notFound(env, url);
+      const entry = JSON.parse(raw);
+      const mode = entry.redirectMode || 'instant';
+      if (mode === 'manual') {
+        const acceptLang = request.headers.get("Accept-Language") || "";
+        const cdnHost = (request.cf && request.cf.country === 'CN') ? 'cdn.jsdmirror.com' : 'cdn.jsdelivr.net';
+        return new Response(countdownPage(entry, acceptLang, cdnHost), {
+          headers: { "Content-Type": "text/html;charset=utf-8" },
+        });
+      }
+      return Response.redirect(entry.url, entry.permanent === false ? 302 : 301);
     }
 
-    // ── Create / Update short URL ──
-    if (path === "/api/shorten" && request.method === "POST") {
+    // ── HEAD /:slug — verify slug + password (no body) ──
+    if (method === "HEAD") {
+      const authErr = await checkAuth(request, env);
+      if (authErr) return new Response(null, { status: 401 });
+      if (!slug || slug.includes("/")) return new Response(null, { status: 403 });
+      const password = (request.headers.get("X-Password") || "").trim();
+      if (!password) return new Response(null, { status: 403 });
+      const raw = await env.DATA.get(slug);
+      if (!raw) return new Response(null, { status: 403 });
+      const entry = JSON.parse(raw);
+      const pwHash = await hashPassword(password);
+      if (!(await safeEqual(entry.pwHash, pwHash))) {
+        return new Response(null, { status: 403 });
+      }
+      return new Response(null, { status: 200 });
+    }
+
+    // ── POST /:slug — verify password & return entry ──
+    // ── POST / or POST /:slug — create (single or batch) ──
+    if (method === "POST") {
       const err = await checkAuth(request, env);
       if (err) return err;
 
+      const password = (request.headers.get("X-Password") || "").trim();
+      let body;
+      try { body = await request.json(); } catch { body = {}; }
+
+      /*
+      // ── Batch create (POST / with array body, requires KEY configured) ──
+      // checkAuth above already verified the key if KEY is set;
+      // here we additionally require KEY to be configured (no anonymous batch)
+      if (Array.isArray(body)) {
+        if (!env.KEY) return json({ error: "UNAUTHORIZED" }, 401);
+        const limitVal = Math.floor(Number(env.LIMIT));
+        const batchMax = (limitVal >= BATCH_MIN && limitVal <= BATCH_MAX) ? limitVal : BATCH_DEFAULT;
+        if (body.length > batchMax) return json({ error: "BATCH_TOO_LARGE", max: batchMax }, 400);
+        // Check for duplicate slugs within the batch
+        const slugsSeen = new Set();
+        for (const item of body) {
+          const s = (item.slug || "").trim();
+          if (s && /^[a-zA-Z0-9]{3,10}$/.test(s)) {
+            if (slugsSeen.has(s)) return json({ error: "BATCH_DUPLICATE_SLUG", slug: s }, 400);
+            slugsSeen.add(s);
+          }
+        }
+        const results = await Promise.all(body.map((item) => {
+          const itemSlug = (item.slug || "").trim();
+          const itemValidSlug = itemSlug && !itemSlug.includes("/") && /^[a-zA-Z0-9]{3,10}$/.test(itemSlug);
+          return createOne(item, itemSlug, itemValidSlug, env, url);
+        }));
+        const errors = results.filter(r => r.error).length;
+        const status = errors === 0 ? 201 : errors === results.length ? 400 : 207;
+        return json(results, status);
+      }
+      */
+
+      const validSlug = slug && !slug.includes("/") && /^[a-zA-Z0-9]{3,10}$/.test(slug);
+      const hasUrl = !!(body.url || '').trim();
+
+      // Slug exists — verify or reject
+      if (validSlug) {
+        const raw = await env.DATA.get(slug);
+        if (raw) {
+          if (!password) return json({ error: "SLUG_EXISTS" }, 400);
+          const entry = JSON.parse(raw);
+          const pwHash = await hashPassword(password);
+          if (!(await safeEqual(entry.pwHash, pwHash))) {
+            return json({ error: "VERIFY_FAILED" }, 403);
+          }
+          const { pwHash: _, ...safe } = entry;
+          return json({ slug, ...safe });
+        }
+        // Slug valid but not found — if verify intent, return error
+        if (password && !hasUrl) return json({ error: "VERIFY_FAILED" }, 403);
+      }
+
+      // Single create
+      return json(await createOne(body, slug, validSlug, env, url), 201);
+    }
+
+    // ── PUT /:slug — update short URL ──
+    if (method === "PUT") {
+      const err = await checkAuth(request, env);
+      if (err) return err;
+      if (!slug || slug.includes("/")) return json({ error: "VERIFY_FAILED" }, 403);
+
+      const password = (request.headers.get("X-Password") || "").trim();
+
       let body;
       try { body = await request.json(); } catch { return json({ error: "INVALID_JSON" }, 400); }
+      if (!password) return json({ error: "VERIFY_FAILED" }, 403);
+
+      const raw = await env.DATA.get(slug);
+      if (!raw) return json({ error: "VERIFY_FAILED" }, 403);
+      const entry = JSON.parse(raw);
+      const pwHash = await hashPassword(password);
+      if (!(await safeEqual(entry.pwHash, pwHash))) {
+        return json({ error: "VERIFY_FAILED" }, 403);
+      }
 
       const target = (body.url || "").trim();
       try { const u = new URL(target); if ((u.protocol !== "http:" && u.protocol !== "https:") || !/^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63}$/i.test(u.hostname)) throw 0; }
@@ -1726,169 +1944,72 @@ export default {
       const permanent = body.permanent !== false;
       const manualBtnTitle = (body.manualBtnTitle || '').trim().slice(0, 128);
       const lightPage = body.lightPage !== false;
-
       const redirectPageTitle = (body.redirectPageTitle || "").trim().slice(0, DELAY_TITLE_MAX);
       const redirectPageContent = (body.redirectPageContent || "").trim().slice(0, DELAY_HTML_MAX);
-
       const defaultTtl = normalizeTtl(env.TTL || 0);
       const ttl = normalizeTtl(body.ttl, defaultTtl);
 
-      const password = (body.password || "").trim();
-
-      let slug = (body.slug || "").trim();
-      let updated = false;
-      let generatedPassword = null;
-
-      if (slug) {
-        if (!/^[a-zA-Z0-9]{3,10}$/.test(slug)) return json({ error: "INVALID_SLUG" }, 400);
-
-        const existing = await env.DATA.get(slug);
-        if (existing !== null) {
-          if (!password) return json({ error: "SLUG_EXISTS" }, 400);
-          const entry = JSON.parse(existing);
-          const pwHash = await hashPassword(password);
-          if (!(await safeEqual(entry.pwHash, pwHash))) {
-            return json({ error: "VERIFY_FAILED" }, 403);
-          }
-          const updatedEntry = clean({
-            ...entry,
-            url: target,
-            redirectMode: redirectMode,
-            permanent: permanent,
-            countdown: countdown,
-            redirectPageTitle: redirectPageTitle || null,
-            redirectPageContent: redirectPageContent || null,
-            manualBtnTitle: manualBtnTitle || null,
-            lightPage: lightPage,
-            ttl: ttl,
-            updatedAt: new Date().toISOString(),
-          });
-          let newPassword = null;
-          if (body.resetPassword !== false) {
-            newPassword = generatePassword();
-            const newPwHash = await hashPassword(newPassword);
-            updatedEntry.pwHash = newPwHash;
-          }
-          const putOpts = {
-            metadata: { url: target, clicks: updatedEntry.clicks || 0, createdAt: entry.createdAt || new Date().toISOString() }
-          };
-          if (ttl > 0) putOpts.expirationTtl = ttl;
-          await env.DATA.put(slug, JSON.stringify(updatedEntry), putOpts);
-          updated = true;
-          const resp = { short_url: getBaseUrl(env, url) + slug, slug, target, updated: true };
-          if (newPassword) resp.password = newPassword;
-          return json(resp, 200);
-        } else if (body.mode === 'modify') {
-          return json({ error: "VERIFY_FAILED" }, 403);
-        }
-      } else {
-        let tries = 0;
-        do { slug = makeSlug(); tries++; } while (await env.DATA.get(slug) !== null && tries < 5);
-        if (await env.DATA.get(slug) !== null) {
-          return json({ error: "SLUG_COLLISION" }, 503);
-        }
+      const updatedEntry = clean({
+        ...entry, url: target, redirectMode, permanent, countdown,
+        redirectPageTitle: redirectPageTitle || null,
+        redirectPageContent: redirectPageContent || null,
+        manualBtnTitle: manualBtnTitle || null,
+        lightPage, ttl, updatedAt: new Date().toISOString(),
+      });
+      let newPassword = null;
+      if (body.resetPassword === true) {
+        newPassword = generatePassword();
+        updatedEntry.pwHash = await hashPassword(newPassword);
       }
+      const putOpts = {
+        metadata: { url: target, createdAt: entry.createdAt || new Date().toISOString() }
+      };
+      if (ttl > 0) putOpts.expirationTtl = ttl;
+      await env.DATA.put(slug, JSON.stringify(updatedEntry), putOpts);
 
-      if (!updated) {
-        generatedPassword = generatePassword();
-        const pwHash = await hashPassword(generatedPassword);
-        const now = new Date().toISOString();
-        const newEntry = clean({
-          url: target,
-          pwHash: pwHash,
-          redirectMode: redirectMode,
-          permanent: permanent,
-          countdown: countdown,
-          redirectPageTitle: redirectPageTitle || null,
-          redirectPageContent: redirectPageContent || null,
-          manualBtnTitle: manualBtnTitle || null,
-          ttl: ttl,
-          createdAt: now,
-          updatedAt: null,
-          clicks: 0,
-        });
-        const newPutOpts = {
-          metadata: { url: target, clicks: 0, createdAt: now }
-        };
-        if (ttl > 0) newPutOpts.expirationTtl = ttl;
-        await env.DATA.put(slug, JSON.stringify(newEntry), newPutOpts);
-      }
-
-      const resp = { short_url: getBaseUrl(env, url) + slug, slug, target, updated };
-      if (generatedPassword) resp.password = generatedPassword;
-      return json(resp, updated ? 200 : 201);
+      const resp = { short_url: getBaseUrl(env, url) + slug, slug, target, updated: true };
+      if (newPassword) resp.password = newPassword;
+      return json(resp, 200);
     }
 
-    // ── Verify slug password and return entry ──
-    if (request.method === 'POST' && path.startsWith('/api/verify/')) {
+    // ── DELETE / — purge all (requires KEY configured + valid) ──
+    // ── DELETE /:slug — delete single short URL ──
+    if (method === "DELETE") {
       const err = await checkAuth(request, env);
       if (err) return err;
-      const slug = path.slice('/api/verify/'.length);
-      let body;
-      try { body = await request.json(); } catch { return json({ error: "INVALID_JSON" }, 400); }
+
+      /*
+      if (!slug) {
+        // Purge all
+        if (!env.KEY) return json({ error: "UNAUTHORIZED" }, 401);
+        let deleted = 0;
+        let cursor = null;
+        do {
+          const list = await env.DATA.list({ cursor, limit: 1000 });
+          if (list.keys.length) {
+            await Promise.all(list.keys.map(k => env.DATA.delete(k.name)));
+            deleted += list.keys.length;
+          }
+          cursor = list.list_complete ? null : list.cursor;
+        } while (cursor);
+        return json({ purged: deleted });
+      }
+      */
+
+      if (slug.includes("/")) return json({ error: "VERIFY_FAILED" }, 403);
+      const password = (request.headers.get("X-Password") || "").trim();
+      if (!password) return json({ error: "VERIFY_FAILED" }, 403);
       const raw = await env.DATA.get(slug);
       if (!raw) return json({ error: "VERIFY_FAILED" }, 403);
       const entry = JSON.parse(raw);
-      const pwHash = await hashPassword((body.password || '').trim());
+      const pwHash = await hashPassword(password);
       if (!(await safeEqual(entry.pwHash, pwHash))) {
         return json({ error: "VERIFY_FAILED" }, 403);
       }
-      const { pwHash: _, ...safe } = entry;
-      return json({ slug, ...safe });
-    }
-
-    // ── URL info (admin) ──
-    if (path.startsWith("/api/urls/") && request.method === "GET") {
-      const err = await checkAuth(request, env);
-      if (err) return err;
-      const slug = path.slice("/api/urls/".length);
-      const raw = await env.DATA.get(slug);
-      if (!raw) return json({ error: "NOT_FOUND" }, 404);
-      const { pwHash, ...safe } = JSON.parse(raw);
-      return json({ slug, ...safe });
-    }
-
-    // ── Delete URL (admin) ──
-    if (path.startsWith("/api/urls/") && request.method === "DELETE") {
-      const err = await checkAuth(request, env);
-      if (err) return err;
-      const slug = path.slice("/api/urls/".length);
-      if (await env.DATA.get(slug) === null) return json({ error: "NOT_FOUND" }, 404);
       await env.DATA.delete(slug);
       return json({ deleted: slug });
     }
 
-    // ── Redirect (or countdown) ──
-    const slug = path.slice(1);
-    if (slug && !slug.includes("/")) {
-      const raw = await env.DATA.get(slug);
-      if (raw) {
-        const entry = JSON.parse(raw);
-        // NOTE: Click count increment is not atomic — concurrent requests may lose counts.
-        // Fixing this properly requires Durable Objects instead of KV.
-        const clickOpts = {
-          metadata: { url: entry.url, clicks: (entry.clicks || 0) + 1, createdAt: entry.createdAt || new Date().toISOString() }
-        };
-        if (entry.ttl && entry.ttl > 0) clickOpts.expirationTtl = entry.ttl;
-        ctx.waitUntil(
-          env.DATA.put(slug, JSON.stringify(clean({ ...entry, clicks: (entry.clicks || 0) + 1 })), clickOpts)
-        );
-        const mode = entry.redirectMode || 'instant';
-        if (mode === 'manual') {
-          const acceptLang = request.headers.get("Accept-Language") || "";
-          const cdnHost = (request.cf && request.cf.country === 'CN') ? 'cdn.jsdmirror.com' : 'cdn.jsdelivr.net';
-          return new Response(countdownPage(entry, acceptLang, cdnHost), {
-            headers: { "Content-Type": "text/html;charset=utf-8" },
-          });
-        }
-        return Response.redirect(entry.url, entry.permanent === false ? 302 : 301);
-      }
-    }
-
-    // Slug not found — redirect to DEFAULT or home
-    if (isValidUrl(env.DEFAULT)) {
-      return Response.redirect(env.DEFAULT, 302);
-    }
-    return Response.redirect(getBaseUrl(env, url).replace(/\/$/, '') || url.origin, 302);
+    return notFound(env, url);
   },
 };

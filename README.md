@@ -104,13 +104,26 @@ A single-file Cloudflare Worker URL shortener with flexible redirect modes, mult
 - **Create & modify** short links with custom or random slugs (3–10 alphanumeric characters)
 - **Two redirect modes** — instant (301/302) or manual/countdown with customizable page
 - **Countdown / manual page** — configurable delay (0–60s), custom title, Markdown body content, custom button text, light/dark background
-- **Password-protected slugs** — auto-generated modification password, shown once on creation, renewable on update
-- **Admin API** — create, query, verify, delete via `X-API-Key` or `Bearer` auth; optional when `KEY` is not set
+- **Password-protected slugs** — auto-generated modification password, shown once on creation, renewable on update (explicit `resetPassword: true` required)
+- **Admin API** — create, query, verify, update, delete; password auth via `X-Password` header; API key via `X-API-Key` or `Bearer` auth; optional when `KEY` is not set
+- **Security** — no 404 responses anywhere; all failures on write endpoints return 403 to prevent slug enumeration; nonexistent slugs redirect to home/`DEFAULT`
+- **Two-step modify UI** — verify slug + password with HEAD first, then choose View/Edit or Delete
 - **11 languages** — auto-detected from browser, with full RTL support
 - **Dark / light mode** — toggle with localStorage persistence
 - **Per-link TTL** — optional expiration per short link
-- **Click tracking** per slug
 - **Default redirect** — fallback URL when slug not found (optional `DEFAULT` variable)
+
+### Routes
+
+| Method   | Path     | Description                                                                 |
+|----------|----------|-----------------------------------------------------------------------------|
+| `GET`    | `/`      | Landing page                                                                |
+| `GET`    | `/:slug` | Redirect to target URL                                                      |
+| `HEAD`   | `/:slug` | Verify slug + password (`X-Password` header); returns 200 or 403 only       |
+| `POST`   | `/`      | Create with random slug                                                     |
+| `POST`   | `/:slug` | Create with custom slug, or verify + query existing slug                    |
+| `PUT`    | `/:slug` | Update existing short link                                                  |
+| `DELETE` | `/:slug` | Delete short link                                                           |
 
 ### Setup
 
@@ -136,13 +149,26 @@ For API documentation, see [API.md](API.md#shurl).
 - **创建和修改**短链接，支持自定义或随机短码（3–10 位字母数字）
 - **两种跳转模式** — 立即跳转（301/302）或手动/倒计时跳转，页面可自定义
 - **跳转页面** — 可配置延迟（0–60 秒）、自定义标题、Markdown 正文内容、自定义按钮文案、亮色/暗色背景
-- **密码保护短码** — 创建时自动生成修改密码，仅显示一次，修改时可更换
-- **管理 API** — 通过 `X-API-Key` 或 `Bearer` 认证进行创建、查询、验证、删除；未设 `KEY` 时无需认证
+- **密码保护短码** — 创建时自动生成修改密码，仅显示一次，修改时需显式传 `resetPassword: true` 方可更换
+- **管理 API** — 创建、查询、验证、更新、删除；密码通过 `X-Password` 请求头传递；API 密钥通过 `X-API-Key` 或 `Bearer` 认证；未设 `KEY` 时无需认证
+- **安全性** — 全站无 404 响应；所有写端点失败均返回 403 以防止短码枚举；不存在的短码重定向到首页/`DEFAULT`
+- **两步修改流程** — 先通过 HEAD 验证短码 + 密码，再选择查看/编辑或删除
 - **11 种语言** — 根据浏览器自动匹配，完整 RTL 支持
 - **亮色 / 暗色模式** — 可切换，选择保存在 localStorage
 - **逐链接 TTL** — 每条短链接可设独立过期时间
-- **点击统计**
 - **默认跳转** — slug 不存在时跳转到指定 URL 或回到首页（可选 `DEFAULT` 变量）
+
+### 路由（简体中文）
+
+| 方法     | 路径     | 说明                                                                    |
+|----------|----------|-------------------------------------------------------------------------|
+| `GET`    | `/`      | 首页                                                                    |
+| `GET`    | `/:slug` | 跳转到目标 URL                                                          |
+| `HEAD`   | `/:slug` | 验证短码 + 密码（`X-Password` 请求头）；仅返回 200 或 403               |
+| `POST`   | `/`      | 随机短码创建                                                            |
+| `POST`   | `/:slug` | 指定短码创建，或验证 + 查询已有短码                                     |
+| `PUT`    | `/:slug` | 更新短链接                                                              |
+| `DELETE` | `/:slug` | 删除短链接                                                              |
 
 ### 配置步骤（简体中文）
 
@@ -168,13 +194,26 @@ API 文档详见 [API.md](API.md#shurl简体中文)。
 - **建立和修改**短連結，支援自訂或隨機短碼（3–10 位字母數字）
 - **兩種跳轉模式** — 立即跳轉（301/302）或手動/倒數跳轉，頁面可自訂
 - **跳轉頁面** — 可配置延遲（0–60 秒）、自訂標題、Markdown 正文內容、自訂按鈕文案、亮色/暗色背景
-- **密碼保護短碼** — 建立時自動產生修改密碼，僅顯示一次，修改時可更換
-- **管理 API** — 透過 `X-API-Key` 或 `Bearer` 認證進行建立、查詢、驗證、刪除；未設 `KEY` 時無需認證
+- **密碼保護短碼** — 建立時自動產生修改密碼，僅顯示一次，修改時需明確傳 `resetPassword: true` 方可更換
+- **管理 API** — 建立、查詢、驗證、更新、刪除；密碼透過 `X-Password` 請求標頭傳遞；API 金鑰透過 `X-API-Key` 或 `Bearer` 認證；未設 `KEY` 時無需認證
+- **安全性** — 全站無 404 回應；所有寫入端點失敗均回傳 403 以防止短碼列舉；不存在的短碼重新導向至首頁/`DEFAULT`
+- **兩步修改流程** — 先透過 HEAD 驗證短碼 + 密碼，再選擇檢視/編輯或刪除
 - **11 種語言** — 根據瀏覽器自動匹配，完整 RTL 支援
 - **亮色 / 暗色模式** — 可切換，選擇保存在 localStorage
 - **逐連結 TTL** — 每條短連結可設獨立過期時間
-- **點擊統計**
 - **預設跳轉** — slug 不存在時跳轉到指定 URL 或回到首頁（選用 `DEFAULT` 變數）
+
+### 路由（繁體中文）
+
+| 方法     | 路徑     | 說明                                                                    |
+|----------|----------|-------------------------------------------------------------------------|
+| `GET`    | `/`      | 首頁                                                                    |
+| `GET`    | `/:slug` | 跳轉到目標 URL                                                          |
+| `HEAD`   | `/:slug` | 驗證短碼 + 密碼（`X-Password` 請求標頭）；僅回傳 200 或 403             |
+| `POST`   | `/`      | 隨機短碼建立                                                            |
+| `POST`   | `/:slug` | 指定短碼建立，或驗證 + 查詢既有短碼                                     |
+| `PUT`    | `/:slug` | 更新短連結                                                              |
+| `DELETE` | `/:slug` | 刪除短連結                                                              |
 
 ### 設定步驟（繁體中文）
 

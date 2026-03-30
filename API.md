@@ -4,9 +4,11 @@
 
 ## Shurl
 
-All API endpoints accept and return JSON. Authentication via `X-API-Key` header or `Authorization: Bearer <key>`. If `KEY` is not configured, authentication is skipped.
+Pure RESTful API — no `/api/` prefix. All endpoints accept and return JSON.
 
 ### Authentication
+
+**API Key** (required only when `KEY` environment variable is configured):
 
 ```
 X-API-Key: your-api-key
@@ -16,45 +18,85 @@ or
 Authorization: Bearer your-api-key
 ```
 
+**Slug Password** (per-slug secret, returned on creation):
+
+```
+X-Password: slug-password
+```
+
+Password is always sent via the `X-Password` header, never in the request body.
+
 ### Error Responses
 
 All errors return `{ "error": "<ERROR_CODE>" }` with an appropriate HTTP status code.
 
-| Error Code              | Status | Description                                      |
-|-------------------------|--------|--------------------------------------------------|
-| `UNAUTHORIZED`          | 401    | Missing or invalid API key                       |
-| `INVALID_JSON`          | 400    | Request body is not valid JSON                   |
-| `INVALID_URL`           | 400    | Target URL is not a valid HTTP/HTTPS URL         |
-| `INVALID_SLUG`          | 400    | Slug format invalid (must be 3–10 alphanumeric)  |
-| `INVALID_REDIRECT_MODE` | 400    | `redirectMode` is not `instant` or `manual`      |
-| `SLUG_EXISTS`           | 400    | Slug already exists (password required to modify) |
-| `VERIFY_FAILED`         | 403    | Slug not found or wrong password                 |
-| `SLUG_COLLISION`        | 503    | Failed to generate unique random slug            |
-| `NOT_FOUND`             | 404    | Slug does not exist                              |
+| Error Code              | Status | Description                                        |
+|-------------------------|--------|----------------------------------------------------|
+| `UNAUTHORIZED`          | 401    | Missing or invalid API key                         |
+| `INVALID_JSON`          | 400    | Request body is not valid JSON                     |
+| `INVALID_URL`           | 400    | Target URL is not a valid HTTP/HTTPS URL           |
+| `INVALID_REDIRECT_MODE` | 400    | `redirectMode` is not `instant` or `manual`        |
+| `SLUG_EXISTS`           | 400    | Slug already taken and no password provided        |
+| `SLUG_COLLISION`        | 503    | Random slug generation failed after retries        |
+| `VERIFY_FAILED`         | 403    | Wrong password, slug not found, or no password     |
+
+Note: write endpoints never return 404 — all failures use 403 `VERIFY_FAILED` to prevent slug enumeration.
 
 ---
 
-### POST /api/shorten
+### HEAD /:slug — Verify slug + password
 
-Create or update a short link.
+Check whether a slug exists and the password is correct, without returning any data.
+
+**Headers:**
+
+| Header       | Required | Description                          |
+|--------------|----------|--------------------------------------|
+| `X-Password` | Yes      | Slug password                        |
+| `X-API-Key`  | If KEY set | API key                            |
+
+**Response:** No body.
+
+| Status | Meaning                                      |
+|--------|----------------------------------------------|
+| 200    | Slug exists and password is correct          |
+| 401    | API key missing or invalid                   |
+| 403    | Wrong password / slug not found / no password |
+
+---
+
+### POST / — Create short URL (single)
+
+Create a new short link. Optionally specify a custom slug via `POST /:slug` or in the request body.
+
+**Headers:**
+
+| Header       | Required   | Description                          |
+|--------------|------------|--------------------------------------|
+| `X-Password` | No         | If slug exists, verifies ownership and returns entry data |
+| `X-API-Key`  | If KEY set | API key                              |
 
 **Request Body:**
 
-| Field            | Type    | Required | Description                                                        |
-|------------------|---------|----------|--------------------------------------------------------------------|
-| `url`            | string  | Yes      | Target URL (must be valid HTTP/HTTPS)                              |
-| `slug`           | string  | No       | Custom slug (3–10 alphanumeric); omit for random                   |
-| `mode`           | string  | No       | `create` or `modify`; default `create`                             |
-| `password`       | string  | No       | Required when modifying an existing slug                           |
-| `resetPassword`        | boolean | No       | Regenerate slug password on update; default `true`                 |
-| `redirectMode`   | string  | No       | `instant` or `manual`; default `instant`                           |
-| `permanent`      | boolean | No       | Use 301 (true) or 302 (false) for instant redirect; default `true` |
-| `countdown`          | integer | No       | Countdown seconds (0–60); 0 = manual button; default `0`          |
-| `redirectPageTitle`     | string  | No       | Custom redirect page title                                         |
-| `redirectPageContent`        | string  | No       | Custom redirect page content (Markdown)                            |
-| `manualBtnTitle` | string  | No       | Custom redirect button text                                        |
-| `lightPage`      | boolean | No       | Light background for redirect page; default `true`                 |
-| `ttl`            | integer | No       | Link expiration in seconds (60–31536000); 0 = permanent            |
+| Field                | Type    | Required | Description                                        |
+|----------------------|---------|----------|----------------------------------------------------|
+| `url`                | string  | Yes      | Target URL (must be valid HTTP/HTTPS)              |
+| `slug`               | string  | No       | Custom slug; omit for random generation            |
+| `redirectMode`       | string  | No       | `instant` or `manual`; default `instant`           |
+| `permanent`          | boolean | No       | 301 (true) or 302 (false); default `true`          |
+| `countdown`          | integer | No       | Seconds 0–60; default `0`                          |
+| `redirectPageTitle`  | string  | No       | Custom redirect page title; max 128 chars          |
+| `redirectPageContent`| string  | No       | Redirect page content (Markdown); max 2000 chars   |
+| `manualBtnTitle`     | string  | No       | Custom redirect button text; max 128 chars         |
+| `lightPage`          | boolean | No       | Light background for redirect page; default `true` |
+| `ttl`                | integer | No       | Expiration in seconds (60–31536000); 0 = permanent |
+
+**Behavior:**
+
+- If the slug format is invalid, a random slug is generated and the response includes `"warn": "SLUG_IGNORED"`.
+- If the slug already exists and no `X-Password` is provided, returns 400 `SLUG_EXISTS`.
+- If the slug already exists and `X-Password` is correct, returns the existing entry data.
+- If the slug does not exist but `X-Password` is provided without `url`, returns 403 `VERIFY_FAILED`.
 
 **Response (201 Created):**
 
@@ -63,36 +105,26 @@ Create or update a short link.
   "short_url": "https://example.com/aBc123",
   "slug": "aBc123",
   "target": "https://destination.com/page",
-  "updated": false,
   "password": "HjKm5xNpQrSt2vWy"
 }
 ```
 
-`password` is only returned on creation or when `resetPassword` is true on update. **Save it immediately — it will not be shown again.**
+`password` is returned on creation. **Save it immediately — it will not be shown again.**
 
-**Response (200 Updated):**
-
-```json
-{
-  "short_url": "https://example.com/aBc123",
-  "slug": "aBc123",
-  "target": "https://destination.com/new-page",
-  "updated": true,
-  "password": "NewPassword1234Ab"
-}
-```
+If slug format was invalid: `"warn": "SLUG_IGNORED"` is included in the response.
 
 ---
 
-### POST /api/verify/:slug
+### POST /:slug — Verify + query existing slug
 
-Verify slug ownership with password and return full details. Used by the management UI before allowing modifications.
+Retrieve full details of an existing slug by verifying with password.
 
-**Request Body:**
+**Headers:**
 
-| Field      | Type   | Required | Description              |
-|------------|--------|----------|--------------------------|
-| `password` | string | Yes      | Slug modification password |
+| Header       | Required   | Description   |
+|--------------|------------|---------------|
+| `X-Password` | Yes        | Slug password |
+| `X-API-Key`  | If KEY set | API key       |
 
 **Response (200):**
 
@@ -108,37 +140,46 @@ Verify slug ownership with password and return full details. Used by the managem
   "manualBtnTitle": "Go now",
   "lightPage": true,
   "ttl": 86400,
-  "clicks": 42,
   "createdAt": "2026-03-28T12:00:00.000Z",
   "updatedAt": "2026-03-29T08:30:00.000Z"
 }
 ```
 
-Fields that are at default values or empty may be omitted.
+Fields at default values may be omitted. `pwHash` is never returned.
 
 ---
 
-### GET /api/urls/:slug
+### PUT /:slug — Update short URL
 
-Get details of a single short link (without password hash).
+Update an existing short link.
+
+**Headers:**
+
+| Header       | Required   | Description   |
+|--------------|------------|---------------|
+| `X-Password` | Yes        | Slug password |
+| `X-API-Key`  | If KEY set | API key       |
+
+**Request Body:** Same fields as create, plus:
+
+| Field           | Type    | Required | Description                                          |
+|-----------------|---------|----------|------------------------------------------------------|
+| `resetPassword` | boolean | No       | Regenerate slug password; default `false`            |
 
 **Response (200):**
 
-```json
-{
-  "slug": "aBc123",
-  "url": "https://destination.com/page",
-  "redirectMode": "instant",
-  "clicks": 42,
-  "createdAt": "2026-03-28T12:00:00.000Z"
-}
-```
+Returns updated entry data. If `resetPassword` is `true`, a new `password` field is included — save it immediately.
 
 ---
 
-### DELETE /api/urls/:slug
+### DELETE /:slug — Delete short URL
 
-Delete a short link.
+**Headers:**
+
+| Header       | Required   | Description   |
+|--------------|------------|---------------|
+| `X-Password` | Yes        | Slug password |
+| `X-API-Key`  | If KEY set | API key       |
 
 **Response (200):**
 
@@ -150,11 +191,26 @@ Delete a short link.
 
 ---
 
+### GET / — Landing page
+
+Returns the homepage / management UI.
+
+### GET /:slug — Redirect
+
+Redirects to the target URL using 301 or 302, or shows a countdown/manual redirect page depending on configuration.
+
+If the slug does not exist, redirects (302) to `DEFAULT` URL or the homepage — never returns 404.
+
+---
+---
+
 ## Shurl（简体中文）
 
-所有 API 端点接收和返回 JSON。通过 `X-API-Key` 请求头或 `Authorization: Bearer <key>` 进行认证。如果未配置 `KEY`，则跳过认证。
+纯 RESTful API，无 `/api/` 前缀。所有端点接收和返回 JSON。
 
 ### 认证方式
+
+**API 密钥**（仅在配置了 `KEY` 环境变量时需要）：
 
 ```
 X-API-Key: your-api-key
@@ -163,6 +219,14 @@ X-API-Key: your-api-key
 ```
 Authorization: Bearer your-api-key
 ```
+
+**短码密码**（创建时返回的短码专属密钥）：
+
+```
+X-Password: slug-password
+```
+
+密码始终通过 `X-Password` 请求头发送，不再放在请求体中。
 
 ### 错误响应
 
@@ -173,36 +237,68 @@ Authorization: Bearer your-api-key
 | `UNAUTHORIZED`            | 401    | API 密钥缺失或无效                        |
 | `INVALID_JSON`            | 400    | 请求体不是有效的 JSON                     |
 | `INVALID_URL`             | 400    | 目标 URL 不是有效的 HTTP/HTTPS 地址       |
-| `INVALID_SLUG`            | 400    | 短码格式无效（须为 3–10 位字母数字）      |
 | `INVALID_REDIRECT_MODE`   | 400    | `redirectMode` 不是 `instant` 或 `manual` |
-| `SLUG_EXISTS`             | 400    | 短码已存在（需要密码才能修改）            |
-| `VERIFY_FAILED`           | 403    | 短码不存在，或密码错误                    |
+| `SLUG_EXISTS`             | 400    | 短码已存在且未提供密码                    |
 | `SLUG_COLLISION`          | 503    | 随机短码生成失败                          |
-| `NOT_FOUND`               | 404    | 短码不存在                                |
+| `VERIFY_FAILED`           | 403    | 密码错误、短码不存在或未提供密码          |
+
+注：写入端点不会返回 404 —— 所有失败均使用 403 `VERIFY_FAILED`，以防止短码枚举。
 
 ---
 
-### POST /api/shorten
+### HEAD /:slug — 验证短码 + 密码
 
-创建或更新短链接。
+检查短码是否存在以及密码是否正确，不返回任何数据。
+
+**请求头：**
+
+| 请求头       | 必填       | 说明       |
+|--------------|------------|------------|
+| `X-Password` | 是         | 短码密码   |
+| `X-API-Key`  | 配置时必填 | API 密钥   |
+
+**响应：** 无响应体。
+
+| 状态码 | 含义                             |
+|--------|----------------------------------|
+| 200    | 短码存在且密码正确               |
+| 401    | API 密钥缺失或无效               |
+| 403    | 密码错误 / 短码不存在 / 未提供密码 |
+
+---
+
+### POST / — 创建短链接（单条）
+
+创建一条新短链接。可通过 `POST /:slug` 或请求体中的 `slug` 字段指定自定义短码。
+
+**请求头：**
+
+| 请求头       | 必填       | 说明                                     |
+|--------------|------------|------------------------------------------|
+| `X-Password` | 否         | 若短码已存在，验证所有权并返回条目数据   |
+| `X-API-Key`  | 配置时必填 | API 密钥                                 |
 
 **请求体：**
 
-| 字段             | 类型    | 必填 | 说明                                                          |
-|------------------|---------|------|---------------------------------------------------------------|
-| `url`            | string  | 是   | 目标 URL（须为有效的 HTTP/HTTPS 地址）                        |
-| `slug`           | string  | 否   | 自定义短码（3–10 位字母数字）；留空则随机生成                 |
-| `mode`           | string  | 否   | `create` 或 `modify`；默认 `create`                           |
-| `password`       | string  | 否   | 修改已有短码时必填                                            |
-| `resetPassword`        | boolean | 否   | 更新时重新生成密码；默认 `true`                               |
-| `redirectMode`   | string  | 否   | `instant` 或 `manual`；默认 `instant`                         |
-| `permanent`      | boolean | 否   | 立即跳转时使用 301（true）或 302（false）；默认 `true`        |
-| `countdown`          | integer | 否   | 倒计数秒数（0–60）；0 = 手动跳转按钮；默认 `0`               |
-| `redirectPageTitle`     | string  | 否   | 自定义跳转页面标题                                            |
-| `redirectPageContent`        | string  | 否   | 自定义跳转页面内容（Markdown 格式）                           |
-| `manualBtnTitle` | string  | 否   | 自定义跳转按钮文案                                            |
-| `lightPage`      | boolean | 否   | 跳转页面使用亮色背景；默认 `true`                             |
-| `ttl`            | integer | 否   | 链接过期时间（60–31536000 秒）；0 = 永久                     |
+| 字段                 | 类型    | 必填 | 说明                                         |
+|----------------------|---------|------|----------------------------------------------|
+| `url`                | string  | 是   | 目标 URL（须为有效的 HTTP/HTTPS 地址）       |
+| `slug`               | string  | 否   | 自定义短码；留空则随机生成                   |
+| `redirectMode`       | string  | 否   | `instant` 或 `manual`；默认 `instant`        |
+| `permanent`          | boolean | 否   | 301（true）或 302（false）；默认 `true`      |
+| `countdown`          | integer | 否   | 倒计时秒数 0–60；默认 `0`                   |
+| `redirectPageTitle`  | string  | 否   | 自定义跳转页面标题；最长 128 字符            |
+| `redirectPageContent`| string  | 否   | 跳转页面内容（Markdown）；最长 2000 字符     |
+| `manualBtnTitle`     | string  | 否   | 自定义跳转按钮文案；最长 128 字符            |
+| `lightPage`          | boolean | 否   | 跳转页面使用亮色背景；默认 `true`            |
+| `ttl`                | integer | 否   | 过期时间（60–31536000 秒）；0 = 永久         |
+
+**行为说明：**
+
+- 若短码格式无效，则自动生成随机短码，响应中包含 `"warn": "SLUG_IGNORED"`。
+- 若短码已存在且未提供 `X-Password`，返回 400 `SLUG_EXISTS`。
+- 若短码已存在且 `X-Password` 正确，返回已有条目数据。
+- 若短码不存在但提供了 `X-Password` 而无 `url`，返回 403 `VERIFY_FAILED`。
 
 **响应（201 已创建）：**
 
@@ -211,24 +307,26 @@ Authorization: Bearer your-api-key
   "short_url": "https://example.com/aBc123",
   "slug": "aBc123",
   "target": "https://destination.com/page",
-  "updated": false,
   "password": "HjKm5xNpQrSt2vWy"
 }
 ```
 
-`password` 仅在创建时或更新且 `resetPassword` 为 true 时返回。**请立即保存，此密码仅显示一次。**
+`password` 在创建时返回。**请立即保存，此密码仅显示一次。**
+
+若短码格式无效：响应中会包含 `"warn": "SLUG_IGNORED"`。
 
 ---
 
-### POST /api/verify/:slug
+### POST /:slug — 验证并查询已有短码
 
-通过密码验证短码所有权并返回完整详情。管理界面在允许修改前调用此接口。
+通过密码验证后获取短码完整详情。
 
-**请求体：**
+**请求头：**
 
-| 字段       | 类型   | 必填 | 说明         |
-|------------|--------|------|--------------|
-| `password` | string | 是   | 短码修改密码 |
+| 请求头       | 必填       | 说明     |
+|--------------|------------|----------|
+| `X-Password` | 是         | 短码密码 |
+| `X-API-Key`  | 配置时必填 | API 密钥 |
 
 **响应（200）：**
 
@@ -237,33 +335,84 @@ Authorization: Bearer your-api-key
   "slug": "aBc123",
   "url": "https://destination.com/page",
   "redirectMode": "manual",
+  "permanent": true,
   "countdown": 5,
-  "clicks": 42,
-  "createdAt": "2026-03-28T12:00:00.000Z"
+  "redirectPageTitle": "Please wait...",
+  "redirectPageContent": "**Content** in markdown",
+  "manualBtnTitle": "Go now",
+  "lightPage": true,
+  "ttl": 86400,
+  "createdAt": "2026-03-28T12:00:00.000Z",
+  "updatedAt": "2026-03-29T08:30:00.000Z"
 }
 ```
 
-处于默认值或为空的字段可能被省略。
+处于默认值的字段可能被省略。`pwHash` 不会返回。
 
 ---
 
-### GET /api/urls/:slug
+### PUT /:slug — 更新短链接
 
-获取单条短链接详情（不含密码哈希）。
+更新已有短链接。
+
+**请求头：**
+
+| 请求头       | 必填       | 说明     |
+|--------------|------------|----------|
+| `X-Password` | 是         | 短码密码 |
+| `X-API-Key`  | 配置时必填 | API 密钥 |
+
+**请求体：** 与创建相同的字段，另加：
+
+| 字段            | 类型    | 必填 | 说明                            |
+|-----------------|---------|------|---------------------------------|
+| `resetPassword` | boolean | 否   | 重新生成短码密码；默认 `false`  |
+
+**响应（200）：**
+
+返回更新后的条目数据。若 `resetPassword` 为 `true`，响应中包含新的 `password` 字段，请立即保存。
 
 ---
 
-### DELETE /api/urls/:slug
+### DELETE /:slug — 删除短链接
 
-删除一条短链接。
+**请求头：**
 
+| 请求头       | 必填       | 说明     |
+|--------------|------------|----------|
+| `X-Password` | 是         | 短码密码 |
+| `X-API-Key`  | 配置时必填 | API 密钥 |
+
+**响应（200）：**
+
+```json
+{
+  "deleted": "aBc123"
+}
+```
+
+---
+
+### GET / — 首页
+
+返回首页 / 管理界面。
+
+### GET /:slug — 跳转
+
+根据配置使用 301 或 302 跳转至目标 URL，或显示倒计时/手动跳转页面。
+
+若短码不存在，302 跳转至 `DEFAULT` URL 或首页 —— 不会返回 404。
+
+---
 ---
 
 ## Shurl（繁體中文）
 
-所有 API 端點接收和回傳 JSON。透過 `X-API-Key` 請求標頭或 `Authorization: Bearer <key>` 進行認證。如果未設定 `KEY`，則跳過認證。
+純 RESTful API，無 `/api/` 前綴。所有端點接收和回傳 JSON。
 
 ### 認證方式
+
+**API 金鑰**（僅在設定了 `KEY` 環境變數時需要）：
 
 ```
 X-API-Key: your-api-key
@@ -272,6 +421,14 @@ X-API-Key: your-api-key
 ```
 Authorization: Bearer your-api-key
 ```
+
+**短碼密碼**（建立時回傳的短碼專屬密鑰）：
+
+```
+X-Password: slug-password
+```
+
+密碼一律透過 `X-Password` 請求標頭發送，不再放在請求體中。
 
 ### 錯誤回應
 
@@ -282,36 +439,68 @@ Authorization: Bearer your-api-key
 | `UNAUTHORIZED`            | 401    | API 金鑰缺失或無效                        |
 | `INVALID_JSON`            | 400    | 請求體不是有效的 JSON                     |
 | `INVALID_URL`             | 400    | 目標 URL 不是有效的 HTTP/HTTPS 地址       |
-| `INVALID_SLUG`            | 400    | 短碼格式無效（須為 3–10 位字母數字）      |
 | `INVALID_REDIRECT_MODE`   | 400    | `redirectMode` 不是 `instant` 或 `manual` |
-| `SLUG_EXISTS`             | 400    | 短碼已存在（需要密碼才能修改）            |
-| `VERIFY_FAILED`           | 403    | 短碼不存在，或密碼錯誤                    |
+| `SLUG_EXISTS`             | 400    | 短碼已存在且未提供密碼                    |
 | `SLUG_COLLISION`          | 503    | 隨機短碼產生失敗                          |
-| `NOT_FOUND`               | 404    | 短碼不存在                                |
+| `VERIFY_FAILED`           | 403    | 密碼錯誤、短碼不存在或未提供密碼          |
+
+注：寫入端點不會回傳 404 —— 所有失敗均使用 403 `VERIFY_FAILED`，以防止短碼列舉。
 
 ---
 
-### POST /api/shorten
+### HEAD /:slug — 驗證短碼 + 密碼
 
-建立或更新短連結。
+檢查短碼是否存在以及密碼是否正確，不回傳任何資料。
+
+**請求標頭：**
+
+| 請求標頭     | 必填       | 說明       |
+|--------------|------------|------------|
+| `X-Password` | 是         | 短碼密碼   |
+| `X-API-Key`  | 設定時必填 | API 金鑰   |
+
+**回應：** 無回應體。
+
+| 狀態碼 | 含義                              |
+|--------|-----------------------------------|
+| 200    | 短碼存在且密碼正確                |
+| 401    | API 金鑰缺失或無效                |
+| 403    | 密碼錯誤 / 短碼不存在 / 未提供密碼 |
+
+---
+
+### POST / — 建立短連結（單條）
+
+建立一條新短連結。可透過 `POST /:slug` 或請求體中的 `slug` 欄位指定自訂短碼。
+
+**請求標頭：**
+
+| 請求標頭     | 必填       | 說明                                     |
+|--------------|------------|------------------------------------------|
+| `X-Password` | 否         | 若短碼已存在，驗證所有權並回傳條目資料   |
+| `X-API-Key`  | 設定時必填 | API 金鑰                                 |
 
 **請求體：**
 
-| 欄位             | 類型    | 必填 | 說明                                                          |
-|------------------|---------|------|---------------------------------------------------------------|
-| `url`            | string  | 是   | 目標 URL（須為有效的 HTTP/HTTPS 地址）                        |
-| `slug`           | string  | 否   | 自訂短碼（3–10 位字母數字）；留空則隨機產生                   |
-| `mode`           | string  | 否   | `create` 或 `modify`；預設 `create`                           |
-| `password`       | string  | 否   | 修改已有短碼時必填                                            |
-| `resetPassword`        | boolean | 否   | 更新時重新產生密碼；預設 `true`                               |
-| `redirectMode`   | string  | 否   | `instant` 或 `manual`；預設 `instant`                         |
-| `permanent`      | boolean | 否   | 立即跳轉時使用 301（true）或 302（false）；預設 `true`        |
-| `countdown`          | integer | 否   | 倒數秒數（0–60）；0 = 手動跳轉按鈕；預設 `0`                 |
-| `redirectPageTitle`     | string  | 否   | 自訂跳轉頁面標題                                              |
-| `redirectPageContent`        | string  | 否   | 自訂跳轉頁面內容（Markdown 格式）                             |
-| `manualBtnTitle` | string  | 否   | 自訂跳轉按鈕文案                                              |
-| `lightPage`      | boolean | 否   | 跳轉頁面使用亮色背景；預設 `true`                             |
-| `ttl`            | integer | 否   | 連結過期時間（60–31536000 秒）；0 = 永久                     |
+| 欄位                 | 類型    | 必填 | 說明                                         |
+|----------------------|---------|------|----------------------------------------------|
+| `url`                | string  | 是   | 目標 URL（須為有效的 HTTP/HTTPS 地址）       |
+| `slug`               | string  | 否   | 自訂短碼；留空則隨機產生                     |
+| `redirectMode`       | string  | 否   | `instant` 或 `manual`；預設 `instant`        |
+| `permanent`          | boolean | 否   | 301（true）或 302（false）；預設 `true`      |
+| `countdown`          | integer | 否   | 倒數秒數 0–60；預設 `0`                     |
+| `redirectPageTitle`  | string  | 否   | 自訂跳轉頁面標題；最長 128 字元              |
+| `redirectPageContent`| string  | 否   | 跳轉頁面內容（Markdown）；最長 2000 字元     |
+| `manualBtnTitle`     | string  | 否   | 自訂跳轉按鈕文案；最長 128 字元              |
+| `lightPage`          | boolean | 否   | 跳轉頁面使用亮色背景；預設 `true`            |
+| `ttl`                | integer | 否   | 過期時間（60–31536000 秒）；0 = 永久         |
+
+**行為說明：**
+
+- 若短碼格式無效，則自動產生隨機短碼，回應中包含 `"warn": "SLUG_IGNORED"`。
+- 若短碼已存在且未提供 `X-Password`，回傳 400 `SLUG_EXISTS`。
+- 若短碼已存在且 `X-Password` 正確，回傳已有條目資料。
+- 若短碼不存在但提供了 `X-Password` 而無 `url`，回傳 403 `VERIFY_FAILED`。
 
 **回應（201 已建立）：**
 
@@ -320,24 +509,26 @@ Authorization: Bearer your-api-key
   "short_url": "https://example.com/aBc123",
   "slug": "aBc123",
   "target": "https://destination.com/page",
-  "updated": false,
   "password": "HjKm5xNpQrSt2vWy"
 }
 ```
 
-`password` 僅在建立時或更新且 `resetPassword` 為 true 時回傳。**請立即儲存，此密碼僅顯示一次。**
+`password` 在建立時回傳。**請立即儲存，此密碼僅顯示一次。**
+
+若短碼格式無效：回應中會包含 `"warn": "SLUG_IGNORED"`。
 
 ---
 
-### POST /api/verify/:slug
+### POST /:slug — 驗證並查詢已有短碼
 
-透過密碼驗證短碼所有權並回傳完整詳情。管理介面在允許修改前呼叫此介面。
+透過密碼驗證後取得短碼完整詳情。
 
-**請求體：**
+**請求標頭：**
 
-| 欄位       | 類型   | 必填 | 說明         |
-|------------|--------|------|--------------|
-| `password` | string | 是   | 短碼修改密碼 |
+| 請求標頭     | 必填       | 說明     |
+|--------------|------------|----------|
+| `X-Password` | 是         | 短碼密碼 |
+| `X-API-Key`  | 設定時必填 | API 金鑰 |
 
 **回應（200）：**
 
@@ -346,22 +537,70 @@ Authorization: Bearer your-api-key
   "slug": "aBc123",
   "url": "https://destination.com/page",
   "redirectMode": "manual",
+  "permanent": true,
   "countdown": 5,
-  "clicks": 42,
-  "createdAt": "2026-03-28T12:00:00.000Z"
+  "redirectPageTitle": "Please wait...",
+  "redirectPageContent": "**Content** in markdown",
+  "manualBtnTitle": "Go now",
+  "lightPage": true,
+  "ttl": 86400,
+  "createdAt": "2026-03-28T12:00:00.000Z",
+  "updatedAt": "2026-03-29T08:30:00.000Z"
 }
 ```
 
-處於預設值或為空的欄位可能被省略。
+處於預設值的欄位可能被省略。`pwHash` 不會回傳。
 
 ---
 
-### GET /api/urls/:slug
+### PUT /:slug — 更新短連結
 
-取得單條短連結詳情（不含密碼雜湊）。
+更新已有短連結。
+
+**請求標頭：**
+
+| 請求標頭     | 必填       | 說明     |
+|--------------|------------|----------|
+| `X-Password` | 是         | 短碼密碼 |
+| `X-API-Key`  | 設定時必填 | API 金鑰 |
+
+**請求體：** 與建立相同的欄位，另加：
+
+| 欄位            | 類型    | 必填 | 說明                            |
+|-----------------|---------|------|---------------------------------|
+| `resetPassword` | boolean | 否   | 重新產生短碼密碼；預設 `false`  |
+
+**回應（200）：**
+
+回傳更新後的條目資料。若 `resetPassword` 為 `true`，回應中包含新的 `password` 欄位，請立即儲存。
 
 ---
 
-### DELETE /api/urls/:slug
+### DELETE /:slug — 刪除短連結
 
-刪除一條短連結。
+**請求標頭：**
+
+| 請求標頭     | 必填       | 說明     |
+|--------------|------------|----------|
+| `X-Password` | 是         | 短碼密碼 |
+| `X-API-Key`  | 設定時必填 | API 金鑰 |
+
+**回應（200）：**
+
+```json
+{
+  "deleted": "aBc123"
+}
+```
+
+---
+
+### GET / — 首頁
+
+回傳首頁 / 管理介面。
+
+### GET /:slug — 跳轉
+
+依據設定使用 301 或 302 跳轉至目標 URL，或顯示倒數計時/手動跳轉頁面。
+
+若短碼不存在，302 跳轉至 `DEFAULT` URL 或首頁 —— 不會回傳 404。
