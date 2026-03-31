@@ -280,7 +280,7 @@ async function checkRateLimit(env, request) {
 }
 
 async function incrementRateLimit(env, key, data) {
-  await env.DATA.put(key, JSON.stringify({ count: data.count + 1, lastOp: new Date().toISOString() }));
+  await env.DATA.put(key, JSON.stringify({ count: data.count + 1, lastOp: new Date().toISOString() }), { expirationTtl: 172800 });
 }
 
 // ── i18n strings (shared by landing page & countdown page) ───────────
