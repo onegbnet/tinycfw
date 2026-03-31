@@ -137,6 +137,7 @@ Most URL shorteners force you to sign up before you can create a link, or give y
 - **Global admin key** — manage any link regardless of its modification password; rotate keys anytime via the `KEY` environment variable
 - **Lock screen** — optional `LOCK` secret puts a password gate on the web UI while leaving the API fully operational
 - **Anti-enumeration** — no 404 responses anywhere; unknown slugs redirect silently to home or a configurable `DEFAULT` URL; all write failures return 403
+- **Loop prevention** — target URLs pointing to this service or common shorteners (bit.ly, tinyurl.com, t.co, etc.) are rejected at both frontend and API level
 - **Zero infrastructure** — no database, no Redis, no Docker; one JS file + one KV namespace, deployed on Cloudflare's edge in 300+ cities
 
 ### Routes
@@ -205,6 +206,7 @@ For API documentation, see [API.md](API.md#shurl).
 - **全局管理员密钥** — 可管理任意链接，无需其修改密码；随时通过 `KEY` 环境变量轮换密钥
 - **锁屏保护** — 可选 `LOCK` Secret，为 Web 界面加上密码门禁，同时 API 不受影响
 - **防枚举** — 全站无 404 响应；未知短码静默跳转至首页或可配置的 `DEFAULT` URL；所有写操作失败均返回 403
+- **防循环跳转** — 指向本服务或常见短链接服务（bit.ly、tinyurl.com、t.co 等）的目标 URL 在前端和 API 层面均被拒绝
 - **零基础设施** — 无需数据库、无需 Redis、无需 Docker；一个 JS 文件 + 一个 KV 命名空间，部署在 Cloudflare 全球 300+ 城市的边缘节点
 
 ### 路由（简体中文）
@@ -273,6 +275,7 @@ API 文档详见 [API.md](API.md#shurl简体中文)。
 - **全域管理員金鑰** — 可管理任意連結，無需其修改密碼；隨時透過 `KEY` 環境變數輪換金鑰
 - **鎖屏保護** — 選用 `LOCK` Secret，為 Web 介面加上密碼門禁，同時 API 不受影響
 - **防列舉** — 全站無 404 回應；未知短碼靜默跳轉至首頁或可配置的 `DEFAULT` URL；所有寫入操作失敗均回傳 403
+- **防循環跳轉** — 指向本服務或常見短連結服務（bit.ly、tinyurl.com、t.co 等）的目標 URL 在前端和 API 層面均被拒絕
 - **零基礎設施** — 無需資料庫、無需 Redis、無需 Docker；一個 JS 檔案 + 一個 KV 命名空間，部署在 Cloudflare 全球 300+ 城市的邊緣節點
 
 ### 路由（繁體中文）

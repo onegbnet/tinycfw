@@ -124,7 +124,19 @@ function html(body) {
   });
 }
 
-const BLOCKED_SHORTENER_HOSTS = ['bit.ly','tinyurl.com','t.co','goo.gl','ow.ly','is.gd','buff.ly','adf.ly','bl.ink','rb.gy','short.io','cutt.ly','rebrand.ly','v.gd','qr.ae','1url.com','hyperurl.co'];
+const BLOCKED_SHORTENER_HOSTS = [
+  // International
+  'bit.ly','j.mp','bitly.com','tinyurl.com','t.co','goo.gl','ow.ly','is.gd','v.gd',
+  'buff.ly','adf.ly','bl.ink','rb.gy','short.io','cutt.ly','rebrand.ly','qr.ae',
+  '1url.com','hyperurl.co','bit.do','tiny.cc','shorturl.at','shorturl.me','t.ly',
+  't2m.io','to.ly','tr.im','snip.ly','snipurl.com','po.st','su.pr','soo.gd',
+  'clck.ru','ppt.cc','reurl.cc','s.id','dub.sh','lc.chat','shorten.tv','waa.ai',
+  'han.gl','kl.am','u.nu','u.to','fur.ly','cli.gs','trib.al','shr.lc','urlz.fr',
+  'x.co','0rz.tw','go.ly','goo.by','loom.ly','clicky.me','bom.so','ln.is','p.ly',
+  // Chinese
+  't.cn','url.cn','w.url.cn','dwz.cn','dwz.date','dwz.lc','dwz.win','sina.lt',
+  'suo.nz','mrw.so','mtw.so','rrd.me','c-n.cc','m6z.cn','u6.gg','tb.cn','d.cn',
+];
 
 function isBlockedTarget(target, requestUrl, env) {
   try {
@@ -1941,7 +1953,7 @@ function checkSubmitState(){
   submitBtn.disabled=!(urlOk&&slugOk&&keyOk);
 }
 
-var BLOCKED_HOSTS=['bit.ly','tinyurl.com','t.co','goo.gl','ow.ly','is.gd','buff.ly','adf.ly','bl.ink','rb.gy','short.io','cutt.ly','rebrand.ly','v.gd','qr.ae','1url.com','hyperurl.co'];
+var BLOCKED_HOSTS=['bit.ly','j.mp','bitly.com','tinyurl.com','t.co','goo.gl','ow.ly','is.gd','v.gd','buff.ly','adf.ly','bl.ink','rb.gy','short.io','cutt.ly','rebrand.ly','qr.ae','1url.com','hyperurl.co','bit.do','tiny.cc','shorturl.at','shorturl.me','t.ly','t2m.io','to.ly','tr.im','snip.ly','snipurl.com','po.st','su.pr','soo.gd','clck.ru','ppt.cc','reurl.cc','s.id','dub.sh','lc.chat','shorten.tv','waa.ai','han.gl','kl.am','u.nu','u.to','fur.ly','cli.gs','trib.al','shr.lc','urlz.fr','x.co','0rz.tw','go.ly','goo.by','loom.ly','clicky.me','bom.so','ln.is','p.ly','t.cn','url.cn','w.url.cn','dwz.cn','dwz.date','dwz.lc','dwz.win','sina.lt','suo.nz','mrw.so','mtw.so','rrd.me','c-n.cc','m6z.cn','u6.gg','tb.cn','d.cn'];
 function isBlockedUrl(v){try{var u=new URL(v);var h=u.hostname.toLowerCase();if(v.toLowerCase().indexOf(window.location.origin.toLowerCase())===0)return true;if(BLOCKED_HOSTS.indexOf(h)!==-1)return true}catch(e){}return false}
 function validateUrl(){
   var v=urlInput.value.trim();
