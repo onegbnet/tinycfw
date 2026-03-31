@@ -35,6 +35,7 @@ All errors return `{ "error": "<ERROR_CODE>" }` with an appropriate HTTP status 
 | `UNAUTHORIZED`          | 401    | Missing or invalid admin key                       |
 | `INVALID_JSON`          | 400    | Request body is not valid JSON                     |
 | `INVALID_URL`           | 400    | Target URL is not a valid HTTP/HTTPS URL           |
+| `BLOCKED_URL`           | 400    | Target URL points to this service or a known shortener |
 | `INVALID_REDIRECT_MODE` | 400    | `redirectMode` is not `instant` or `manual`        |
 | `SLUG_EXISTS`           | 400    | Slug already taken and no password provided        |
 | `SLUG_COLLISION`        | 503    | Random slug generation failed after retries        |
@@ -295,6 +296,7 @@ X-Password: slug-password
 | `UNAUTHORIZED`            | 401    | 管理员密钥缺失或无效                      |
 | `INVALID_JSON`            | 400    | 请求体不是有效的 JSON                     |
 | `INVALID_URL`             | 400    | 目标 URL 不是有效的 HTTP/HTTPS 地址       |
+| `BLOCKED_URL`             | 400    | 目标 URL 指向本服务或已知短链接服务       |
 | `INVALID_REDIRECT_MODE`   | 400    | `redirectMode` 不是 `instant` 或 `manual` |
 | `SLUG_EXISTS`             | 400    | 短码已存在且未提供密码                    |
 | `SLUG_COLLISION`          | 503    | 随机短码生成失败                          |
@@ -555,6 +557,7 @@ X-Password: slug-password
 | `UNAUTHORIZED`            | 401    | 管理員金鑰缺失或無效                      |
 | `INVALID_JSON`            | 400    | 請求體不是有效的 JSON                     |
 | `INVALID_URL`             | 400    | 目標 URL 不是有效的 HTTP/HTTPS 地址       |
+| `BLOCKED_URL`             | 400    | 目標 URL 指向本服務或已知短連結服務       |
 | `INVALID_REDIRECT_MODE`   | 400    | `redirectMode` 不是 `instant` 或 `manual` |
 | `SLUG_EXISTS`             | 400    | 短碼已存在且未提供密碼                    |
 | `SLUG_COLLISION`          | 503    | 隨機短碼產生失敗                          |
