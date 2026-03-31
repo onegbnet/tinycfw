@@ -31,7 +31,7 @@ A single-file Cloudflare Worker for sending emails via the Mailgun HTTP API, wit
    | `DISPLAY` | Text   | Default display name, e.g. `John Doe`                                                     |
    | `EU`      | Text   | If present, use Mailgun EU region; otherwise US                                            |
    | `TTL`     | Text   | Sent record expiration in seconds (integer >= 60); ignored if invalid; omit for permanent  |
-   | `LOCK`    | Secret | Access password (4+ ASCII printable chars, no spaces); ignored if invalid; omit for open access |
+   | `LOCK`    | Secret | Access password (3–16 ASCII printable chars, no spaces); ignored if invalid; omit for open access |
 
 3. (Optional) Bind a **KV namespace** named `SENT` to enable sent email history
 4. Click the **Deploy** button in the Worker dashboard to complete deployment
@@ -63,7 +63,7 @@ A single-file Cloudflare Worker for sending emails via the Mailgun HTTP API, wit
    | `DISPLAY` | Text   | 默认显示名称，如 `John Doe`                                                   |
    | `EU`      | Text   | 只要该键存在即使用欧洲区域，否则使用美国区域                                  |
    | `TTL`     | Text   | 已发送记录保存时长（秒，整数 >= 60），不合法则忽略，不设则永久保存             |
-   | `LOCK`    | Secret | 访问密码（4+ 位 ASCII 可打印字符，不含空格），不合法则忽略，不设则开放访问     |
+   | `LOCK`    | Secret | 访问密码（3–16 位 ASCII 可打印字符，不含空格），不合法则忽略，不设则开放访问     |
 
 3. （可选）绑定一个名为 `SENT` 的 **KV 命名空间**以启用已发送记录
 4. 点击 Worker 界面的**部署**按钮完成部署
@@ -95,7 +95,7 @@ A single-file Cloudflare Worker for sending emails via the Mailgun HTTP API, wit
    | `DISPLAY` | Text   | 預設顯示名稱，如 `John Doe`                                                   |
    | `EU`      | Text   | 只要該鍵存在即使用歐洲區域，否則使用美國區域                                  |
    | `TTL`     | Text   | 已傳送紀錄保存時長（秒，整數 >= 60），不合法則忽略，不設則永久保存             |
-   | `LOCK`    | Secret | 存取密碼（4+ 位 ASCII 可列印字元，不含空格），不合法則忽略，不設則開放存取     |
+   | `LOCK`    | Secret | 存取密碼（3–16 位 ASCII 可列印字元，不含空格），不合法則忽略，不設則開放存取     |
 
 3. （選用）綁定一個名為 `SENT` 的 **KV 命名空間**以啟用已傳送紀錄
 4. 點擊 Worker 介面的**部署**按鈕完成部署
@@ -163,7 +163,7 @@ Most URL shorteners force you to sign up before you can create a link, or give y
    | `BASE`    | Text   | Short link base URL, e.g. `https://s.mydomain.tld`; omit to use request origin             |
    | `TTL`     | Text   | Default link expiration in seconds (integer >= 60); omit for permanent                     |
    | `DEFAULT` | Text   | Fallback redirect URL when slug not found; omit to redirect to home page                    |
-   | `LOCK`    | Secret | Front-end lock screen password (4+ chars); does not affect API; omit for open access         |
+   | `LOCK`    | Secret | Front-end lock screen password (3–16 printable chars, no spaces); does not affect API; omit for open access         |
    | `LIMIT`   | Text   | Public rate limit per 24 hours (default: 10, create + modify combined)                       |
 
 4. Click the **Deploy** button in the Worker dashboard to complete deployment
@@ -231,7 +231,7 @@ For API documentation, see [API.md](API.md#shurl).
    | `BASE`    | Text   | 短链接基础 URL，如 `https://s.mydomain.tld`；不设则使用请求来源               |
    | `TTL`     | Text   | 默认链接过期时间（秒，整数 >= 60）；不设则永久                                |
    | `DEFAULT` | Text   | slug 不存在时的跳转 URL；不设或非法则回到首页                                 |
-   | `LOCK`    | Secret | 前端锁屏密码（4+ 位字符）；不影响 API；不设则开放访问                         |
+   | `LOCK`    | Secret | 前端锁屏密码（3–16 位可打印字符，不含空格）；不影响 API；不设则开放访问                         |
    | `LIMIT`   | Text   | 公开实例每 24 小时操作限额（默认 10，创建 + 修改合计）                         |
 
 4. 点击 Worker 界面的**部署**按钮完成部署
@@ -299,7 +299,7 @@ API 文档详见 [API.md](API.md#shurl简体中文)。
    | `BASE`    | Text   | 短連結基礎 URL，如 `https://s.mydomain.tld`；不設則使用請求來源               |
    | `TTL`     | Text   | 預設連結過期時間（秒，整數 >= 60）；不設則永久                                |
    | `DEFAULT` | Text   | slug 不存在時的跳轉 URL；不設或非法則回到首頁                                 |
-   | `LOCK`    | Secret | 前端鎖屏密碼（4+ 位字元）；不影響 API；不設則開放存取                         |
+   | `LOCK`    | Secret | 前端鎖屏密碼（3–16 位可列印字元，不含空格）；不影響 API；不設則開放存取                         |
    | `LIMIT`   | Text   | 公開實例每 24 小時操作限額（預設 10，建立 + 修改合計）                         |
 
 4. 點擊 Worker 介面的**部署**按鈕完成部署

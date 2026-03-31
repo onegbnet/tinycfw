@@ -1105,6 +1105,7 @@ document.getElementById("lockBtn").textContent=t.btn;
 if(["he","ar"].indexOf(dl())!==-1)document.documentElement.dir="rtl";
 document.getElementById("lockForm").addEventListener("submit",function(e){
 e.preventDefault();var btn=document.getElementById("lockBtn");var pw=document.getElementById("lockPw").value;var rem=document.getElementById("lockRemember").checked;var err=document.getElementById("lockErr");
+if(!/^[\x21-\x7e]{3,16}$/.test(pw)){err.textContent=t.wrong;return}
 btn.disabled=true;err.textContent="";
 fetch("/_unlock",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:pw,remember:rem})}).then(function(r){return r.json()}).then(function(d){if(d.ok){window.location.reload()}else{err.textContent=t.wrong;btn.disabled=false}}).catch(function(){err.textContent=t.net;btn.disabled=false})});
 <\/script></body></html>`;
@@ -2152,7 +2153,7 @@ async function confirmDelete(){
 // ── LOCK helpers ─────────────────────────────────────────────────────
 
 function isValidLock(val) {
-  return typeof val === 'string' && val.length >= 4 && /^[\x21-\x7e]+$/.test(val);
+  return typeof val === 'string' && /^[\x21-\x7e]{3,16}$/.test(val);
 }
 
 async function hashLockToken(password) {

@@ -8,14 +8,14 @@ Pure RESTful API — no `/api/` prefix. All endpoints accept and return JSON.
 
 ### Authentication
 
-**API Key** (required only when `KEY` environment variable is configured):
+**Admin Key** (required only when `KEY` environment variable is configured):
 
 ```
-X-API-Key: your-api-key
+X-API-Key: your-admin-key
 ```
 or
 ```
-Authorization: Bearer your-api-key
+Authorization: Bearer your-admin-key
 ```
 
 **Slug Password** (per-slug secret, returned on creation):
@@ -32,7 +32,7 @@ All errors return `{ "error": "<ERROR_CODE>" }` with an appropriate HTTP status 
 
 | Error Code              | Status | Description                                        |
 |-------------------------|--------|----------------------------------------------------|
-| `UNAUTHORIZED`          | 401    | Missing or invalid API key                         |
+| `UNAUTHORIZED`          | 401    | Missing or invalid admin key                       |
 | `INVALID_JSON`          | 400    | Request body is not valid JSON                     |
 | `INVALID_URL`           | 400    | Target URL is not a valid HTTP/HTTPS URL           |
 | `INVALID_REDIRECT_MODE` | 400    | `redirectMode` is not `instant` or `manual`        |
@@ -53,7 +53,7 @@ Check whether a slug exists and the password is correct, without returning any d
 | Header       | Required | Description                          |
 |--------------|----------|--------------------------------------|
 | `X-Password` | Yes      | Slug password                        |
-| `X-API-Key`  | If KEY set | API key                            |
+| `X-API-Key`  | If KEY set | Admin key                          |
 
 **Response:** No body.
 
@@ -74,7 +74,7 @@ Create a new short link. Optionally specify a custom slug via `POST /:slug` or i
 | Header       | Required   | Description                          |
 |--------------|------------|--------------------------------------|
 | `X-Password` | No         | If slug exists, verifies ownership and returns entry data |
-| `X-API-Key`  | If KEY set | API key                              |
+| `X-API-Key`  | If KEY set | Admin key                            |
 
 **Request Body:**
 
@@ -88,6 +88,7 @@ Create a new short link. Optionally specify a custom slug via `POST /:slug` or i
 | `redirectPageTitle`  | string  | No       | Custom redirect page title; max 128 chars          |
 | `redirectPageContent`| string  | No       | Redirect page content (Markdown); max 2000 chars   |
 | `manualBtnTitle`     | string  | No       | Custom redirect button text; max 128 chars         |
+| `accessPassword`     | string  | No       | Visitor password for manual-redirect links (3–16 printable non-space chars); ignored if invalid or mode is `instant` |
 | `lightPage`          | boolean | No       | Light background for redirect page; default `true` |
 | `ttl`                | integer | No       | Expiration in seconds (60–31536000); 0 = permanent |
 
@@ -210,14 +211,14 @@ If the slug does not exist, redirects (302) to `DEFAULT` URL or the homepage —
 
 ### 认证方式
 
-**API 密钥**（仅在配置了 `KEY` 环境变量时需要）：
+**管理员密钥**（仅在配置了 `KEY` 环境变量时需要）：
 
 ```
-X-API-Key: your-api-key
+X-API-Key: your-admin-key
 ```
 或
 ```
-Authorization: Bearer your-api-key
+Authorization: Bearer your-admin-key
 ```
 
 **短码密码**（创建时返回的短码专属密钥）：
@@ -234,7 +235,7 @@ X-Password: slug-password
 
 | 错误码                    | 状态码 | 说明                                      |
 |---------------------------|--------|-------------------------------------------|
-| `UNAUTHORIZED`            | 401    | API 密钥缺失或无效                        |
+| `UNAUTHORIZED`            | 401    | 管理员密钥缺失或无效                      |
 | `INVALID_JSON`            | 400    | 请求体不是有效的 JSON                     |
 | `INVALID_URL`             | 400    | 目标 URL 不是有效的 HTTP/HTTPS 地址       |
 | `INVALID_REDIRECT_MODE`   | 400    | `redirectMode` 不是 `instant` 或 `manual` |
@@ -255,14 +256,14 @@ X-Password: slug-password
 | 请求头       | 必填       | 说明       |
 |--------------|------------|------------|
 | `X-Password` | 是         | 短码密码   |
-| `X-API-Key`  | 配置时必填 | API 密钥   |
+| `X-API-Key`  | 配置时必填 | 管理员密钥 |
 
 **响应：** 无响应体。
 
 | 状态码 | 含义                             |
 |--------|----------------------------------|
 | 200    | 短码存在且密码正确               |
-| 401    | API 密钥缺失或无效               |
+| 401    | 管理员密钥缺失或无效             |
 | 403    | 密码错误 / 短码不存在 / 未提供密码 |
 
 ---
@@ -276,7 +277,7 @@ X-Password: slug-password
 | 请求头       | 必填       | 说明                                     |
 |--------------|------------|------------------------------------------|
 | `X-Password` | 否         | 若短码已存在，验证所有权并返回条目数据   |
-| `X-API-Key`  | 配置时必填 | API 密钥                                 |
+| `X-API-Key`  | 配置时必填 | 管理员密钥                               |
 
 **请求体：**
 
@@ -290,6 +291,7 @@ X-Password: slug-password
 | `redirectPageTitle`  | string  | 否   | 自定义跳转页面标题；最长 128 字符            |
 | `redirectPageContent`| string  | 否   | 跳转页面内容（Markdown）；最长 2000 字符     |
 | `manualBtnTitle`     | string  | 否   | 自定义跳转按钮文案；最长 128 字符            |
+| `accessPassword`     | string  | 否   | 访客密码，仅手动跳转模式有效（3–16 位可打印非空格字符）；无效则忽略 |
 | `lightPage`          | boolean | 否   | 跳转页面使用亮色背景；默认 `true`            |
 | `ttl`                | integer | 否   | 过期时间（60–31536000 秒）；0 = 永久         |
 
@@ -412,14 +414,14 @@ X-Password: slug-password
 
 ### 認證方式
 
-**API 金鑰**（僅在設定了 `KEY` 環境變數時需要）：
+**管理員金鑰**（僅在設定了 `KEY` 環境變數時需要）：
 
 ```
-X-API-Key: your-api-key
+X-API-Key: your-admin-key
 ```
 或
 ```
-Authorization: Bearer your-api-key
+Authorization: Bearer your-admin-key
 ```
 
 **短碼密碼**（建立時回傳的短碼專屬密鑰）：
@@ -436,7 +438,7 @@ X-Password: slug-password
 
 | 錯誤碼                    | 狀態碼 | 說明                                      |
 |---------------------------|--------|-------------------------------------------|
-| `UNAUTHORIZED`            | 401    | API 金鑰缺失或無效                        |
+| `UNAUTHORIZED`            | 401    | 管理員金鑰缺失或無效                      |
 | `INVALID_JSON`            | 400    | 請求體不是有效的 JSON                     |
 | `INVALID_URL`             | 400    | 目標 URL 不是有效的 HTTP/HTTPS 地址       |
 | `INVALID_REDIRECT_MODE`   | 400    | `redirectMode` 不是 `instant` 或 `manual` |
@@ -457,14 +459,14 @@ X-Password: slug-password
 | 請求標頭     | 必填       | 說明       |
 |--------------|------------|------------|
 | `X-Password` | 是         | 短碼密碼   |
-| `X-API-Key`  | 設定時必填 | API 金鑰   |
+| `X-API-Key`  | 設定時必填 | 管理員金鑰 |
 
 **回應：** 無回應體。
 
 | 狀態碼 | 含義                              |
 |--------|-----------------------------------|
 | 200    | 短碼存在且密碼正確                |
-| 401    | API 金鑰缺失或無效                |
+| 401    | 管理員金鑰缺失或無效              |
 | 403    | 密碼錯誤 / 短碼不存在 / 未提供密碼 |
 
 ---
@@ -478,7 +480,7 @@ X-Password: slug-password
 | 請求標頭     | 必填       | 說明                                     |
 |--------------|------------|------------------------------------------|
 | `X-Password` | 否         | 若短碼已存在，驗證所有權並回傳條目資料   |
-| `X-API-Key`  | 設定時必填 | API 金鑰                                 |
+| `X-API-Key`  | 設定時必填 | 管理員金鑰                               |
 
 **請求體：**
 
@@ -492,6 +494,7 @@ X-Password: slug-password
 | `redirectPageTitle`  | string  | 否   | 自訂跳轉頁面標題；最長 128 字元              |
 | `redirectPageContent`| string  | 否   | 跳轉頁面內容（Markdown）；最長 2000 字元     |
 | `manualBtnTitle`     | string  | 否   | 自訂跳轉按鈕文案；最長 128 字元              |
+| `accessPassword`     | string  | 否   | 訪客密碼，僅手動跳轉模式有效（3–16 位可列印非空格字元）；無效則忽略 |
 | `lightPage`          | boolean | 否   | 跳轉頁面使用亮色背景；預設 `true`            |
 | `ttl`                | integer | 否   | 過期時間（60–31536000 秒）；0 = 永久         |
 

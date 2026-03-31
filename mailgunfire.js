@@ -12,7 +12,7 @@ function getConfig(env) {
 }
 
 function isValidLock(val) {
-  return typeof val === 'string' && val.length >= 4 && /^[\x21-\x7e]+$/.test(val);
+  return typeof val === 'string' && /^[\x21-\x7e]{3,16}$/.test(val);
 }
 
 function isValidTtl(val) {
@@ -1117,6 +1117,7 @@ const LOCK_TEMPLATE = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8
 'document.getElementById("lockForm").addEventListener("submit",function(e){' +
 'e.preventDefault();var btn=document.getElementById("lockBtn");var pw=document.getElementById("lockPw").value;' +
 'var rem=document.getElementById("lockRemember").checked;var err=document.getElementById("lockErr");' +
+'if(!/^[\\x21-\\x7e]{3,16}$/.test(pw)){err.textContent=t.wrong;return}' +
 'btn.disabled=true;err.textContent="";' +
 'fetch("/unlock",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:pw,remember:rem})})' +
 '.then(function(r){return r.json()}).then(function(d){' +
