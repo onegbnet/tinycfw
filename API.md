@@ -60,7 +60,7 @@ Check whether a slug exists and the password is correct, without returning any d
 | Status | Meaning                                      |
 |--------|----------------------------------------------|
 | 200    | Slug exists and password is correct          |
-| 401    | API key missing or invalid                   |
+| 401    | Admin key missing or invalid                   |
 | 403    | Wrong password / slug not found / no password |
 
 ---
@@ -116,6 +116,28 @@ If slug format was invalid: `"warn": "SLUG_IGNORED"` is included in the response
 
 ---
 
+### POST / — Batch create (admin only)
+
+Create multiple short links in one request by sending a JSON array instead of a single object. Requires admin key.
+
+**Headers:**
+
+| Header       | Required | Description                          |
+|--------------|----------|--------------------------------------|
+| `X-API-Key`  | Yes      | Admin key                            |
+
+**Request Body:** JSON array of create objects (same fields as single create).
+
+**Behavior:**
+
+- Duplicate slugs within the batch return 400 `BATCH_DUPLICATE_SLUG`.
+- Each item is created independently; partial success is possible.
+- Returns 201 if all succeed, 400 if all fail, 207 if mixed.
+
+**Response:** JSON array of results, one per item (same format as single create, or `{ "error": "..." }` for failures).
+
+---
+
 ### POST /:slug — Verify + query existing slug
 
 Retrieve full details of an existing slug by verifying with password.
@@ -125,7 +147,7 @@ Retrieve full details of an existing slug by verifying with password.
 | Header       | Required   | Description   |
 |--------------|------------|---------------|
 | `X-Password` | Yes        | Slug password |
-| `X-API-Key`  | If KEY set | API key       |
+| `X-API-Key`  | If KEY set | Admin key     |
 
 **Response (200):**
 
@@ -159,7 +181,7 @@ Update an existing short link.
 | Header       | Required   | Description   |
 |--------------|------------|---------------|
 | `X-Password` | Yes        | Slug password |
-| `X-API-Key`  | If KEY set | API key       |
+| `X-API-Key`  | If KEY set | Admin key     |
 
 **Request Body:** Same fields as create, plus:
 
@@ -180,7 +202,9 @@ Returns updated entry data. If `resetPassword` is `true`, a new `password` field
 | Header       | Required   | Description   |
 |--------------|------------|---------------|
 | `X-Password` | Yes        | Slug password |
-| `X-API-Key`  | If KEY set | API key       |
+| `X-API-Key`  | If KEY set | Admin key     |
+
+Note: admins with `X-API-Key` can delete any slug without knowing its modification password.
 
 **Response (200):**
 
@@ -189,6 +213,39 @@ Returns updated entry data. If `resetPassword` is `true`, a new `password` field
   "deleted": "aBc123"
 }
 ```
+
+---
+
+### DELETE / — Purge all (admin only)
+
+Delete **all** short links in the KV namespace. Requires admin key. Use with caution.
+
+**Headers:**
+
+| Header       | Required | Description                          |
+|--------------|----------|--------------------------------------|
+| `X-API-Key`  | Yes      | Admin key                            |
+
+**Response (200):**
+
+```json
+{
+  "purged": 42
+}
+```
+
+---
+
+### Admin-only capabilities
+
+The following operations are exclusive to holders of the admin key (`X-API-Key`):
+
+| Capability              | Description                                                        |
+|-------------------------|--------------------------------------------------------------------|
+| **Batch create**        | `POST /` with a JSON array — create multiple links in one request  |
+| **Purge all**           | `DELETE /` — wipe every link in the namespace                      |
+| **Manage any link**     | View, update, or delete any slug without its modification password |
+| **Bypass rate limits**  | Admin requests are never rate-limited                              |
 
 ---
 
@@ -319,6 +376,28 @@ X-Password: slug-password
 
 ---
 
+### POST / — 批量创建（仅管理员）
+
+发送 JSON 数组一次创建多条短链接。需要管理员密钥。
+
+**请求头：**
+
+| 请求头       | 必填 | 说明       |
+|--------------|------|------------|
+| `X-API-Key`  | 是   | 管理员密钥 |
+
+**请求体：** 与单条创建相同字段的 JSON 数组。
+
+**行为说明：**
+
+- 批次内短码重复返回 400 `BATCH_DUPLICATE_SLUG`。
+- 每条独立创建，可能部分成功。
+- 全部成功返回 201，全部失败返回 400，部分成功返回 207。
+
+**响应：** JSON 数组，每项与单条创建格式相同（失败项为 `{ "error": "..." }`）。
+
+---
+
 ### POST /:slug — 验证并查询已有短码
 
 通过密码验证后获取短码完整详情。
@@ -328,7 +407,7 @@ X-Password: slug-password
 | 请求头       | 必填       | 说明     |
 |--------------|------------|----------|
 | `X-Password` | 是         | 短码密码 |
-| `X-API-Key`  | 配置时必填 | API 密钥 |
+| `X-API-Key`  | 配置时必填 | 管理员密钥 |
 
 **响应（200）：**
 
@@ -362,7 +441,7 @@ X-Password: slug-password
 | 请求头       | 必填       | 说明     |
 |--------------|------------|----------|
 | `X-Password` | 是         | 短码密码 |
-| `X-API-Key`  | 配置时必填 | API 密钥 |
+| `X-API-Key`  | 配置时必填 | 管理员密钥 |
 
 **请求体：** 与创建相同的字段，另加：
 
@@ -382,8 +461,10 @@ X-Password: slug-password
 
 | 请求头       | 必填       | 说明     |
 |--------------|------------|----------|
-| `X-Password` | 是         | 短码密码 |
-| `X-API-Key`  | 配置时必填 | API 密钥 |
+| `X-Password` | 是         | 短码密码   |
+| `X-API-Key`  | 配置时必填 | 管理员密钥 |
+
+注：持有 `X-API-Key` 的管理员可删除任意短码，无需其修改密码。
 
 **响应（200）：**
 
@@ -392,6 +473,39 @@ X-Password: slug-password
   "deleted": "aBc123"
 }
 ```
+
+---
+
+### DELETE / — 清除全部（仅管理员）
+
+删除 KV 命名空间中的**所有**短链接。需要管理员密钥。请谨慎使用。
+
+**请求头：**
+
+| 请求头       | 必填 | 说明       |
+|--------------|------|------------|
+| `X-API-Key`  | 是   | 管理员密钥 |
+
+**响应（200）：**
+
+```json
+{
+  "purged": 42
+}
+```
+
+---
+
+### 管理员专属功能
+
+以下操作仅限持有管理员密钥（`X-API-Key`）的用户：
+
+| 功能           | 说明                                                      |
+|----------------|-----------------------------------------------------------|
+| **批量创建**   | `POST /` 发送 JSON 数组 — 一次请求创建多条短链接          |
+| **清除全部**   | `DELETE /` — 删除命名空间中的所有链接                     |
+| **管理任意链接** | 无需修改密码即可查看、更新或删除任意短码                |
+| **不受频率限制** | 管理员请求不受每日配额限制                              |
 
 ---
 
@@ -522,6 +636,28 @@ X-Password: slug-password
 
 ---
 
+### POST / — 批次建立（僅管理員）
+
+發送 JSON 陣列一次建立多條短連結。需要管理員金鑰。
+
+**請求標頭：**
+
+| 請求標頭     | 必填 | 說明       |
+|--------------|------|------------|
+| `X-API-Key`  | 是   | 管理員金鑰 |
+
+**請求體：** 與單條建立相同欄位的 JSON 陣列。
+
+**行為說明：**
+
+- 批次內短碼重複回傳 400 `BATCH_DUPLICATE_SLUG`。
+- 每條獨立建立，可能部分成功。
+- 全部成功回傳 201，全部失敗回傳 400，部分成功回傳 207。
+
+**回應：** JSON 陣列，每項與單條建立格式相同（失敗項為 `{ "error": "..." }`）。
+
+---
+
 ### POST /:slug — 驗證並查詢已有短碼
 
 透過密碼驗證後取得短碼完整詳情。
@@ -531,7 +667,7 @@ X-Password: slug-password
 | 請求標頭     | 必填       | 說明     |
 |--------------|------------|----------|
 | `X-Password` | 是         | 短碼密碼 |
-| `X-API-Key`  | 設定時必填 | API 金鑰 |
+| `X-API-Key`  | 設定時必填 | 管理員金鑰 |
 
 **回應（200）：**
 
@@ -565,7 +701,7 @@ X-Password: slug-password
 | 請求標頭     | 必填       | 說明     |
 |--------------|------------|----------|
 | `X-Password` | 是         | 短碼密碼 |
-| `X-API-Key`  | 設定時必填 | API 金鑰 |
+| `X-API-Key`  | 設定時必填 | 管理員金鑰 |
 
 **請求體：** 與建立相同的欄位，另加：
 
@@ -585,8 +721,10 @@ X-Password: slug-password
 
 | 請求標頭     | 必填       | 說明     |
 |--------------|------------|----------|
-| `X-Password` | 是         | 短碼密碼 |
-| `X-API-Key`  | 設定時必填 | API 金鑰 |
+| `X-Password` | 是         | 短碼密碼   |
+| `X-API-Key`  | 設定時必填 | 管理員金鑰 |
+
+注：持有 `X-API-Key` 的管理員可刪除任意短碼，無需其修改密碼。
 
 **回應（200）：**
 
@@ -595,6 +733,39 @@ X-Password: slug-password
   "deleted": "aBc123"
 }
 ```
+
+---
+
+### DELETE / — 清除全部（僅管理員）
+
+刪除 KV 命名空間中的**所有**短連結。需要管理員金鑰。請謹慎使用。
+
+**請求標頭：**
+
+| 請求標頭     | 必填 | 說明       |
+|--------------|------|------------|
+| `X-API-Key`  | 是   | 管理員金鑰 |
+
+**回應（200）：**
+
+```json
+{
+  "purged": 42
+}
+```
+
+---
+
+### 管理員專屬功能
+
+以下操作僅限持有管理員金鑰（`X-API-Key`）的使用者：
+
+| 功能             | 說明                                                      |
+|------------------|-----------------------------------------------------------|
+| **批次建立**     | `POST /` 發送 JSON 陣列 — 一次請求建立多條短連結          |
+| **清除全部**     | `DELETE /` — 刪除命名空間中的所有連結                     |
+| **管理任意連結** | 無需修改密碼即可檢視、更新或刪除任意短碼                  |
+| **不受頻率限制** | 管理員請求不受每日配額限制                                |
 
 ---
 
