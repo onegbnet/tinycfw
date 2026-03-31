@@ -122,6 +122,7 @@ Most URL shorteners force you to sign up before you can create a link, or give y
 - **Create without signup** — open the page, paste a URL, get a short link. No email, no OAuth, no tracking cookies
 - **One-time modification password** — shown once at creation. Save it and you can view, edit, or delete your link anytime — you own your link without needing an account
 - **Rich redirect page editor** — toggle between WYSIWYG and Markdown to craft a branded interstitial with custom title, button text, dark/light background, and centered layout
+- **One-time links** — check a box and the link self-destructs after the first successful redirect; deletion happens only when the visitor actually navigates, not when the page is merely viewed
 - **Rate-limited, not blocked** — a passive fingerprint (IP + UA + TLS, no client storage) enforces a fair daily quota (`LIMIT`, default 10) instead of requiring login
 
 #### For automation & API users
@@ -191,6 +192,7 @@ For API documentation, see [API.md](API.md#shurl).
 - **无需注册即可创建** — 打开页面、粘贴 URL、获得短链接。不要邮箱、不要 OAuth、不设追踪 Cookie
 - **一次性修改密码** — 创建时显示一次，保存好它就能随时查看、编辑或删除你的链接 — 不用注册账号也能拥有链接的完整控制权
 - **富文本跳转页编辑器** — 在所见即所得和 Markdown 之间自由切换，打造品牌化中间页，自定义标题、按钮文案、亮色/暗色背景、内容居中
+- **一次性链接** — 勾选即可创建跳转后自动销毁的链接；仅在访客真正完成跳转时才删除，而非仅展示页面时
 - **限频而非封锁** — 基于被动指纹（IP + UA + TLS，无客户端存储）实施合理的每日配额（`LIMIT`，默认 10 次），代替强制登录
 
 #### 自动化与 API 用户
@@ -260,6 +262,7 @@ API 文档详见 [API.md](API.md#shurl简体中文)。
 - **無需註冊即可建立** — 開啟頁面、貼上 URL、取得短連結。不要信箱、不要 OAuth、不設追蹤 Cookie
 - **一次性修改密碼** — 建立時顯示一次，保存好它就能隨時檢視、編輯或刪除你的連結 — 不用註冊帳號也能擁有連結的完整控制權
 - **富文字跳轉頁編輯器** — 在所見即所得和 Markdown 之間自由切換，打造品牌化中間頁，自訂標題、按鈕文案、亮色/暗色背景、內容置中
+- **一次性連結** — 勾選即可建立跳轉後自動銷毀的連結；僅在訪客真正完成跳轉時才刪除，而非僅展示頁面時
 - **限頻而非封鎖** — 基於被動指紋（IP + UA + TLS，無用戶端儲存）實施合理的每日配額（`LIMIT`，預設 10 次），代替強制登入
 
 #### 自動化與 API 使用者

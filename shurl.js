@@ -60,7 +60,7 @@ function esc(s) {
 }
 
 function clean(obj) {
-  var defaults = { countdown: 0, permanent: true, darkBackground: false, centerContent: false, ttl: 0, redirectMode: "instant" };
+  var defaults = { countdown: 0, permanent: true, oneTime: false, darkBackground: false, centerContent: false, ttl: 0, redirectMode: "instant" };
   var result = {};
   for (var k in obj) {
     if (!obj.hasOwnProperty(k)) continue;
@@ -171,6 +171,7 @@ async function createOne(item, slug, validSlug, env, requestUrl) {
 
   const permanent = item.permanent !== false;
   const manualBtnTitle = (item.manualBtnTitle || '').trim().slice(0, 128);
+  const oneTime = item.oneTime === true;
   const darkBackground = item.darkBackground === true;
   const centerContent = item.centerContent === true;
   const redirectPageTitle = (item.redirectPageTitle || "").trim().slice(0, DELAY_TITLE_MAX);
@@ -211,7 +212,7 @@ async function createOne(item, slug, validSlug, env, requestUrl) {
     redirectPageContent: redirectPageContent || null,
     manualBtnTitle: manualBtnTitle || null,
     accessHash: accessHash || null,
-    darkBackground, centerContent, ttl, createdAt: now, updatedAt: null,
+    oneTime, darkBackground, centerContent, ttl, createdAt: now, updatedAt: null,
   });
   const putOpts = {};
   if (ttl > 0) putOpts.expirationTtl = ttl;
@@ -300,6 +301,7 @@ const I18N_JSON = JSON.stringify({
     pwHint: "Enter the password shown when you first created this slug.",
     ttlOptions: "Expiration",
     ttlHint: "0 = permanent. Min 60 seconds, max 12 months. Invalid input such as negative numbers or decimals will be ignored.",
+    oneTimeLabel: "One-time redirection (link expires after redirect)",
     ttlUnit_s: "Seconds",
     ttlUnit_m: "Minutes",
     ttlUnit_h: "Hours",
@@ -374,6 +376,7 @@ const I18N_JSON = JSON.stringify({
     pwHint: "输入创建该短码时显示的密码。",
     ttlOptions: "有效时长",
     ttlHint: "0 = 永久有效。最小 60 秒，最长 12 个月。输入无效值或负数、小数等非法值将被忽略。",
+    oneTimeLabel: "跳转后即失效",
     ttlUnit_s: "秒",
     ttlUnit_m: "分钟",
     ttlUnit_h: "小时",
@@ -448,6 +451,7 @@ const I18N_JSON = JSON.stringify({
     pwHint: "輸入建立該短碼時顯示的密碼。",
     ttlOptions: "有效時長",
     ttlHint: "0 = 永久有效。最小 60 秒，最長 12 個月。輸入無效值或負數、小數等非法值將被忽略。",
+    oneTimeLabel: "跳轉後即失效",
     ttlUnit_s: "秒",
     ttlUnit_m: "分鐘",
     ttlUnit_h: "小時",
@@ -521,6 +525,7 @@ const I18N_JSON = JSON.stringify({
     pwHint: "作成時に表示されたパスワードを入力してください。",
     ttlOptions: "有効期限",
     ttlHint: "0 = 無期限。最小60秒、最大12ヶ月。無効な値や負数・小数などは無視されます。",
+    oneTimeLabel: "リダイレクト後に無効化",
     ttlUnit_s: "秒",
     ttlUnit_m: "分",
     ttlUnit_h: "時間",
@@ -595,6 +600,7 @@ const I18N_JSON = JSON.stringify({
     pwHint: "슬러그 생성 시 표시된 비밀번호를 입력하세요.",
     ttlOptions: "유효 기간",
     ttlHint: "0 = 영구. 최소 60초, 최대 12개월. 잘못된 값이나 음수, 소수 등은 무시됩니다.",
+    oneTimeLabel: "리디렉션 후 만료",
     ttlUnit_s: "초",
     ttlUnit_m: "분",
     ttlUnit_h: "시간",
@@ -669,6 +675,7 @@ const I18N_JSON = JSON.stringify({
     pwHint: "Masukkan kata laluan yang dipaparkan semasa slug ini dicipta.",
     ttlOptions: "Tempoh sah",
     ttlHint: "0 = kekal. Min 60 saat, maks 12 bulan. Nilai tidak sah seperti nombor negatif atau perpuluhan akan diabaikan.",
+    oneTimeLabel: "Ubah hala sekali (pautan tamat selepas ubah hala)",
     ttlUnit_s: "Saat",
     ttlUnit_m: "Minit",
     ttlUnit_h: "Jam",
@@ -743,6 +750,7 @@ const I18N_JSON = JSON.stringify({
     pwHint: "Nhập mật khẩu được hiển thị khi bạn tạo slug này.",
     ttlOptions: "Thời hạn",
     ttlHint: "0 = vĩnh viễn. Tối thiểu 60 giây, tối đa 12 tháng. Giá trị không hợp lệ như số âm, số thập phân sẽ bị bỏ qua.",
+    oneTimeLabel: "Chuyển hướng một lần (liên kết hết hạn sau khi chuyển hướng)",
     ttlUnit_s: "Giây",
     ttlUnit_m: "Phút",
     ttlUnit_h: "Giờ",
@@ -817,6 +825,7 @@ const I18N_JSON = JSON.stringify({
     pwHint: "ใส่รหัสผ่านที่แสดงเมื่อคุณสร้าง slug นี้",
     ttlOptions: "ระยะเวลาใช้งาน",
     ttlHint: "0 = ถาวร ขั้นต่ำ 60 วินาที สูงสุด 12 เดือน ค่าที่ไม่ถูกต้อง เช่น ค่าลบ ทศนิยม จะถูกละเว้น",
+    oneTimeLabel: "เปลี่ยนเส้นทางครั้งเดียว (ลิงก์หมดอายุหลังเปลี่ยนเส้นทาง)",
     ttlUnit_s: "วินาที",
     ttlUnit_m: "นาที",
     ttlUnit_h: "ชั่วโมง",
@@ -891,6 +900,7 @@ const I18N_JSON = JSON.stringify({
     pwHint: "இந்த slug ஐ உருவாக்கும்போது காட்டிய கடவுச்சொல்லை உள்ளிடுக.",
     ttlOptions: "செல்லுபடி காலம்",
     ttlHint: "0 = நிரந்தரம். குறைந்தது 60 வினாடி, அதிகபட்சம் 12 மாதங்கள். எதிர்மறை எண், தசமம் போன்ற தவறான மதிப்புகள் புறக்கணிக்கப்படும்.",
+    oneTimeLabel: "ஒருமுறை திசைமாற்றம் (திசைமாற்றத்திற்குப் பிறகு காலாவதியாகும்)",
     ttlUnit_s: "வினாடி",
     ttlUnit_m: "நிமிடம்",
     ttlUnit_h: "மணி",
@@ -965,6 +975,7 @@ const I18N_JSON = JSON.stringify({
     pwHint: "הכנס את הסיסמה שהוצגה כשיצרת את הקוד.",
     ttlOptions: "תוקף",
     ttlHint: "0 = לצמיתות. מינימום 60 שניות, מקסימום 12 חודשים. ערכים לא תקינים כגון מספרים שליליים או עשרוניים יתעלמו.",
+    oneTimeLabel: "הפניה חד-פעמית (הקישור פג תוקף לאחר הפניה)",
     ttlUnit_s: "שניות",
     ttlUnit_m: "דקות",
     ttlUnit_h: "שעות",
@@ -1039,6 +1050,7 @@ const I18N_JSON = JSON.stringify({
     pwHint: "أدخل كلمة المرور التي ظهرت عند إنشاء هذا الرمز.",
     ttlOptions: "مدة الصلاحية",
     ttlHint: "0 = دائم. الحد الأدنى 60 ثانية، الحد الأقصى 12 شهرًا. القيم غير الصالحة كالأرقام السالبة أو العشرية سيتم تجاهلها.",
+    oneTimeLabel: "إعادة توجيه لمرة واحدة (ينتهي الرابط بعد إعادة التوجيه)",
     ttlUnit_s: "ثوانٍ",
     ttlUnit_m: "دقائق",
     ttlUnit_h: "ساعات",
@@ -1203,13 +1215,19 @@ body{font-family:system-ui,sans-serif;background:${bg};color:${fg};min-height:10
 <div class="body-content" id="body-content"></div>
 ${needsPw ? `${showError ? '<p class="pw-err" id="pw-err"></p>' : ''}<form id="pw-form" method="GET" action="/${esc(slug)}"><div class="pw-area"><input type="password" name="_pw" id="pw-input" autofocus required></div><div class="skip"><button type="submit" id="pw-btn" style="display:inline-block;padding:12px 32px;background:#3b82f6;color:#fff;border-radius:8px;font-size:1rem;font-weight:600;border:none;cursor:pointer"></button></div></form>` : `<div class="countdown" id="count">${seconds}</div>
 <div class="bar-track"><div class="bar-fill" id="bar" style="width:100%"></div></div>
-<div class="skip"><a id="skip-link" href="${esc(target)}"></a></div>`}
+<div class="skip"><a id="go-link" href="${esc(target)}" onclick="consumeAndGo();return false"></a></div>`}
 </div><script>
 const I18N=${I18N_JSON};
 const lang=${JSON.stringify(lang)};
 const t=I18N[lang]||I18N.en;
 const target=${JSON.stringify(target)};
 const needsPw=${needsPw};
+const oneTime=${!!entry.oneTime};
+const slug=${JSON.stringify(slug)};
+function consumeAndGo(){
+  if(!oneTime){location.href=target;return}
+  fetch('/_ot/'+slug,{method:'POST'}).finally(function(){location.href=target});
+}
 const customTitle=${JSON.stringify(titleRaw)};
 const customBody=${JSON.stringify(bodyRaw)};
 const customBtnTitle=${JSON.stringify(customBtnTitle)};
@@ -1228,16 +1246,16 @@ if(needsPw){
   if(total===0){
     document.getElementById('count').style.display='none';
     document.getElementById('bar').parentNode.style.display='none';
-    document.getElementById('skip-link').textContent=btnTitle;
-    document.getElementById('skip-link').style.cssText='display:inline-block;padding:12px 32px;background:#3b82f6;color:#fff;border-radius:8px;text-decoration:none;font-size:1rem;font-weight:600';
+    document.getElementById('go-link').textContent=btnTitle;
+    document.getElementById('go-link').style.cssText='display:inline-block;padding:12px 32px;background:#3b82f6;color:#fff;border-radius:8px;text-decoration:none;font-size:1rem;font-weight:600';
   }else{
-    document.getElementById('skip-link').textContent=btnTitle;
+    document.getElementById('go-link').textContent=btnTitle;
     let left=${seconds};
     const countEl=document.getElementById('count');
     const barEl=document.getElementById('bar');
     const iv=setInterval(()=>{
       left--;
-      if(left<=0){clearInterval(iv);location.href=target;return}
+      if(left<=0){clearInterval(iv);consumeAndGo();return}
       countEl.textContent=left;
       barEl.style.width=((left/total)*100)+'%';
     },1000);
@@ -1462,6 +1480,10 @@ textarea{resize:vertical;min-height:60px}
     </select>
   </div>
   <p class="hint" id="h-ttl"></p>
+  <label class="rd-check" style="margin:.8rem 0">
+    <input type="checkbox" id="oneTime">
+    <span id="l-oneTime"></span>
+  </label>
 </div>
 
 <div class="collapse-toggle" id="adv-toggle" onclick="toggleAdvanced()"></div>
@@ -1773,6 +1795,7 @@ function applyI18n(){
   document.getElementById('l-usePermanent').textContent=t.usePermanent;
   document.getElementById('l-manualBtn').textContent=t.manualBtnLabel;
   document.getElementById('manualBtnTitle').placeholder=t.manualBtnPlaceholder;
+  document.getElementById('l-oneTime').textContent=t.oneTimeLabel;
   document.getElementById('l-darkBackground').textContent=t.darkBackground;
   document.getElementById('l-centerContent').textContent=t.centerContent;
   document.getElementById('l-manualSub').textContent=t.manualSub;
@@ -1905,6 +1928,7 @@ function setMode(m){
   wysiwygPane.innerHTML='';
   mdPane.value='';
   document.getElementById('manualBtnTitle').value='';
+  document.getElementById('oneTime').checked=false;
   document.getElementById('darkBackground').checked=false;
   document.getElementById('centerContent').checked=false;
   updateRdMode();
@@ -1942,19 +1966,19 @@ var urlInput=document.getElementById('u');
 var urlStatus=document.getElementById('url-status');
 var submitBtn=document.getElementById('submit-btn');
 
+var BLOCKED_HOSTS=['bit.ly','j.mp','bitly.com','tinyurl.com','t.co','goo.gl','ow.ly','is.gd','v.gd','buff.ly','adf.ly','bl.ink','rb.gy','short.io','cutt.ly','rebrand.ly','qr.ae','1url.com','hyperurl.co','bit.do','tiny.cc','shorturl.at','shorturl.me','t.ly','t2m.io','to.ly','tr.im','snip.ly','snipurl.com','po.st','su.pr','soo.gd','clck.ru','ppt.cc','reurl.cc','s.id','dub.sh','lc.chat','shorten.tv','waa.ai','han.gl','kl.am','u.nu','u.to','fur.ly','cli.gs','trib.al','shr.lc','urlz.fr','x.co','0rz.tw','go.ly','goo.by','loom.ly','clicky.me','bom.so','ln.is','p.ly','t.cn','url.cn','w.url.cn','dwz.cn','dwz.date','dwz.lc','dwz.win','sina.lt','suo.nz','mrw.so','mtw.so','rrd.me','c-n.cc','m6z.cn','u6.gg','tb.cn','d.cn'];
+function isBlockedUrl(v){try{var u=new URL(v);var h=u.hostname.toLowerCase();if(v.toLowerCase().indexOf(window.location.origin.toLowerCase())===0)return true;if(BLOCKED_HOSTS.indexOf(h)!==-1)return true}catch(e){}return false}
+
 function checkSubmitState(){
   if(mode==='modify') return; // submit controlled by verify in modify mode
-  var urlOk=false,slugOk=true,keyOk=!KEY_REQUIRED;
+  var urlOk=false,slugOk=true;
   var uv=urlInput.value.trim();
-  if(isAdminMode()||!KEY_REQUIRED) keyOk=true;
   if(uv){urlOk=true;try{var u=new URL(uv);if((u.protocol!=='http:'&&u.protocol!=='https:')||!/^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z]{2,63}$/i.test(u.hostname))urlOk=false;else if(isBlockedUrl(uv))urlOk=false}catch(e){urlOk=false}}
   var sv=document.getElementById('s').value.trim();
   if(sv&&!/^[a-zA-Z0-9]{3,10}$/.test(sv))slugOk=false;
-  submitBtn.disabled=!(urlOk&&slugOk&&keyOk);
+  submitBtn.disabled=!(urlOk&&slugOk);
 }
 
-var BLOCKED_HOSTS=['bit.ly','j.mp','bitly.com','tinyurl.com','t.co','goo.gl','ow.ly','is.gd','v.gd','buff.ly','adf.ly','bl.ink','rb.gy','short.io','cutt.ly','rebrand.ly','qr.ae','1url.com','hyperurl.co','bit.do','tiny.cc','shorturl.at','shorturl.me','t.ly','t2m.io','to.ly','tr.im','snip.ly','snipurl.com','po.st','su.pr','soo.gd','clck.ru','ppt.cc','reurl.cc','s.id','dub.sh','lc.chat','shorten.tv','waa.ai','han.gl','kl.am','u.nu','u.to','fur.ly','cli.gs','trib.al','shr.lc','urlz.fr','x.co','0rz.tw','go.ly','goo.by','loom.ly','clicky.me','bom.so','ln.is','p.ly','t.cn','url.cn','w.url.cn','dwz.cn','dwz.date','dwz.lc','dwz.win','sina.lt','suo.nz','mrw.so','mtw.so','rrd.me','c-n.cc','m6z.cn','u6.gg','tb.cn','d.cn'];
-function isBlockedUrl(v){try{var u=new URL(v);var h=u.hostname.toLowerCase();if(v.toLowerCase().indexOf(window.location.origin.toLowerCase())===0)return true;if(BLOCKED_HOSTS.indexOf(h)!==-1)return true}catch(e){}return false}
 function validateUrl(){
   var v=urlInput.value.trim();
   if(!v){urlStatus.textContent='';urlStatus.className='';checkSubmitState();return}
@@ -2010,7 +2034,8 @@ async function verifySlug(){
   if(!/^[a-zA-Z0-9]{3,10}$/.test(s)){st.textContent='❌ '+t.errSlugInvalid;st.className='bad';return}
 
   try{
-    var hdrs={'X-Password':p};
+    var hdrs={};
+    if(p) hdrs['X-Password']=p;
     if(k) hdrs['X-Admin-Key']=k;
     var res=await fetch('/'+s,{method:'HEAD',headers:hdrs});
     if(res.ok){
@@ -2036,7 +2061,7 @@ async function loadEntry(){
   try{
     var res=await fetch('/'+s,{
       method:'POST',
-      headers:{'X-Admin-Key':k,'X-Password':p}
+      headers:Object.assign({},p?{'X-Password':p}:{},k?{'X-Admin-Key':k}:{})
     });
     if(res.ok){
       var d=await res.json();
@@ -2066,6 +2091,7 @@ async function loadEntry(){
         document.getElementById('modeMd').classList.add('active');
       }
       document.getElementById('manualBtnTitle').value = d.manualBtnTitle || '';
+      document.getElementById('oneTime').checked = d.oneTime === true;
       document.getElementById('darkBackground').checked = d.darkBackground === true;
       document.getElementById('centerContent').checked = d.centerContent === true;
       updateRdMode();
@@ -2101,6 +2127,7 @@ async function go(){
   if(redirectPageContent.length>2000) redirectPageContent=redirectPageContent.slice(0,2000);
   if(!u){r.textContent='❌ '+t.errUrl;r.className='err';r.style.display='block';return}
   try{var uu=new URL(u);if((uu.protocol!=='http:'&&uu.protocol!=='https:')||!/^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z]{2,63}$/i.test(uu.hostname))throw 0}catch(e){r.textContent='❌ '+t.errUrlInvalid;r.className='err';r.style.display='block';return}
+  if(isBlockedUrl(u)){r.textContent='❌ '+t.errUrlBlocked;r.className='err';r.style.display='block';return}
   if(mode==='modify'&&!s){r.textContent='❌ '+t.errSlug;r.className='err';r.style.display='block';return}
   if(mode==='modify'&&!p&&!isAdminMode()){r.textContent='❌ '+t.errPw;r.className='err';r.style.display='block';return}
   const payload={url:u};
@@ -2139,13 +2166,15 @@ async function go(){
   payload.redirectPageTitle=redirectPageTitle;
   payload.redirectPageContent=redirectPageContent;
   payload.manualBtnTitle=document.getElementById('manualBtnTitle').value.trim();
+  payload.oneTime=document.getElementById('oneTime').checked;
   payload.darkBackground=document.getElementById('darkBackground').checked;
   payload.centerContent=document.getElementById('centerContent').checked;
   var fetchUrl = mode==='modify' ? '/'+s : (s ? '/'+s : '/');
   var fetchMethod = mode==='modify' ? 'PUT' : 'POST';
   try{
-    var hdrs={'Content-Type':'application/json','X-Admin-Key':k};
-    if(mode==='modify') hdrs['X-Password']=p;
+    var hdrs={'Content-Type':'application/json'};
+    if(k) hdrs['X-Admin-Key']=k;
+    if(mode==='modify'&&p) hdrs['X-Password']=p;
     const res=await fetch(fetchUrl,{method:fetchMethod,headers:hdrs,body:JSON.stringify(payload)});
     const d=await res.json();
     if(res.ok){
@@ -2178,7 +2207,7 @@ async function confirmDelete(){
   if(!s) return;
   try{
     var p=document.getElementById('p').value;
-    var res=await fetch('/'+s,{method:'DELETE',headers:{'X-Admin-Key':k,'X-Password':p}});
+    var res=await fetch('/'+s,{method:'DELETE',headers:Object.assign({},p?{'X-Password':p}:{},k?{'X-Admin-Key':k}:{})});
     var d=await res.json();
     if(res.ok){
       r.textContent='✓';r.className='free';r.style.display='block';
@@ -2287,6 +2316,7 @@ export default {
       if (!raw) return notFound(env, url);
       const entry = JSON.parse(raw);
       const mode = entry.redirectMode || 'instant';
+      const consumeOneTime = () => { if (entry.oneTime) ctx.waitUntil(env.DATA.delete(slug)); };
       if (mode === 'manual') {
         const acceptLang = request.headers.get("Accept-Language") || "";
         if (entry.accessHash) {
@@ -2294,6 +2324,7 @@ export default {
           if (providedPw) {
             const h = await hashPassword(providedPw);
             if (await safeEqual(h, entry.accessHash)) {
+              consumeOneTime();
               return Response.redirect(entry.url, entry.permanent === false ? 302 : 301);
             }
             return html(redirectPage(entry, acceptLang, cdnHost, slug, true));
@@ -2302,7 +2333,23 @@ export default {
         }
         return html(redirectPage(entry, acceptLang, cdnHost, slug, false));
       }
+      consumeOneTime();
       return Response.redirect(entry.url, entry.permanent === false ? 302 : 301);
+    }
+
+    // ── POST /_ot/:slug — consume one-time link (called by redirect page JS) ──
+    if (method === "POST" && slug.startsWith("_ot/")) {
+      const realSlug = slug.slice(4);
+      if (!realSlug) return json({ ok: false }, 400);
+      const raw = await env.DATA.get(realSlug);
+      if (raw) {
+        const entry = JSON.parse(raw);
+        if (entry.oneTime) {
+          await env.DATA.delete(realSlug);
+          return json({ ok: true });
+        }
+      }
+      return json({ ok: true });
     }
 
     // ── HEAD /:slug — verify slug + password (no body) ──

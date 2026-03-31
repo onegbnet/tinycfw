@@ -89,6 +89,7 @@ Create a new short link. Optionally specify a custom slug via `POST /:slug` or i
 | `redirectPageTitle`  | string  | No       | Custom redirect page title; max 128 chars          |
 | `redirectPageContent`| string  | No       | Redirect page content (Markdown); max 2000 chars   |
 | `manualBtnTitle`     | string  | No       | Custom redirect button text; max 128 chars         |
+| `oneTime`            | boolean | No       | Link self-destructs after first redirect; default `false`  |
 | `accessPassword`     | string  | No       | Visitor password for manual-redirect links (3–16 printable non-space chars); ignored if invalid or mode is `instant` |
 | `lightPage`          | boolean | No       | Light background for redirect page; default `true` |
 | `ttl`                | integer | No       | Expiration in seconds (60–31536000); 0 = permanent |
@@ -350,6 +351,7 @@ X-Password: slug-password
 | `redirectPageTitle`  | string  | 否   | 自定义跳转页面标题；最长 128 字符            |
 | `redirectPageContent`| string  | 否   | 跳转页面内容（Markdown）；最长 2000 字符     |
 | `manualBtnTitle`     | string  | 否   | 自定义跳转按钮文案；最长 128 字符            |
+| `oneTime`            | boolean | 否   | 跳转后即失效，首次跳转后自动删除；默认 `false`               |
 | `accessPassword`     | string  | 否   | 访客密码，仅手动跳转模式有效（3–16 位可打印非空格字符）；无效则忽略 |
 | `lightPage`          | boolean | 否   | 跳转页面使用亮色背景；默认 `true`            |
 | `ttl`                | integer | 否   | 过期时间（60–31536000 秒）；0 = 永久         |
@@ -611,6 +613,7 @@ X-Password: slug-password
 | `redirectPageTitle`  | string  | 否   | 自訂跳轉頁面標題；最長 128 字元              |
 | `redirectPageContent`| string  | 否   | 跳轉頁面內容（Markdown）；最長 2000 字元     |
 | `manualBtnTitle`     | string  | 否   | 自訂跳轉按鈕文案；最長 128 字元              |
+| `oneTime`            | boolean | 否   | 跳轉後即失效，首次跳轉後自動刪除；預設 `false`               |
 | `accessPassword`     | string  | 否   | 訪客密碼，僅手動跳轉模式有效（3–16 位可列印非空格字元）；無效則忽略 |
 | `lightPage`          | boolean | 否   | 跳轉頁面使用亮色背景；預設 `true`            |
 | `ttl`                | integer | 否   | 過期時間（60–31536000 秒）；0 = 永久         |
