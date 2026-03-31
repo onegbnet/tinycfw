@@ -1,16 +1,20 @@
 /**
- * URL Shortener — Cloudflare Worker + KV
+ * Shurl — Cloudflare Worker + KV
  *
  * Single-file, zero-dependency. Paste into the CF dashboard editor.
  *
  * Setup:
  *   1. Workers KV → Create namespace (e.g. "URL_STORE")
  *   2. Worker Settings → KV Namespace Bindings → Variable name: DATA → select your namespace
- *   3. Worker Settings → Secrets → Add: KEY = <comma-separated API keys>
- *   4. (Optional) Add variable: TTL = default expiration in seconds (0=permanent, 60-31536000)
- *   5. (Optional) Add variable: BASE = short link base URL (e.g. https://s.mydomain.tld)
- *   6. (Optional) Add variable: DEFAULT = fallback redirect URL when slug not found
+ *   3. (Optional) Secrets → KEY = comma-separated admin keys (enables admin mode)
+ *   4. (Optional) Secrets → LOCK = front-end lock screen password (>=4 chars, does not affect API)
+ *   5. (Optional) Add variable: TTL = default expiration in seconds (0=permanent, 60-31536000)
+ *   6. (Optional) Add variable: LIMIT = public rate limit per 24h (default: 10, create + modify combined)
+ *   7. (Optional) Add variable: BASE = short link base URL (e.g. https://s.mydomain.tld)
+ *   8. (Optional) Add variable: DEFAULT = fallback redirect URL when slug not found
  */
+
+const GAOBO_PNG_B64 = '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';
 
 const SLUG_CHARS = "abcdefghijkmnpqrstuvwxyz23456789";
 const SLUG_MIN = 3;
@@ -56,7 +60,7 @@ function esc(s) {
 }
 
 function clean(obj) {
-  var defaults = { countdown: 0, permanent: true, lightPage: true, ttl: 0, redirectMode: "instant" };
+  var defaults = { countdown: 0, permanent: true, darkBackground: false, centerContent: false, ttl: 0, redirectMode: "instant" };
   var result = {};
   for (var k in obj) {
     if (!obj.hasOwnProperty(k)) continue;
@@ -114,10 +118,11 @@ function json(data, status = 200) {
     headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
   });
 }
-
-const BATCH_DEFAULT = 50;
-const BATCH_MIN = 1;
-const BATCH_MAX = 500;
+function html(body) {
+  return new Response(body, {
+    headers: { "Content-Type": "text/html;charset=utf-8", "Cache-Control": "no-store" },
+  });
+}
 
 async function createOne(item, slug, validSlug, env, requestUrl) {
   const target = (item.url || "").trim();
@@ -134,19 +139,31 @@ async function createOne(item, slug, validSlug, env, requestUrl) {
 
   const permanent = item.permanent !== false;
   const manualBtnTitle = (item.manualBtnTitle || '').trim().slice(0, 128);
-  const lightPage = item.lightPage !== false;
+  const darkBackground = item.darkBackground === true;
+  const centerContent = item.centerContent === true;
   const redirectPageTitle = (item.redirectPageTitle || "").trim().slice(0, DELAY_TITLE_MAX);
   const redirectPageContent = (item.redirectPageContent || "").trim().slice(0, DELAY_HTML_MAX);
+  const accessPassword = (item.accessPassword || '').trim();
+  let accessHash = null;
+  let accessWarn = null;
+  if (accessPassword && redirectMode === 'manual') {
+    if (/^\S{3,16}$/.test(accessPassword)) {
+      accessHash = await hashPassword(accessPassword);
+    } else {
+      accessWarn = "ACCESS_PASSWORD_IGNORED";
+    }
+  }
   const defaultTtl = normalizeTtl(env.TTL || 0);
   const ttl = normalizeTtl(item.ttl, defaultTtl);
 
   let newSlug;
-  let warn = null;
+  const warnings = [];
+  if (accessWarn) warnings.push(accessWarn);
   if (validSlug) {
     if (await env.DATA.get(slug) !== null) return { error: "SLUG_EXISTS" };
     newSlug = slug;
   } else {
-    if (slug) warn = "SLUG_IGNORED";
+    if (slug) warnings.push("SLUG_IGNORED");
     let tries = 0;
     do { newSlug = makeSlug(); tries++; } while (await env.DATA.get(newSlug) !== null && tries < 5);
     if (await env.DATA.get(newSlug) !== null) return { error: "SLUG_COLLISION" };
@@ -156,19 +173,22 @@ async function createOne(item, slug, validSlug, env, requestUrl) {
   const pwHash = await hashPassword(generatedPassword);
   const now = new Date().toISOString();
   const newEntry = clean({
-    url: target, pwHash, redirectMode, permanent, countdown,
+    url: target, pwHash, redirectMode, permanent,
+    countdown: accessHash ? 0 : countdown,
     redirectPageTitle: redirectPageTitle || null,
     redirectPageContent: redirectPageContent || null,
     manualBtnTitle: manualBtnTitle || null,
-    lightPage, ttl, createdAt: now, updatedAt: null,
+    accessHash: accessHash || null,
+    darkBackground, centerContent, ttl, createdAt: now, updatedAt: null,
   });
-  const putOpts = { metadata: { url: target, createdAt: now } };
+  const putOpts = {};
   if (ttl > 0) putOpts.expirationTtl = ttl;
   await env.DATA.put(newSlug, JSON.stringify(newEntry), putOpts);
 
   const base = getBaseUrl(env, requestUrl);
   const resp = { short_url: base + newSlug, slug: newSlug, target, password: generatedPassword };
-  if (warn) resp.warn = warn;
+  if (warnings.length === 1) resp.warn = warnings[0];
+  else if (warnings.length > 1) resp.warn = warnings;
   return resp;
 }
 
@@ -177,37 +197,76 @@ function notFound(env, url) {
   return Response.redirect(getBaseUrl(env, url).replace(/\/$/, '') || url.origin, 302);
 }
 
+// Returns: { isAdmin: true } | { isAdmin: false } | Response (401 error)
+// No KEY configured → everyone is admin
+// KEY configured + valid key → admin
+// KEY configured + no key → public
+// KEY configured + wrong key → 401
 async function checkAuth(req, env) {
-  if (!env.KEY) return null;
+  if (!env.KEY) return { isAdmin: true };
   const auth = req.headers.get("Authorization") || "";
-  const key = req.headers.get("X-API-Key") || (auth.startsWith("Bearer ") ? auth.slice(7) : "");
-  if (!key) return json({ error: "UNAUTHORIZED" }, 401);
+  const key = req.headers.get("X-Admin-Key") || (auth.startsWith("Bearer ") ? auth.slice(7) : "");
+  if (!key) return { isAdmin: false };
   const keys = String(env.KEY).split(",").map(k => k.trim()).filter(Boolean);
   for (const k of keys) {
-    if (await safeEqual(key, k)) return null;
+    if (await safeEqual(key, k)) return { isAdmin: true };
   }
   return json({ error: "UNAUTHORIZED" }, 401);
+}
+
+const RATE_LIMIT_DEFAULT = 10;
+
+async function getFingerprint(request) {
+  const parts = [
+    request.headers.get("CF-Connecting-IP") || "",
+    (request.headers.get("User-Agent") || "") + "|" + (request.headers.get("Sec-CH-UA") || ""),
+    request.headers.get("Accept-Language") || "",
+    (request.cf && request.cf.tlsClientExtensionsSha1) || "",
+    (request.cf && request.cf.tlsClientCiphersSha1) || "",
+  ].join("|");
+  return (await hashPassword(parts)).slice(0, 16);
+}
+
+async function checkRateLimit(env, request) {
+  const fp = await getFingerprint(request);
+  const key = "_rl:" + fp;
+  const raw = await env.DATA.get(key);
+  const limit = Math.floor(Number(env.LIMIT)) || RATE_LIMIT_DEFAULT;
+  const now = Date.now();
+  if (raw) {
+    const data = JSON.parse(raw);
+    if (now - new Date(data.lastOp).getTime() < 86400000 && data.count >= limit) {
+      return json({ error: "RATE_LIMITED" }, 429);
+    }
+    if (now - new Date(data.lastOp).getTime() >= 86400000) {
+      return { key, data: { count: 0, lastOp: data.lastOp } };
+    }
+    return { key, data };
+  }
+  return { key, data: { count: 0, lastOp: new Date(0).toISOString() } };
+}
+
+async function incrementRateLimit(env, key, data) {
+  await env.DATA.put(key, JSON.stringify({ count: data.count + 1, lastOp: new Date().toISOString() }));
 }
 
 // ── i18n strings (shared by landing page & countdown page) ───────────
 
 const I18N_JSON = JSON.stringify({
   en: {
-    title: "URL Shortener",
+    title: "Shurl",
     tabCreate: "✨ Create",
     tabModify: "✏️ Modify",
     slugLabelCreate: "Custom slug", omittableText: "(leave empty for default)",
     slugLabelModify: "Slug to modify",
     slugPlaceholderCreate: "leave empty for random",
     slugPlaceholderModify: "enter existing slug",
-    slugHint: "3-10 alphanumeric characters (case-sensitive).",
-    check: "Verify & Query",
+    check: "Verify & Query", adminCheck: "Query",
     targetUrl: "Target URL",
     slugPassword: "Slug Password",
     pwPlaceholder: "password from when you created it",
     pwHint: "Enter the password shown when you first created this slug.",
     ttlOptions: "Expiration",
-    ttlLabel: "Time to live",
     ttlHint: "0 = permanent. Min 60 seconds, max 12 months. Invalid input such as negative numbers or decimals will be ignored.",
     ttlUnit_s: "Seconds",
     ttlUnit_m: "Minutes",
@@ -215,21 +274,25 @@ const I18N_JSON = JSON.stringify({
     ttlUnit_d: "Days",
     ttlUnit_mo: "Months",
     redirectOptions: "Redirect options",
-    countdownLabel: "Countdown seconds",
-    countdownHint: "0 = manual redirect (disables countdown). 1–60 = show countdown. Other input treated as 0.",
+    manualSub: "Manual redirect", countdownSub: "Countdown redirect",
+    accessPasswordLabel: "Require password from visitor (leave empty for none)",
+    countdownSelectLabel: "Countdown seconds",
+    accessPromptTitle: "Password required",
+    accessPromptPlaceholder: "Enter password",
+    accessPromptError: "Incorrect password",
     rdInstant: "Instant redirect",
     rdManual: "Manual or countdown redirect",
     usePermanent: "Use permanent redirect",
-    manualBtnLabel: "Manual redirect button title (leave empty for default)",
-    manualBtnPlaceholder: "default: Redirect now",
-    manualBtnDefault: "Redirect now", lightPage: "Use light background",
+    manualBtnLabel: "Redirect / password button title (leave empty for default)",
+    manualBtnPlaceholder: "default: Go now",
+    manualBtnDefault: "Go now", darkBackground: "Use dark background", centerContent: "Center page content",
     redirectPageTitleLabel: "Redirect page title (leave empty for default)",
-    redirectPageTitlePlaceholder: "default: Destination URL {url}",
+    redirectPageTitlePlaceholder: "default: show prompt message",
     redirectPageContentLabel: "Redirect page content (leave empty for default)",
     redirectPageContentPlaceholder: "Compose content...",
-    redirectPageContentHint: "Markdown supported. Leave empty to show linked target URL.",
+    redirectPageContentHint: "Markdown supported.",
     mode_rich: "Rich", mode_md: "MD",
-    apiKey: "Identity Key",
+    adminKey: "Admin Key",
     resetPassword: "Renew slug password",
     btnCreate: "Create",
     btnUpdate: "Update", btnDelete: "Delete", confirmDeleteMsg: "Delete this short link?", confirmYes: "Delete", confirmNo: "Cancel",
@@ -243,8 +306,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "Network error",
     errSlugEmpty: "Enter a slug first",
     errSlugInvalid: "Invalid: 3-10 alphanumeric chars only",
-    slugFound: "Verified", btnView: "View & Edit",
-    slugNotFound: "Slug not found",
+    slugFound: "Verified", adminSlugFound: "Slug found", btnView: "View & Edit",
     slugAuthFail: "Check your identity key",
     defaultRedirectTitle: "Destination URL {url}",
     err_UNAUTHORIZED: "Unauthorized \u2013 check your identity key",
@@ -255,26 +317,29 @@ const I18N_JSON = JSON.stringify({
    
     err_SLUG_COLLISION: "Failed to generate slug, please try again",
     warn_SLUG_IGNORED: "Custom slug was invalid and ignored, a random slug was assigned",
+    err_BATCH_DUPLICATE_SLUG: "Duplicate slug in batch",
+    warn_ACCESS_PASSWORD_IGNORED: "Access password was invalid and ignored",
     err_NOT_FOUND: "Not found", err_VERIFY_FAILED: "Slug not found or wrong password",
     err_INVALID_REDIRECT_MODE: "Invalid redirect mode",
+    err_INVALID_ACCESS_PASSWORD: "Access password must be 3–16 characters with no spaces",
+    err_RATE_LIMITED: "Quota exhausted — resets 24 hours after your last successful operation",
+    adminMode: "Admin Mode", adminExit: "Exit", adminEnter: "Enter Admin Mode", adminKeyPlaceholder: "Admin Key", adminCancel: "Cancel", adminSubmit: "Enter", adminKeyWrong: "Invalid key",
     tb_bold: "Bold", tb_italic: "Italic", tb_underline: "Underline", tb_h1: "Heading 1", tb_h2: "Heading 2", tb_h3: "Heading 3", tb_ul: "Bullet list", tb_ol: "Numbered list", tb_blockquote: "Blockquote", tb_code: "Inline code", tb_link: "Insert link", tb_hr: "Horizontal rule",
   },
   "zh-cn": {
-    title: "短链接服务",
+    title: "速至短链",
     tabCreate: "✨ 创建",
     tabModify: "✏️ 修改",
     slugLabelCreate: "自定义短码", omittableText: "（可留空）",
     slugLabelModify: "要修改的短码",
     slugPlaceholderCreate: "留空自动生成",
     slugPlaceholderModify: "输入已有短码",
-    slugHint: "3-10 位字母和数字组合（区分大小写）。",
-    check: "验证并查询",
+    check: "验证并查询", adminCheck: "查询",
     targetUrl: "目标网址",
     slugPassword: "短码密码",
     pwPlaceholder: "创建时显示的密码",
     pwHint: "输入创建该短码时显示的密码。",
     ttlOptions: "有效时长",
-    ttlLabel: "有效时长",
     ttlHint: "0 = 永久有效。最小 60 秒，最长 12 个月。输入无效值或负数、小数等非法值将被忽略。",
     ttlUnit_s: "秒",
     ttlUnit_m: "分钟",
@@ -282,21 +347,25 @@ const I18N_JSON = JSON.stringify({
     ttlUnit_d: "天",
     ttlUnit_mo: "月",
     redirectOptions: "跳转选项",
-    countdownLabel: "倒计数秒数",
-    countdownHint: "0 = 手动跳转（禁用倒计时）。1–60 = 显示倒计时。其他输入视为 0。",
+    manualSub: "手动跳转", countdownSub: "倒计时跳转",
+    accessPasswordLabel: "要求访问者验证密码（留空则不要求）",
+    countdownSelectLabel: "倒计时秒数",
+    accessPromptTitle: "需要密码",
+    accessPromptPlaceholder: "请输入密码",
+    accessPromptError: "密码不正确",
     rdInstant: "立即跳转",
     rdManual: "手动或倒计时跳转",
     usePermanent: "使用永久跳转",
-    manualBtnLabel: "手动跳转按钮标题（可留空）",
-    manualBtnPlaceholder: "默认：立即跳转",
-    manualBtnDefault: "立即跳转", lightPage: "使用亮色背景",
+    manualBtnLabel: "加速跳转或密码验证按钮标题（可留空）",
+    manualBtnPlaceholder: "默认：马上跳转",
+    manualBtnDefault: "马上跳转", darkBackground: "使用暗色背景", centerContent: "页面内容居中",
     redirectPageTitleLabel: "跳转页面标题（可留空）",
-    redirectPageTitlePlaceholder: "默认：目标网址 {url}",
+    redirectPageTitlePlaceholder: "默认显示提示信息",
     redirectPageContentLabel: "跳转页面内容（可留空）",
     redirectPageContentPlaceholder: "编写内容...",
-    redirectPageContentHint: "支持 Markdown 格式。留空显示带链接的目标网址。",
+    redirectPageContentHint: "支持 Markdown 格式",
     mode_rich: "富文本", mode_md: "MD",
-    apiKey: "身份密钥",
+    adminKey: "管理密钥",
     resetPassword: "更换当前短链密码",
     btnCreate: "生成",
     btnUpdate: "更新", btnDelete: "删除", confirmDeleteMsg: "确定删除该短链接？", confirmYes: "删除", confirmNo: "取消",
@@ -310,8 +379,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "网络错误",
     errSlugEmpty: "请先输入短码",
     errSlugInvalid: "无效：仅限 3-10 位字母数字",
-    slugFound: "验证通过", btnView: "查看并编辑",
-    slugNotFound: "短码不存在",
+    slugFound: "验证通过", adminSlugFound: "找到短码", btnView: "查看并编辑",
     slugAuthFail: "请检查身份密钥",
     defaultRedirectTitle: "目标网址 {url}",
     err_UNAUTHORIZED: "未授权 – 请检查身份密钥",
@@ -322,26 +390,29 @@ const I18N_JSON = JSON.stringify({
    
     err_SLUG_COLLISION: "短码生成失败，请重试",
     warn_SLUG_IGNORED: "自定义短码格式无效已忽略，已分配随机短码",
+    err_BATCH_DUPLICATE_SLUG: "批量创建中存在重复短码",
+    warn_ACCESS_PASSWORD_IGNORED: "访问密码格式无效已忽略",
     err_NOT_FOUND: "未找到", err_VERIFY_FAILED: "短码不存在，或密码错误",
     err_INVALID_REDIRECT_MODE: "无效的跳转模式",
+    err_INVALID_ACCESS_PASSWORD: "访问密码须为 3–16 位非空格字符",
+    err_RATE_LIMITED: "配额已用尽——将于最后一次成功操作 24 小时后重置",
+    adminMode: "管理模式", adminExit: "退出", adminEnter: "进入管理模式", adminKeyPlaceholder: "管理密钥", adminCancel: "取消", adminSubmit: "进入", adminKeyWrong: "管理密钥无效",
     tb_bold: "加粗", tb_italic: "斜体", tb_underline: "下划线", tb_h1: "标题 1", tb_h2: "标题 2", tb_h3: "标题 3", tb_ul: "无序列表", tb_ol: "有序列表", tb_blockquote: "引用", tb_code: "行内代码", tb_link: "插入链接", tb_hr: "水平线",
   },
   "zh-tw": {
-    title: "短連結服務",
+    title: "速至短鏈",
     tabCreate: "✨ 建立",
     tabModify: "✏️ 修改",
     slugLabelCreate: "自訂短碼", omittableText: "（可留空）",
     slugLabelModify: "要修改的短碼",
     slugPlaceholderCreate: "留空自動產生",
     slugPlaceholderModify: "輸入現有短碼",
-    slugHint: "3-10 位字母和數字組合（區分大小寫）。",
-    check: "驗證並查詢",
+    check: "驗證並查詢", adminCheck: "查詢",
     targetUrl: "目標網址",
     slugPassword: "短碼密碼",
     pwPlaceholder: "建立時顯示的密碼",
     pwHint: "輸入建立該短碼時顯示的密碼。",
     ttlOptions: "有效時長",
-    ttlLabel: "有效時長",
     ttlHint: "0 = 永久有效。最小 60 秒，最長 12 個月。輸入無效值或負數、小數等非法值將被忽略。",
     ttlUnit_s: "秒",
     ttlUnit_m: "分鐘",
@@ -349,21 +420,25 @@ const I18N_JSON = JSON.stringify({
     ttlUnit_d: "天",
     ttlUnit_mo: "月",
     redirectOptions: "跳轉選項",
-    countdownLabel: "倒數秒數",
-    countdownHint: "0 = 手動跳轉（禁用倒數）。1–60 = 顯示倒數。其他輸入視為 0。",
+    manualSub: "手動跳轉", countdownSub: "倒數跳轉",
+    accessPasswordLabel: "要求訪問者驗證密碼（留空則不要求）",
+    countdownSelectLabel: "倒數秒數",
+    accessPromptTitle: "需要密碼",
+    accessPromptPlaceholder: "請輸入密碼",
+    accessPromptError: "密碼不正確",
     rdInstant: "立即跳轉",
     rdManual: "手動或倒數跳轉",
     usePermanent: "使用永久跳轉",
-    manualBtnLabel: "手動跳轉按鈕標題（可留空）",
-    manualBtnPlaceholder: "預設：立即跳轉",
-    manualBtnDefault: "立即跳轉", lightPage: "使用亮色背景",
+    manualBtnLabel: "加速跳轉或密碼驗證按鈕標題（可留空）",
+    manualBtnPlaceholder: "預設：馬上跳轉",
+    manualBtnDefault: "馬上跳轉", darkBackground: "使用暗色背景", centerContent: "頁面內容置中",
     redirectPageTitleLabel: "跳轉頁面標題（可留空）",
-    redirectPageTitlePlaceholder: "預設：目標網址 {url}",
+    redirectPageTitlePlaceholder: "預設顯示提示訊息",
     redirectPageContentLabel: "跳轉頁面內容（可留空）",
     redirectPageContentPlaceholder: "編寫內容...",
-    redirectPageContentHint: "支援 Markdown 格式。留空顯示帶連結的目標網址。",
+    redirectPageContentHint: "支援 Markdown 格式",
     mode_rich: "富文字", mode_md: "MD",
-    apiKey: "身分金鑰",
+    adminKey: "管理金鑰",
     resetPassword: "更換目前短連結密碼",
     btnCreate: "產生",
     btnUpdate: "更新", btnDelete: "刪除", confirmDeleteMsg: "確定刪除該短連結？", confirmYes: "刪除", confirmNo: "取消",
@@ -377,8 +452,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "網路錯誤",
     errSlugEmpty: "請先輸入短碼",
     errSlugInvalid: "無效：僅限 3-10 位英數字元",
-    slugFound: "驗證通過", btnView: "查��並編輯",
-    slugNotFound: "短碼不存在",
+    slugFound: "驗證通過", adminSlugFound: "找到短碼", btnView: "查��並編輯",
     slugAuthFail: "請檢查身分金鑰",
     defaultRedirectTitle: "目標網址 {url}",
     err_UNAUTHORIZED: "未授權 – 請檢查身分金鑰",
@@ -388,26 +462,29 @@ const I18N_JSON = JSON.stringify({
     err_SLUG_EXISTS: "該短碼已存在 – 請切換到修改模式並輸入密碼",
     err_SLUG_COLLISION: "短碼產生失敗，請重試",
     warn_SLUG_IGNORED: "自訂短碼格式無效已忽略，已分配隨機短碼",
+    err_BATCH_DUPLICATE_SLUG: "批量建立中存在重複短碼",
+    warn_ACCESS_PASSWORD_IGNORED: "存取密碼格式無效已忽略",
     err_NOT_FOUND: "未找到", err_VERIFY_FAILED: "短碼不存在，或密碼錯誤",
     err_INVALID_REDIRECT_MODE: "無效的跳轉模式",
+    err_INVALID_ACCESS_PASSWORD: "存取密碼須為 3–16 位非空格字元",
+    err_RATE_LIMITED: "配額已用盡——將於最後一次成功操作 24 小時後重置",
+    adminMode: "管理模式", adminExit: "退出", adminEnter: "進入管理模式", adminKeyPlaceholder: "管理金鑰", adminCancel: "取消", adminSubmit: "進入", adminKeyWrong: "管理金鑰無效",
     tb_bold: "粗體", tb_italic: "斜體", tb_underline: "底線", tb_h1: "標題 1", tb_h2: "標題 2", tb_h3: "標題 3", tb_ul: "無序清單", tb_ol: "有序清單", tb_blockquote: "引用", tb_code: "行內程式碼", tb_link: "插入連結", tb_hr: "水平線",
   },
   ja: {
-    title: "URL短縮サービス",
+    title: "Shurl",
     tabCreate: "✨ 作成",
     tabModify: "✏️ 変更",
     slugLabelCreate: "カスタムスラッグ", omittableText: "（空欄可）",
     slugLabelModify: "変更するスラッグ",
     slugPlaceholderCreate: "空欄で自動生成",
     slugPlaceholderModify: "既存のスラッグを入力",
-    slugHint: "3〜10文字の英数字（大文字・小文字区別あり）。",
-    check: "認証して照会",
+    check: "認証して照会", adminCheck: "照会",
     targetUrl: "転送先URL",
     slugPassword: "スラッグパスワード",
     pwPlaceholder: "作成時に表示されたパスワード",
     pwHint: "作成時に表示されたパスワードを入力してください。",
     ttlOptions: "有効期限",
-    ttlLabel: "有効期間",
     ttlHint: "0 = 無期限。最小60秒、最大12ヶ月。無効な値や負数・小数などは無視されます。",
     ttlUnit_s: "秒",
     ttlUnit_m: "分",
@@ -415,21 +492,25 @@ const I18N_JSON = JSON.stringify({
     ttlUnit_d: "日",
     ttlUnit_mo: "ヶ月",
     redirectOptions: "リダイレクト設定",
-    countdownLabel: "カウントダウン秒数",
-    countdownHint: "0 = 手動リダイレクト（カウントダウン無効）。1〜60 = カウントダウン表示。その他の入力は 0 扱い。",
+    manualSub: "手動リダイレクト", countdownSub: "カウントダウンリダイレクト",
+    accessPasswordLabel: "訪問者にパスワードを要求（空欄は不要）",
+    countdownSelectLabel: "カウントダウン秒数",
+    accessPromptTitle: "パスワードが必要です",
+    accessPromptPlaceholder: "パスワードを入力",
+    accessPromptError: "パスワードが正しくありません",
     rdInstant: "即座リダイレクト",
     rdManual: "手動またはカウントダウンリダイレクト",
     usePermanent: "恒久リダイレクトを使用",
-    manualBtnLabel: "手動リダイレクトボタンのタイトル（空欄可）",
-    manualBtnPlaceholder: "デフォルト：今すぐ移動",
-    manualBtnDefault: "今すぐ移動", lightPage: "明るい背景を使用",
+    manualBtnLabel: "リダイレクト／パスワードボタンのタイトル（空欄可）",
+    manualBtnPlaceholder: "デフォルト：すぐに移動",
+    manualBtnDefault: "すぐに移動", darkBackground: "ダークモードを使用", centerContent: "ページ内容を中央揃え",
     redirectPageTitleLabel: "リダイレクトページのタイトル（空欄可）",
-    redirectPageTitlePlaceholder: "デフォルト：転送先URL {url}",
+    redirectPageTitlePlaceholder: "デフォルト：案内メッセージを表示",
     redirectPageContentLabel: "リダイレクトページの内容（空欄可）",
     redirectPageContentPlaceholder: "内容を入力...",
-    redirectPageContentHint: "Markdown対応。空欄の場合はリンク付きURLを表示。",
+    redirectPageContentHint: "Markdown対応",
     mode_rich: "リッチ", mode_md: "MD",
-    apiKey: "認証キー",
+    adminKey: "管理キー",
     resetPassword: "スラッグパスワードを更新",
     btnCreate: "短縮",
     btnUpdate: "更新", btnDelete: "削除", confirmDeleteMsg: "この短縮リンクを削除しますか？", confirmYes: "削除", confirmNo: "キャンセル",
@@ -443,8 +524,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "ネットワークエラー",
     errSlugEmpty: "先にスラッグを入力してください",
     errSlugInvalid: "無効：英数字3〜10文字のみ",
-    slugFound: "確認済み", btnView: "表示・編集",
-    slugNotFound: "スラッグが見つかりません",
+    slugFound: "確認済み", adminSlugFound: "スラッグが見つかりました", btnView: "表示・編集",
     slugAuthFail: "認証キーを確認してください",
     defaultRedirectTitle: "転送先URL {url}",
     err_UNAUTHORIZED: "認証エラー – 認証キーを確認してください",
@@ -455,26 +535,29 @@ const I18N_JSON = JSON.stringify({
    
     err_SLUG_COLLISION: "スラッグ生成に失敗しました。再試行してください",
     warn_SLUG_IGNORED: "カスタムスラッグが無効のため無視され、ランダムスラッグが割り当てられました",
+    err_BATCH_DUPLICATE_SLUG: "バッチ内にスラッグが重複しています",
+    warn_ACCESS_PASSWORD_IGNORED: "アクセスパスワードが無効のため無視されました",
     err_NOT_FOUND: "見つかりません", err_VERIFY_FAILED: "スラッグが見つからないか、パスワードが違います",
     err_INVALID_REDIRECT_MODE: "無効なリダイレクトモード",
+    err_INVALID_ACCESS_PASSWORD: "アクセスパスワードは3〜16文字（スペース不可）",
+    err_RATE_LIMITED: "クォータ超過——最後の操作から24時間後にリセットされます",
+    adminMode: "管理モード", adminExit: "終了", adminEnter: "管理モードに入る", adminKeyPlaceholder: "管理キー", adminCancel: "キャンセル", adminSubmit: "入る", adminKeyWrong: "管理キーが無効です",
     tb_bold: "太字", tb_italic: "斜体", tb_underline: "下線", tb_h1: "見出し 1", tb_h2: "見出し 2", tb_h3: "見出し 3", tb_ul: "箇条書き", tb_ol: "番号付きリスト", tb_blockquote: "引用", tb_code: "インラインコード", tb_link: "リンクを挿入", tb_hr: "水平線",
   },
   ko: {
-    title: "URL 단축 서비스",
+    title: "Shurl",
     tabCreate: "✨ 만들기",
     tabModify: "✏️ 수정",
     slugLabelCreate: "사용자 정의 슬러그", omittableText: "(비워두기 가능)",
     slugLabelModify: "수정할 슬러그",
     slugPlaceholderCreate: "비워두면 자동 생성",
     slugPlaceholderModify: "기존 슬러그 입력",
-    slugHint: "3-10자 영숫자 조합 (대소문자 구분).",
-    check: "인증 및 조회",
+    check: "인증 및 조회", adminCheck: "조회",
     targetUrl: "대상 URL",
     slugPassword: "슬러그 비밀번호",
     pwPlaceholder: "생성 시 표시된 비밀번호",
     pwHint: "슬러그 생성 시 표시된 비밀번호를 입력하세요.",
     ttlOptions: "유효 기간",
-    ttlLabel: "유효 기간",
     ttlHint: "0 = 영구. 최소 60초, 최대 12개월. 잘못된 값이나 음수, 소수 등은 무시됩니다.",
     ttlUnit_s: "초",
     ttlUnit_m: "분",
@@ -482,21 +565,25 @@ const I18N_JSON = JSON.stringify({
     ttlUnit_d: "일",
     ttlUnit_mo: "개월",
     redirectOptions: "리다이렉트 옵션",
-    countdownLabel: "카운트다운 초",
-    countdownHint: "0 = 수동 리다이렉트(카운트다운 비활성화). 1-60 = 카운트다운 표시. 기타 입력은 0으로 처리.",
+    manualSub: "수동 리다이렉트", countdownSub: "카운트다운 리다이렉트",
+    accessPasswordLabel: "방문자에게 비밀번호 요구 (비워두면 불필요)",
+    countdownSelectLabel: "카운트다운 초",
+    accessPromptTitle: "비밀번호 필요",
+    accessPromptPlaceholder: "비밀번호 입력",
+    accessPromptError: "비밀번호가 올바르지 않습니다",
     rdInstant: "즉시 리다이렉트",
     rdManual: "수동 또는 카운트다운 리다이렉트",
     usePermanent: "영구 리다이렉트 사용",
-    manualBtnLabel: "수동 리다이렉트 버튼 제목 (비워두기 가능)",
-    manualBtnPlaceholder: "기본: 지금 이동",
-    manualBtnDefault: "지금 이동", lightPage: "밝은 배경 사용",
+    manualBtnLabel: "리다이렉트/비밀번호 버튼 제목 (비워두기 가능)",
+    manualBtnPlaceholder: "기본: 바로 이동",
+    manualBtnDefault: "바로 이동", darkBackground: "어두운 배경 사용", centerContent: "페이지 내용 가운데 정렬",
     redirectPageTitleLabel: "리다이렉트 페이지 제목 (비워두기 가능)",
-    redirectPageTitlePlaceholder: "기본: 대상 URL {url}",
+    redirectPageTitlePlaceholder: "기본: 안내 메시지 표시",
     redirectPageContentLabel: "리다이렉트 페이지 내용 (비워두기 가능)",
     redirectPageContentPlaceholder: "내용 작성...",
-    redirectPageContentHint: "Markdown 지원. 비워두면 링크된 대상 URL 표시.",
+    redirectPageContentHint: "Markdown 지원",
     mode_rich: "서식", mode_md: "MD",
-    apiKey: "인증 키",
+    adminKey: "관리 키",
     resetPassword: "슬러그 비밀번호 갱신",
     btnCreate: "단축",
     btnUpdate: "업데이트", btnDelete: "삭제", confirmDeleteMsg: "이 단축 링크를 삭제하시겠습니까?", confirmYes: "삭제", confirmNo: "취소",
@@ -510,8 +597,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "네트워크 오류",
     errSlugEmpty: "먼저 슬러그를 입력하세요",
     errSlugInvalid: "유효하지 않음: 영숫자 3-10자만",
-    slugFound: "확인됨", btnView: "보기 및 편집",
-    slugNotFound: "슬러그를 찾을 수 없음",
+    slugFound: "확인됨", adminSlugFound: "슬러그 찾음", btnView: "보기 및 편집",
     slugAuthFail: "인증 키를 확인하세요",
     defaultRedirectTitle: "대상 URL {url}",
     err_UNAUTHORIZED: "인증 실패 – 인증 키를 확인하세요",
@@ -522,26 +608,29 @@ const I18N_JSON = JSON.stringify({
    
     err_SLUG_COLLISION: "슬러그 생성 실패, 다시 시도하세요",
     warn_SLUG_IGNORED: "사용자 지정 슬러그가 유효하지 않아 무시되었으며, 임의 슬러그가 할당되었습니다",
+    err_BATCH_DUPLICATE_SLUG: "배치 내 슬러그 중복",
+    warn_ACCESS_PASSWORD_IGNORED: "접근 비밀번호가 유효하지 않아 무시되었습니다",
     err_NOT_FOUND: "찾을 수 없음", err_VERIFY_FAILED: "슬러그를 찾을 수 없거나 비밀번호가 틀렸습니다",
     err_INVALID_REDIRECT_MODE: "잘못된 리다이렉트 모드",
+    err_INVALID_ACCESS_PASSWORD: "접근 비밀번호는 3~16자, 공백 불가",
+    err_RATE_LIMITED: "할당량 소진 — 마지막 작업 후 24시간 뒤 초기화됩니다",
+    adminMode: "관리 모드", adminExit: "나가기", adminEnter: "관리 모드 진입", adminKeyPlaceholder: "관리 키", adminCancel: "취소", adminSubmit: "진입", adminKeyWrong: "키가 유효하지 않습니다",
     tb_bold: "굵게", tb_italic: "기울임", tb_underline: "밑줄", tb_h1: "제목 1", tb_h2: "제목 2", tb_h3: "제목 3", tb_ul: "글머리 기호", tb_ol: "번호 목록", tb_blockquote: "인용", tb_code: "인라인 코드", tb_link: "링크 삽입", tb_hr: "구분선",
   },
   ms: {
-    title: "Pemendek URL",
+    title: "Shurl",
     tabCreate: "✨ Cipta",
     tabModify: "✏️ Ubah",
     slugLabelCreate: "Slug tersuai", omittableText: "(boleh dikosongkan)",
     slugLabelModify: "Slug untuk diubah",
     slugPlaceholderCreate: "kosongkan untuk rawak",
     slugPlaceholderModify: "masukkan slug sedia ada",
-    slugHint: "3-10 aksara alfanumerik (sensitif huruf besar/kecil).",
-    check: "Sahkan & Semak",
+    check: "Sahkan & Semak", adminCheck: "Semak",
     targetUrl: "URL Sasaran",
     slugPassword: "Kata laluan slug",
     pwPlaceholder: "kata laluan semasa dicipta",
     pwHint: "Masukkan kata laluan yang dipaparkan semasa slug ini dicipta.",
     ttlOptions: "Tempoh sah",
-    ttlLabel: "Tempoh sah",
     ttlHint: "0 = kekal. Min 60 saat, maks 12 bulan. Nilai tidak sah seperti nombor negatif atau perpuluhan akan diabaikan.",
     ttlUnit_s: "Saat",
     ttlUnit_m: "Minit",
@@ -549,21 +638,25 @@ const I18N_JSON = JSON.stringify({
     ttlUnit_d: "Hari",
     ttlUnit_mo: "Bulan",
     redirectOptions: "Pilihan pengalihan",
-    countdownLabel: "Saat undur detik",
-    countdownHint: "0 = pengalihan manual (nyahaktif undur detik). 1-60 = papar undur detik. Input lain dianggap 0.",
+    manualSub: "Pengalihan manual", countdownSub: "Pengalihan undur detik",
+    accessPasswordLabel: "Minta kata laluan daripada pelawat (kosongkan jika tidak perlu)",
+    countdownSelectLabel: "Saat undur detik",
+    accessPromptTitle: "Kata laluan diperlukan",
+    accessPromptPlaceholder: "Masukkan kata laluan",
+    accessPromptError: "Kata laluan salah",
     rdInstant: "Pengalihan serta-merta",
     rdManual: "Pengalihan manual atau undur detik",
     usePermanent: "Gunakan pengalihan kekal",
-    manualBtnLabel: "Tajuk butang pengalihan manual (boleh dikosongkan)",
-    manualBtnPlaceholder: "lalai: Alih sekarang",
-    manualBtnDefault: "Alih sekarang", lightPage: "Gunakan latar terang",
+    manualBtnLabel: "Tajuk butang pengalihan/kata laluan (boleh dikosongkan)",
+    manualBtnPlaceholder: "lalai: Pergi sekarang",
+    manualBtnDefault: "Pergi sekarang", darkBackground: "Gunakan latar gelap", centerContent: "Pusatkan kandungan halaman",
     redirectPageTitleLabel: "Tajuk halaman pengalihan (boleh dikosongkan)",
-    redirectPageTitlePlaceholder: "lalai: URL sasaran {url}",
+    redirectPageTitlePlaceholder: "lalai: papar mesej panduan",
     redirectPageContentLabel: "Kandungan halaman pengalihan (boleh dikosongkan)",
     redirectPageContentPlaceholder: "Tulis kandungan...",
-    redirectPageContentHint: "Sokongan Markdown. Kosongkan untuk papar URL sasaran berpautan.",
+    redirectPageContentHint: "Sokongan Markdown",
     mode_rich: "Kaya", mode_md: "MD",
-    apiKey: "Kunci Identiti",
+    adminKey: "Kunci Pentadbir",
     resetPassword: "Baharu kata laluan slug",
     btnCreate: "Pendekkan",
     btnUpdate: "Kemas kini", btnDelete: "Padam", confirmDeleteMsg: "Padam pautan pendek ini?", confirmYes: "Padam", confirmNo: "Batal",
@@ -577,8 +670,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "Ralat rangkaian",
     errSlugEmpty: "Masukkan slug dahulu",
     errSlugInvalid: "Tidak sah: 3-10 aksara alfanumerik sahaja",
-    slugFound: "Disahkan", btnView: "Lihat & Edit",
-    slugNotFound: "Slug tidak ditemui",
+    slugFound: "Disahkan", adminSlugFound: "Slug ditemui", btnView: "Lihat & Edit",
     slugAuthFail: "Semak kunci identiti anda",
     defaultRedirectTitle: "URL sasaran {url}",
     err_UNAUTHORIZED: "Tidak dibenarkan – semak kunci identiti anda",
@@ -589,26 +681,29 @@ const I18N_JSON = JSON.stringify({
    
     err_SLUG_COLLISION: "Gagal menjana slug, sila cuba lagi",
     warn_SLUG_IGNORED: "Slug tersuai tidak sah dan diabaikan, slug rawak telah ditetapkan",
+    err_BATCH_DUPLICATE_SLUG: "Slug pendua dalam kelompok",
+    warn_ACCESS_PASSWORD_IGNORED: "Kata laluan akses tidak sah dan diabaikan",
     err_NOT_FOUND: "Tidak ditemui", err_VERIFY_FAILED: "Slug tidak ditemui atau kata laluan salah",
     err_INVALID_REDIRECT_MODE: "Mod pengalihan tidak sah",
+    err_INVALID_ACCESS_PASSWORD: "Kata laluan akses mestilah 3–16 aksara tanpa ruang",
+    err_RATE_LIMITED: "Kuota habis — ditetapkan semula 24 jam selepas operasi terakhir",
+    adminMode: "Mod Pentadbir", adminExit: "Keluar", adminEnter: "Masuk Mod Pentadbir", adminKeyPlaceholder: "Kunci Pentadbir", adminCancel: "Batal", adminSubmit: "Masuk", adminKeyWrong: "Kunci tidak sah",
     tb_bold: "Tebal", tb_italic: "Condong", tb_underline: "Garis bawah", tb_h1: "Tajuk 1", tb_h2: "Tajuk 2", tb_h3: "Tajuk 3", tb_ul: "Senarai titik", tb_ol: "Senarai bernombor", tb_blockquote: "Petikan", tb_code: "Kod sebaris", tb_link: "Sisip pautan", tb_hr: "Garisan mendatar",
   },
   vi: {
-    title: "Rút gọn URL",
+    title: "Shurl",
     tabCreate: "✨ Tạo",
     tabModify: "✏️ Sửa",
     slugLabelCreate: "Slug tùy chỉnh", omittableText: "(có thể để trống)",
     slugLabelModify: "Slug cần sửa",
     slugPlaceholderCreate: "để trống để tạo ngẫu nhiên",
     slugPlaceholderModify: "nhập slug hiện có",
-    slugHint: "3-10 ký tự chữ-số (phân biệt hoa thường).",
-    check: "Xác minh & Truy vấn",
+    check: "Xác minh & Truy vấn", adminCheck: "Truy vấn",
     targetUrl: "URL đích",
     slugPassword: "Mật khẩu slug",
     pwPlaceholder: "mật khẩu khi tạo",
     pwHint: "Nhập mật khẩu được hiển thị khi bạn tạo slug này.",
     ttlOptions: "Thời hạn",
-    ttlLabel: "Thời gian hiệu lực",
     ttlHint: "0 = vĩnh viễn. Tối thiểu 60 giây, tối đa 12 tháng. Giá trị không hợp lệ như số âm, số thập phân sẽ bị bỏ qua.",
     ttlUnit_s: "Giây",
     ttlUnit_m: "Phút",
@@ -616,21 +711,25 @@ const I18N_JSON = JSON.stringify({
     ttlUnit_d: "Ngày",
     ttlUnit_mo: "Tháng",
     redirectOptions: "Tùy chọn chuyển hướng",
-    countdownLabel: "Giây đếm ngược",
-    countdownHint: "0 = chuyển hướng thủ công (tắt đếm ngược). 1-60 = hiện đếm ngược. Đầu vào khác coi là 0.",
+    manualSub: "Chuyển hướng thủ công", countdownSub: "Chuyển hướng đếm ngược",
+    accessPasswordLabel: "Yêu cầu mật khẩu từ khách (để trống nếu không cần)",
+    countdownSelectLabel: "Giây đếm ngược",
+    accessPromptTitle: "Cần mật khẩu",
+    accessPromptPlaceholder: "Nhập mật khẩu",
+    accessPromptError: "Mật khẩu không đúng",
     rdInstant: "Chuyển hướng ngay",
     rdManual: "Chuyển hướng thủ công hoặc đếm ngược",
     usePermanent: "Dùng chuyển hướng vĩnh viễn",
-    manualBtnLabel: "Tiêu đề nút chuyển hướng thủ công (có thể để trống)",
-    manualBtnPlaceholder: "mặc định: Chuyển ngay",
-    manualBtnDefault: "Chuyển ngay", lightPage: "Dùng nền sáng",
+    manualBtnLabel: "Tiêu đề nút chuyển hướng/mật khẩu (có thể để trống)",
+    manualBtnPlaceholder: "mặc định: Đi ngay",
+    manualBtnDefault: "Đi ngay", darkBackground: "Dùng nền tối", centerContent: "Căn giữa nội dung trang",
     redirectPageTitleLabel: "Tiêu đề trang chuyển hướng (có thể để trống)",
-    redirectPageTitlePlaceholder: "mặc định: URL đích {url}",
+    redirectPageTitlePlaceholder: "mặc định: hiện thông báo hướng dẫn",
     redirectPageContentLabel: "Nội dung trang chuyển hướng (có thể để trống)",
     redirectPageContentPlaceholder: "Soạn nội dung...",
-    redirectPageContentHint: "Hỗ trợ Markdown. Để trống sẽ hiện URL đích có liên kết.",
+    redirectPageContentHint: "Hỗ trợ Markdown",
     mode_rich: "Định dạng", mode_md: "MD",
-    apiKey: "Khóa xác thực",
+    adminKey: "Khóa quản trị",
     resetPassword: "Đổi mật khẩu slug",
     btnCreate: "Rút gọn",
     btnUpdate: "Cập nhật", btnDelete: "Xóa", confirmDeleteMsg: "Xóa liên kết ngắn này?", confirmYes: "Xóa", confirmNo: "Hủy",
@@ -644,8 +743,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "Lỗi mạng",
     errSlugEmpty: "Nhập slug trước",
     errSlugInvalid: "Không hợp lệ: chỉ 3-10 ký tự chữ-số",
-    slugFound: "Đã xác minh", btnView: "Xem & Sửa",
-    slugNotFound: "Không tìm thấy slug",
+    slugFound: "Đã xác minh", adminSlugFound: "Đã tìm thấy slug", btnView: "Xem & Sửa",
     slugAuthFail: "Kiểm tra khóa xác thực",
     defaultRedirectTitle: "URL đích {url}",
     err_UNAUTHORIZED: "Không được phép – kiểm tra khóa xác thực",
@@ -656,26 +754,29 @@ const I18N_JSON = JSON.stringify({
    
     err_SLUG_COLLISION: "Tạo slug thất bại, vui lòng thử lại",
     warn_SLUG_IGNORED: "Slug tùy chỉnh không hợp lệ đã bị bỏ qua, slug ngẫu nhiên đã được gán",
+    err_BATCH_DUPLICATE_SLUG: "Slug trùng lặp trong lô",
+    warn_ACCESS_PASSWORD_IGNORED: "Mật khẩu truy cập không hợp lệ đã bị bỏ qua",
     err_NOT_FOUND: "Không tìm thấy", err_VERIFY_FAILED: "Không tìm thấy slug hoặc sai mật khẩu",
     err_INVALID_REDIRECT_MODE: "Chế độ chuyển hướng không hợp lệ",
+    err_INVALID_ACCESS_PASSWORD: "Mật khẩu truy cập phải từ 3–16 ký tự, không chứa khoảng trắng",
+    err_RATE_LIMITED: "Đã hết hạn mức — đặt lại sau 24 giờ kể từ thao tác cuối",
+    adminMode: "Chế độ quản trị", adminExit: "Thoát", adminEnter: "Vào chế độ quản trị", adminKeyPlaceholder: "Khóa quản trị", adminCancel: "Hủy", adminSubmit: "Vào", adminKeyWrong: "Khóa không hợp lệ",
     tb_bold: "Đậm", tb_italic: "Nghiêng", tb_underline: "Gạch chân", tb_h1: "Tiêu đề 1", tb_h2: "Tiêu đề 2", tb_h3: "Tiêu đề 3", tb_ul: "Danh sách", tb_ol: "Danh sách số", tb_blockquote: "Trích dẫn", tb_code: "Mã nội dòng", tb_link: "Chèn liên kết", tb_hr: "Đường kẻ ngang",
   },
   th: {
-    title: "บริการย่อลิงก์",
+    title: "Shurl",
     tabCreate: "✨ สร้าง",
     tabModify: "✏️ แก้ไข",
     slugLabelCreate: "slug กำหนดเอง", omittableText: "(เว้นว่างได้)",
     slugLabelModify: "slug ที่ต้องการแก้ไข",
     slugPlaceholderCreate: "เว้นว่างเพื่อสุ่ม",
     slugPlaceholderModify: "ใส่ slug ที่มีอยู่",
-    slugHint: "3-10 ตัวอักษรและตัวเลข (แยกตัวพิมพ์ใหญ่-เล็ก)",
-    check: "ยืนยันและสอบถาม",
+    check: "ยืนยันและสอบถาม", adminCheck: "สอบถาม",
     targetUrl: "URL ปลายทาง",
     slugPassword: "รหัสผ่าน slug",
     pwPlaceholder: "รหัสผ่านที่แสดงตอนสร้าง",
     pwHint: "ใส่รหัสผ่านที่แสดงเมื่อคุณสร้าง slug นี้",
     ttlOptions: "ระยะเวลาใช้งาน",
-    ttlLabel: "ระยะเวลาใช้งาน",
     ttlHint: "0 = ถาวร ขั้นต่ำ 60 วินาที สูงสุด 12 เดือน ค่าที่ไม่ถูกต้อง เช่น ค่าลบ ทศนิยม จะถูกละเว้น",
     ttlUnit_s: "วินาที",
     ttlUnit_m: "นาที",
@@ -683,21 +784,25 @@ const I18N_JSON = JSON.stringify({
     ttlUnit_d: "วัน",
     ttlUnit_mo: "เดือน",
     redirectOptions: "ตั้งค่าการเปลี่ยนเส้นทาง",
-    countdownLabel: "วินาทีนับถอยหลัง",
-    countdownHint: "0 = เปลี่ยนเส้นทางแบบกดเอง (ปิดนับถอยหลัง) 1-60 = แสดงนับถอยหลัง ค่าอื่นถือว่า 0",
+    manualSub: "เปลี่ยนเส้นทางแบบกดเอง", countdownSub: "เปลี่ยนเส้นทางแบบนับถอยหลัง",
+    accessPasswordLabel: "ต้องการรหัสผ่านจากผู้เยี่ยมชม (เว้นว่างหากไม่ต้องการ)",
+    countdownSelectLabel: "วินาทีนับถอยหลัง",
+    accessPromptTitle: "ต้องใส่รหัสผ่าน",
+    accessPromptPlaceholder: "ใส่รหัสผ่าน",
+    accessPromptError: "รหัสผ่านไม่ถูกต้อง",
     rdInstant: "เปลี่ยนเส้นทางทันที",
     rdManual: "เปลี่ยนเส้นทางแบบกดเองหรือนับถอยหลัง",
     usePermanent: "ใช้การเปลี่ยนเส้นทางถาวร",
-    manualBtnLabel: "ชื่อปุ่มเปลี่ยนเส้นทาง (เว้นว่างได้)",
-    manualBtnPlaceholder: "ค่าเริ่มต้น: ไปเลย",
-    manualBtnDefault: "ไปเลย", lightPage: "ใช้พื้นหลังสว่าง",
+    manualBtnLabel: "ชื่อปุ่มเปลี่ยนเส้นทาง/รหัสผ่าน (เว้นว่างได้)",
+    manualBtnPlaceholder: "ค่าเริ่มต้น: ไปทันที",
+    manualBtnDefault: "ไปทันที", darkBackground: "ใช้พื้นหลังมืด", centerContent: "จัดเนื้อหาหน้าให้อยู่กลาง",
     redirectPageTitleLabel: "ชื่อหน้าเปลี่ยนเส้นทาง (เว้นว่างได้)",
-    redirectPageTitlePlaceholder: "ค่าเริ่มต้น: URL ปลายทาง {url}",
+    redirectPageTitlePlaceholder: "ค่าเริ่มต้น: แสดงข้อความแนะนำ",
     redirectPageContentLabel: "เนื้อหาหน้าเปลี่ยนเส้นทาง (เว้นว่างได้)",
     redirectPageContentPlaceholder: "เขียนเนื้อหา...",
-    redirectPageContentHint: "รองรับ Markdown เว้นว่างจะแสดง URL ปลายทางเป็นลิงก์",
+    redirectPageContentHint: "รองรับ Markdown",
     mode_rich: "ริช", mode_md: "MD",
-    apiKey: "คีย์ยืนยันตัวตน",
+    adminKey: "คีย์ผู้ดูแล",
     resetPassword: "เปลี่ยนรหัสผ่าน slug",
     btnCreate: "ย่อลิงก์",
     btnUpdate: "อัปเดต", btnDelete: "ลบ", confirmDeleteMsg: "ลบลิงก์สั้นนี้?", confirmYes: "ลบ", confirmNo: "ยกเลิก",
@@ -711,8 +816,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "เครือข่ายผิดพลาด",
     errSlugEmpty: "กรุณาใส่ slug ก่อน",
     errSlugInvalid: "ไม่ถูกต้อง: ตัวอักษร-ตัวเลข 3-10 ตัวเท่านั้น",
-    slugFound: "ยืนยันแล้ว", btnView: "ดู & แก้ไข",
-    slugNotFound: "ไม่พบ slug",
+    slugFound: "ยืนยันแล้ว", adminSlugFound: "พบ slug", btnView: "ดู & แก้ไข",
     slugAuthFail: "ตรวจสอบคีย์ยืนยันตัวตน",
     defaultRedirectTitle: "URL ปลายทาง {url}",
     err_UNAUTHORIZED: "ไม่ได้รับอนุญาต – ตรวจสอบคีย์ยืนยันตัวตน",
@@ -723,26 +827,29 @@ const I18N_JSON = JSON.stringify({
    
     err_SLUG_COLLISION: "สร้าง slug ไม่สำเร็จ กรุณาลองใหม่",
     warn_SLUG_IGNORED: "slug ที่กำหนดเองไม่ถูกต้องและถูกละเว้น ระบบได้กำหนด slug แบบสุ่มแล้ว",
+    err_BATCH_DUPLICATE_SLUG: "slug ซ้ำในชุด",
+    warn_ACCESS_PASSWORD_IGNORED: "รหัสผ่านเข้าถึงไม่ถูกต้องและถูกละเว้น",
     err_NOT_FOUND: "ไม่พบ", err_VERIFY_FAILED: "ไม่พบ slug หรือรหัสผ่านผิด",
     err_INVALID_REDIRECT_MODE: "โหมดเปลี่ยนเส้นทางไม่ถูกต้อง",
+    err_INVALID_ACCESS_PASSWORD: "รหัสผ่านเข้าถึงต้องมี 3–16 ตัวอักษร ห้ามมีช่องว่าง",
+    err_RATE_LIMITED: "โควตาหมด — รีเซ็ต 24 ชั่วโมงหลังการดำเนินการสำเร็จครั้งสุดท้าย",
+    adminMode: "โหมดผู้ดูแล", adminExit: "ออก", adminEnter: "เข้าสู่โหมดผู้ดูแล", adminKeyPlaceholder: "คีย์ผู้ดูแล", adminCancel: "ยกเลิก", adminSubmit: "เข้าสู่", adminKeyWrong: "คีย์ไม่ถูกต้อง",
     tb_bold: "ตัวหนา", tb_italic: "ตัวเอียง", tb_underline: "ขีดเส้นใต้", tb_h1: "หัวข้อ 1", tb_h2: "หัวข้อ 2", tb_h3: "หัวข้อ 3", tb_ul: "รายการจุด", tb_ol: "รายการเลข", tb_blockquote: "คำพูด", tb_code: "โค้ดในบรรทัด", tb_link: "แทรกลิงก์", tb_hr: "เส้นแนวนอน",
   },
   ta: {
-    title: "URL சுருக்கி",
+    title: "Shurl",
     tabCreate: "✨ உருவாக்கு",
     tabModify: "✏️ மாற்று",
     slugLabelCreate: "தனிப்பயன் slug", omittableText: "(காலியாக விடலாம்)",
     slugLabelModify: "மாற்ற வேண்டிய slug",
     slugPlaceholderCreate: "தானாக உருவாக்க காலியாக விடுக",
     slugPlaceholderModify: "இருக்கும் slug ஐ உள்ளிடுக",
-    slugHint: "3-10 எழுத்து-எண் (பெரிய-சிறிய எழுத்து வேறுபடும்).",
-    check: "சரிபார் & வினவு",
+    check: "சரிபார் & வினவு", adminCheck: "வினவு",
     targetUrl: "இலக்கு URL",
     slugPassword: "Slug கடவுச்சொல்",
     pwPlaceholder: "உருவாக்கும்போது காட்டிய கடவுச்சொல்",
     pwHint: "இந்த slug ஐ உருவாக்கும்போது காட்டிய கடவுச்சொல்லை உள்ளிடுக.",
     ttlOptions: "செல்லுபடி காலம்",
-    ttlLabel: "செல்லுபடி காலம்",
     ttlHint: "0 = நிரந்தரம். குறைந்தது 60 வினாடி, அதிகபட்சம் 12 மாதங்கள். எதிர்மறை எண், தசமம் போன்ற தவறான மதிப்புகள் புறக்கணிக்கப்படும்.",
     ttlUnit_s: "வினாடி",
     ttlUnit_m: "நிமிடம்",
@@ -750,21 +857,25 @@ const I18N_JSON = JSON.stringify({
     ttlUnit_d: "நாள்",
     ttlUnit_mo: "மாதம்",
     redirectOptions: "திசைமாற்ற விருப்பங்கள்",
-    countdownLabel: "கவுண்ட்டவுன் வினாடிகள்",
-    countdownHint: "0 = கைமுறை திசைமாற்றம் (கவுண்ட்டவுன் முடக்கு). 1-60 = கவுண்ட்டவுன் காட்டு. பிற உள்ளீடு 0 ஆகக் கருதப்படும்.",
+    manualSub: "கைமுறை திசைமாற்றம்", countdownSub: "கவுண்ட்டவுன் திசைமாற்றம்",
+    accessPasswordLabel: "பார்வையாளரிடம் கடவுச்சொல் கேட்க (காலியாக விட்டால் தேவையில்லை)",
+    countdownSelectLabel: "கவுண்ட்டவுன் வினாடிகள்",
+    accessPromptTitle: "கடவுச்சொல் தேவை",
+    accessPromptPlaceholder: "கடவுச்சொல்லை உள்ளிடவும்",
+    accessPromptError: "கடவுச்சொல் தவறானது",
     rdInstant: "உடனடி திசைமாற்றம்",
     rdManual: "கைமுறை அல்லது கவுண்ட்டவுன் திசைமாற்றம்",
     usePermanent: "நிரந்தர திசைமாற்றம் பயன்படுத்து",
-    manualBtnLabel: "கைமுறை திசைமாற்ற பொத்தான் தலைப்பு (காலியாக விடலாம்)",
-    manualBtnPlaceholder: "இயல்பு: இப்போதே செல்",
-    manualBtnDefault: "இப்போதே செல்", lightPage: "ஒளி பின்னணி பயன்படுத்து",
+    manualBtnLabel: "திசைமாற்ற/கடவுச்சொல் பொத்தான் தலைப்பு (காலியாக விடலாம்)",
+    manualBtnPlaceholder: "இயல்பு: உடனே செல்",
+    manualBtnDefault: "உடனே செல்", darkBackground: "இருண்ட பின்னணி பயன்படுத்து", centerContent: "பக்க உள்ளடக்கத்தை நடுவில் சீரமை",
     redirectPageTitleLabel: "திசைமாற்ற பக்க தலைப்பு (காலியாக விடலாம்)",
-    redirectPageTitlePlaceholder: "இயல்பு: இலக்கு URL {url}",
+    redirectPageTitlePlaceholder: "இயல்பு: வழிகாட்டி செய்தி காட்டு",
     redirectPageContentLabel: "திசைமாற்ற பக்க உள்ளடக்கம் (காலியாக விடலாம்)",
     redirectPageContentPlaceholder: "உள்ளடக்கம் எழுதுங்கள்...",
-    redirectPageContentHint: "Markdown ஆதரவு. காலியாக விட்டால் இணைப்புடன் இலக்கு URL காட்டப்படும்.",
+    redirectPageContentHint: "Markdown ஆதரவு",
     mode_rich: "ரிச்", mode_md: "MD",
-    apiKey: "அடையாள விசை",
+    adminKey: "நிர்வாக விசை",
     resetPassword: "Slug கடவுச்சொல்லை புதுப்பி",
     btnCreate: "சுருக்கு",
     btnUpdate: "புதுப்பி", btnDelete: "நீக்கு", confirmDeleteMsg: "இந்த குறுகிய இணைப்பை நீக்கவா?", confirmYes: "நீக்கு", confirmNo: "ரத்து",
@@ -778,8 +889,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "பிணையப் பிழை",
     errSlugEmpty: "முதலில் slug உள்ளிடுக",
     errSlugInvalid: "செல்லாது: 3-10 எழுத்து-எண் மட்டும்",
-    slugFound: "சரிபார்க்கப்பட்டது", btnView: "பார் & திருத்து",
-    slugNotFound: "Slug கிடைக்கவில்லை",
+    slugFound: "சரிபார்க்கப்பட்டது", adminSlugFound: "Slug கண்டுபிடிக்கப்பட்டது", btnView: "பார் & திருத்து",
     slugAuthFail: "அடையாள விசையை சரிபார்க்கவும்",
     defaultRedirectTitle: "இலக்கு URL {url}",
     err_UNAUTHORIZED: "அங்கீகரிக்கப்படவில்லை – அடையாள விசையை சரிபார்க்கவும்",
@@ -790,26 +900,29 @@ const I18N_JSON = JSON.stringify({
    
     err_SLUG_COLLISION: "slug உருவாக்கம் தோல்வி, மீண்டும் முயற்சிக்கவும்",
     warn_SLUG_IGNORED: "தனிப்பயன் slug செல்லாததால் புறக்கணிக்கப்பட்டது, சீரற்ற slug ஒதுக்கப்பட்டது",
+    err_BATCH_DUPLICATE_SLUG: "தொகுதியில் slug நகல்",
+    warn_ACCESS_PASSWORD_IGNORED: "அணுகல் கடவுச்சொல் செல்லாததால் புறக்கணிக்கப்பட்டது",
     err_NOT_FOUND: "கிடைக்கவில்லை", err_VERIFY_FAILED: "Slug கிடைக்கவில்லை அல்லது கடவுச்சொல் தவறு",
     err_INVALID_REDIRECT_MODE: "தவறான திசைமாற்ற முறை",
+    err_INVALID_ACCESS_PASSWORD: "அணுகல் கடவுச்சொல் 3–16 எழுத்துகள், இடைவெளி இல்லாமல்",
+    err_RATE_LIMITED: "ஒதுக்கீடு தீர்ந்தது — கடைசி வெற்றிகரமான செயலிலிருந்து 24 மணி நேரத்தில் மீட்டமைக்கப்படும்",
+    adminMode: "நிர்வாக முறை", adminExit: "வெளியேறு", adminEnter: "நிர்வாக முறையில் நுழை", adminKeyPlaceholder: "நிர்வாக விசை", adminCancel: "ரத்து", adminSubmit: "நுழை", adminKeyWrong: "விசை தவறானது",
     tb_bold: "தடிமன்", tb_italic: "சாய்வு", tb_underline: "அடிக்கோடு", tb_h1: "தலைப்பு 1", tb_h2: "தலைப்பு 2", tb_h3: "தலைப்பு 3", tb_ul: "புள்ளி பட்டியல்", tb_ol: "எண் பட்டியல்", tb_blockquote: "மேற்கோள்", tb_code: "இன்லைன் குறியீடு", tb_link: "இணைப்பு செருகு", tb_hr: "கிடைக்கோடு",
   },
   he: {
-    title: "קיצור קישורים",
+    title: "Shurl",
     tabCreate: "✨ יצירה",
     tabModify: "✏️ עריכה",
     slugLabelCreate: "קוד מותאם", omittableText: "(ניתן להשאיר ריק)",
     slugLabelModify: "קוד לעריכה",
     slugPlaceholderCreate: "השאר ריק ליצירה אוטומטית",
     slugPlaceholderModify: "הכנס קוד קיים",
-    slugHint: "3-10 תווים אלפאנומריים (רגיש לרישיות).",
-    check: "אמת ושאילתה",
+    check: "אמת ושאילתה", adminCheck: "שאילתה",
     targetUrl: "כתובת יעד",
     slugPassword: "סיסמת קוד",
     pwPlaceholder: "הסיסמה שהוצגה ביצירה",
     pwHint: "הכנס את הסיסמה שהוצגה כשיצרת את הקוד.",
     ttlOptions: "תוקף",
-    ttlLabel: "משך תוקף",
     ttlHint: "0 = לצמיתות. מינימום 60 שניות, מקסימום 12 חודשים. ערכים לא תקינים כגון מספרים שליליים או עשרוניים יתעלמו.",
     ttlUnit_s: "שניות",
     ttlUnit_m: "דקות",
@@ -817,21 +930,25 @@ const I18N_JSON = JSON.stringify({
     ttlUnit_d: "ימים",
     ttlUnit_mo: "חודשים",
     redirectOptions: "הגדרות הפניה",
-    countdownLabel: "שניות ספירה לאחור",
-    countdownHint: "0 = הפניה ידנית (ללא ספירה). 1-60 = הצג ספירה לאחור. קלט אחר = 0.",
+    manualSub: "הפניה ידנית", countdownSub: "הפניה עם ספירה לאחור",
+    accessPasswordLabel: "דרוש סיסמה מהמבקר (השאר ריק אם לא נדרש)",
+    countdownSelectLabel: "שניות ספירה לאחור",
+    accessPromptTitle: "נדרשת סיסמה",
+    accessPromptPlaceholder: "הזן סיסמה",
+    accessPromptError: "סיסמה שגויה",
     rdInstant: "הפניה מיידית",
     rdManual: "הפניה ידנית או ספירה לאחור",
     usePermanent: "השתמש בהפניה קבועה",
-    manualBtnLabel: "כותרת כפתור הפניה ידנית (ניתן להשאיר ריק)",
-    manualBtnPlaceholder: "ברירת מחדל: עבור עכשיו",
-    manualBtnDefault: "עבור עכשיו", lightPage: "השתמש ברקע בהיר",
+    manualBtnLabel: "כותרת כפתור הפניה/סיסמה (ניתן להשאיר ריק)",
+    manualBtnPlaceholder: "ברירת מחדל: עבור מיד",
+    manualBtnDefault: "עבור מיד", darkBackground: "השתמש ברקע כהה", centerContent: "מרכז תוכן הדף",
     redirectPageTitleLabel: "כותרת דף ההפניה (ניתן להשאיר ריק)",
-    redirectPageTitlePlaceholder: "ברירת מחדל: כתובת יעד {url}",
+    redirectPageTitlePlaceholder: "ברירת מחדל: הצג הודעת הנחיה",
     redirectPageContentLabel: "תוכן דף ההפניה (ניתן להשאיר ריק)",
     redirectPageContentPlaceholder: "כתוב תוכן...",
-    redirectPageContentHint: "תמיכה ב-Markdown. השאר ריק כדי להציג URL עם קישור.",
+    redirectPageContentHint: "תמיכה ב-Markdown",
     mode_rich: "עשיר", mode_md: "MD",
-    apiKey: "מפתח זהות",
+    adminKey: "מפתח ניהול",
     resetPassword: "חדש סיסמת קוד",
     btnCreate: "קצר",
     btnUpdate: "עדכן", btnDelete: "מחק", confirmDeleteMsg: "למחוק קישור מקוצר זה?", confirmYes: "מחק", confirmNo: "ביטול",
@@ -845,8 +962,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "שגיאת רשת",
     errSlugEmpty: "הכנס קוד תחילה",
     errSlugInvalid: "לא תקין: 3-10 אותיות וספרות בלבד",
-    slugFound: "אומת", btnView: "צפה ועריכה",
-    slugNotFound: "הקוד לא נמצא",
+    slugFound: "אומת", adminSlugFound: "הקוד נמצא", btnView: "צפה ועריכה",
     slugAuthFail: "בדוק את מפתח הזהות",
     defaultRedirectTitle: "כתובת יעד {url}",
     err_UNAUTHORIZED: "לא מורשה – בדוק את מפתח הזהות",
@@ -857,26 +973,29 @@ const I18N_JSON = JSON.stringify({
    
     err_SLUG_COLLISION: "יצירת קוד נכשלה, נסה שוב",
     warn_SLUG_IGNORED: "הקוד המותאם אישית לא תקין והתעלמנו ממנו, הוקצה קוד אקראי",
+    err_BATCH_DUPLICATE_SLUG: "קוד כפול באצווה",
+    warn_ACCESS_PASSWORD_IGNORED: "סיסמת הגישה לא תקינה והתעלמנו ממנה",
     err_NOT_FOUND: "לא נמצא", err_VERIFY_FAILED: "הקוד לא נמצא או הסיסמה שגויה",
     err_INVALID_REDIRECT_MODE: "מצב הפניה לא תקין",
+    err_INVALID_ACCESS_PASSWORD: "סיסמת גישה חייבת להכיל 3–16 תווים ללא רווחים",
+    err_RATE_LIMITED: "המכסה נגמרה — מתאפס 24 שעות לאחר הפעולה המוצלחת האחרונה",
+    adminMode: "מצב ניהול", adminExit: "יציאה", adminEnter: "כניסה למצב ניהול", adminKeyPlaceholder: "מפתח ניהול", adminCancel: "ביטול", adminSubmit: "כניסה", adminKeyWrong: "מפתח לא תקין",
     tb_bold: "מודגש", tb_italic: "נטוי", tb_underline: "קו תחתון", tb_h1: "כותרת 1", tb_h2: "כותרת 2", tb_h3: "כותרת 3", tb_ul: "רשימת תבליטים", tb_ol: "רשימה ממוספרת", tb_blockquote: "ציטוט", tb_code: "קוד בשורה", tb_link: "הכנס קישור", tb_hr: "קו אופקי",
   },
   ar: {
-    title: "اختصار الروابط",
+    title: "Shurl",
     tabCreate: "✨ إنشاء",
     tabModify: "✏️ تعديل",
     slugLabelCreate: "رمز مخصص", omittableText: "(يمكن تركه فارغاً)",
     slugLabelModify: "الرمز المراد تعديله",
     slugPlaceholderCreate: "اتركه فارغاً للتوليد التلقائي",
     slugPlaceholderModify: "أدخل الرمز الموجود",
-    slugHint: "3-10 أحرف وأرقام (حساس لحالة الأحرف).",
-    check: "تحقق واستعلم",
+    check: "تحقق واستعلم", adminCheck: "استعلم",
     targetUrl: "الرابط الهدف",
     slugPassword: "كلمة مرور الرمز",
     pwPlaceholder: "كلمة المرور التي ظهرت عند الإنشاء",
     pwHint: "أدخل كلمة المرور التي ظهرت عند إنشاء هذا الرمز.",
     ttlOptions: "مدة الصلاحية",
-    ttlLabel: "مدة الصلاحية",
     ttlHint: "0 = دائم. الحد الأدنى 60 ثانية، الحد الأقصى 12 شهرًا. القيم غير الصالحة كالأرقام السالبة أو العشرية سيتم تجاهلها.",
     ttlUnit_s: "ثوانٍ",
     ttlUnit_m: "دقائق",
@@ -884,21 +1003,25 @@ const I18N_JSON = JSON.stringify({
     ttlUnit_d: "أيام",
     ttlUnit_mo: "أشهر",
     redirectOptions: "خيارات التوجيه",
-    countdownLabel: "ثواني العد التنازلي",
-    countdownHint: "0 = توجيه يدوي (بدون عد تنازلي). 1-60 = عرض عد تنازلي. المدخلات الأخرى تعتبر 0.",
+    manualSub: "توجيه يدوي", countdownSub: "توجيه بعد تنازلي",
+    accessPasswordLabel: "طلب كلمة مرور من الزائر (اتركه فارغاً إذا لم يكن مطلوباً)",
+    countdownSelectLabel: "ثواني العد التنازلي",
+    accessPromptTitle: "كلمة المرور مطلوبة",
+    accessPromptPlaceholder: "أدخل كلمة المرور",
+    accessPromptError: "كلمة المرور غير صحيحة",
     rdInstant: "توجيه فوري",
     rdManual: "توجيه يدوي أو عد تنازلي",
     usePermanent: "استخدم التوجيه الدائم",
-    manualBtnLabel: "عنوان زر التوجيه اليدوي (يمكن تركه فارغاً)",
-    manualBtnPlaceholder: "افتراضي: انتقل الآن",
-    manualBtnDefault: "انتقل الآن", lightPage: "استخدم خلفية فاتحة",
+    manualBtnLabel: "عنوان زر التوجيه/كلمة المرور (يمكن تركه فارغاً)",
+    manualBtnPlaceholder: "افتراضي: انطلق الآن",
+    manualBtnDefault: "انطلق الآن", darkBackground: "استخدم خلفية داكنة", centerContent: "توسيط محتوى الصفحة",
     redirectPageTitleLabel: "عنوان صفحة التوجيه (يمكن تركه فارغاً)",
-    redirectPageTitlePlaceholder: "افتراضي: الرابط الهدف {url}",
+    redirectPageTitlePlaceholder: "افتراضي: عرض رسالة إرشادية",
     redirectPageContentLabel: "محتوى صفحة التوجيه (يمكن تركه فارغاً)",
     redirectPageContentPlaceholder: "اكتب المحتوى...",
-    redirectPageContentHint: "يدعم Markdown. اتركه فارغاً لعرض الرابط الهدف مع رابط.",
+    redirectPageContentHint: "يدعم Markdown",
     mode_rich: "منسق", mode_md: "MD",
-    apiKey: "مفتاح الهوية",
+    adminKey: "مفتاح الإدارة",
     resetPassword: "تجديد كلمة مرور الرمز",
     btnCreate: "اختصار",
     btnUpdate: "تحديث", btnDelete: "حذف", confirmDeleteMsg: "حذف هذا الرابط المختصر؟", confirmYes: "حذف", confirmNo: "إلغاء",
@@ -912,8 +1035,7 @@ const I18N_JSON = JSON.stringify({
     errNet: "خطأ في الشبكة",
     errSlugEmpty: "أدخل الرمز أولاً",
     errSlugInvalid: "غير صالح: 3-10 أحرف وأرقام فقط",
-    slugFound: "تم التحقق", btnView: "عرض وتعديل",
-    slugNotFound: "الرمز غير موجود",
+    slugFound: "تم التحقق", adminSlugFound: "تم العثور على الرمز", btnView: "عرض وتعديل",
     slugAuthFail: "تحقق من مفتاح الهوية",
     defaultRedirectTitle: "الرابط الهدف {url}",
     err_UNAUTHORIZED: "غير مصرح – تحقق من مفتاح الهوية",
@@ -924,32 +1046,90 @@ const I18N_JSON = JSON.stringify({
    
     err_SLUG_COLLISION: "فشل في إنشاء الرمز، حاول مرة أخرى",
     warn_SLUG_IGNORED: "الرمز المخصص غير صالح وتم تجاهله، تم تعيين رمز عشوائي",
+    err_BATCH_DUPLICATE_SLUG: "رمز مكرر في الدفعة",
+    warn_ACCESS_PASSWORD_IGNORED: "كلمة مرور الوصول غير صالحة وتم تجاهلها",
     err_NOT_FOUND: "غير موجود", err_VERIFY_FAILED: "الرمز غير موجود أو كلمة المرور خاطئة",
     err_INVALID_REDIRECT_MODE: "وضع التوجيه غير صالح",
+    err_INVALID_ACCESS_PASSWORD: "كلمة مرور الوصول يجب أن تكون 3–16 حرفاً بدون مسافات",
+    err_RATE_LIMITED: "تم استنفاد الحصة — يتم إعادة التعيين بعد 24 ساعة من آخر عملية ناجحة",
+    adminMode: "وضع الإدارة", adminExit: "خروج", adminEnter: "دخول وضع الإدارة", adminKeyPlaceholder: "مفتاح الإدارة", adminCancel: "إلغاء", adminSubmit: "دخول", adminKeyWrong: "المفتاح غير صالح",
     tb_bold: "غامق", tb_italic: "مائل", tb_underline: "تسطير", tb_h1: "عنوان 1", tb_h2: "عنوان 2", tb_h3: "عنوان 3", tb_ul: "قائمة نقطية", tb_ol: "قائمة مرقمة", tb_blockquote: "اقتباس", tb_code: "كود سطري", tb_link: "إدراج رابط", tb_hr: "خط أفقي",
   }
 });
 
-// ── Countdown redirect page ──────────────────────────────────────────
+// ── Redirect page (countdown / manual / password) ───────────────────
 
-function countdownPage(entry, acceptLang, cdnHost) {
+function lockPage(cdnHost) {
+  return `<!DOCTYPE html>
+<html lang="en" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shurl</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71'/%3E%3C/svg%3E">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f4f6f9;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.lock-card{background:#fff;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.08);padding:40px 36px;width:100%;max-width:380px;text-align:center}
+.lock-icon{width:56px;height:56px;margin:0 auto 20px;background:linear-gradient(135deg,#3b82f6,#06b6d4);border-radius:14px;display:flex;align-items:center;justify-content:center}
+.lock-card h1{font-size:1.3rem;font-weight:700;color:#1e293b;margin-bottom:6px}
+.lock-card p{font-size:.85rem;color:#64748b;margin-bottom:20px}
+.lock-card input[type=password]{width:100%;padding:10px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:.95rem;outline:none;transition:border-color .2s,box-shadow .2s}
+.lock-card input[type=password]:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.12)}
+.lock-card .remember{display:flex;align-items:center;gap:6px;margin:14px 0 18px;font-size:.8rem;color:#64748b;cursor:pointer;justify-content:center}
+.lock-card .remember input{accent-color:#3b82f6;cursor:pointer}
+.lock-card button{width:100%;padding:10px;border:none;border-radius:8px;background:linear-gradient(135deg,#3b82f6,#06b6d4);color:#fff;font-size:.95rem;font-weight:600;cursor:pointer;transition:filter .2s,box-shadow .2s}
+.lock-card button:hover{filter:brightness(1.05);box-shadow:0 4px 16px rgba(59,130,246,.3)}
+.lock-card button:disabled{opacity:.5;cursor:not-allowed}
+.lock-err{color:#dc2626;font-size:.82rem;margin-top:12px;min-height:1.2em}
+</style></head><body>
+<div class="lock-card">
+<div class="lock-icon">
+<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+</div>
+<h1 id="lockTitle">Shurl</h1>
+<p id="lockMsg"></p>
+<form id="lockForm">
+<input type="password" id="lockPw" autofocus required>
+<label class="remember"><input type="checkbox" id="lockRemember"> <span id="lockRemLabel"></span></label>
+<button type="submit" id="lockBtn"></button>
+<div class="lock-err" id="lockErr"></div>
+</form>
+</div>
+<script>
+var L={en:{app:"Shurl",msg:"Enter password to continue",ph:"Password",rem:"Remember for 30 days",btn:"Unlock",wrong:"Wrong password",net:"Network error"},"zh-cn":{app:"速至短链",msg:"请输入密码以继续",ph:"密码",rem:"30天内不再要求密码",btn:"解锁",wrong:"密码错误",net:"网络错误"},"zh-tw":{app:"速至短鏈",msg:"請輸入密碼以繼續",ph:"密碼",rem:"30天內不再要求密碼",btn:"解鎖",wrong:"密碼錯誤",net:"網路錯誤"},ja:{msg:"パスワードを入力してください",ph:"パスワード",rem:"30日間パスワードを要求しない",btn:"ロック解除",wrong:"パスワードが違います",net:"ネットワークエラー"},ko:{msg:"비밀번호를 입력하세요",ph:"비밀번호",rem:"30일간 비밀번호 요구 안 함",btn:"잠금 해제",wrong:"비밀번호가 틀렸습니다",net:"네트워크 오류"},ms:{msg:"Masukkan kata laluan untuk meneruskan",ph:"Kata laluan",rem:"Ingat selama 30 hari",btn:"Buka kunci",wrong:"Kata laluan salah",net:"Ralat rangkaian"},vi:{msg:"Nhập mật khẩu để tiếp tục",ph:"Mật khẩu",rem:"Ghi nhớ 30 ngày",btn:"Mở khóa",wrong:"Sai mật khẩu",net:"Lỗi mạng"},th:{msg:"กรุณาใส่รหัสผ่านเพื่อดำเนินการต่อ",ph:"รหัสผ่าน",rem:"จำไว้ 30 วัน",btn:"ปลดล็อก",wrong:"รหัสผ่านผิด",net:"ข้อผิดพลาดเครือข่าย"},ta:{msg:"தொடர கடவுச்சொல்லை உள்ளிடவும்",ph:"கடவுச்சொல்",rem:"30 நாட்கள் நினைவில் வை",btn:"திறக்க",wrong:"தவறான கடவுச்சொல்",net:"பிணையப் பிழை"},he:{msg:"הזן סיסמה כדי להמשיך",ph:"סיסמה",rem:"זכור למשך 30 יום",btn:"פתח נעילה",wrong:"סיסמה שגויה",net:"שגיאת רשת"},ar:{msg:"أدخل كلمة المرور للمتابعة",ph:"كلمة المرور",rem:"تذكر لمدة 30 يومًا",btn:"فتح القفل",wrong:"كلمة المرور خاطئة",net:"خطأ في الشبكة"}};
+function dl(){var s=Object.keys(L);var c=navigator.languages||[navigator.language||"en"];for(var i=0;i<c.length;i++){var l=c[i].toLowerCase();if(s.indexOf(l)!==-1)return l;if(/^zh-(hant|tw|hk|mo)/.test(l))return"zh-tw";if(/^zh/.test(l))return"zh-cn";var p=l.split("-")[0];if(s.indexOf(p)!==-1)return p;}return"en";}
+var t=L[dl()]||L.en;
+if(t.app){document.getElementById("lockTitle").textContent=t.app;document.title=t.app;}
+document.getElementById("lockMsg").textContent=t.msg;
+document.getElementById("lockPw").placeholder=t.ph;
+document.getElementById("lockRemLabel").textContent=t.rem;
+document.getElementById("lockBtn").textContent=t.btn;
+if(["he","ar"].indexOf(dl())!==-1)document.documentElement.dir="rtl";
+document.getElementById("lockForm").addEventListener("submit",function(e){
+e.preventDefault();var btn=document.getElementById("lockBtn");var pw=document.getElementById("lockPw").value;var rem=document.getElementById("lockRemember").checked;var err=document.getElementById("lockErr");
+btn.disabled=true;err.textContent="";
+fetch("/_unlock",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:pw,remember:rem})}).then(function(r){return r.json()}).then(function(d){if(d.ok){window.location.reload()}else{err.textContent=t.wrong;btn.disabled=false}}).catch(function(){err.textContent=t.net;btn.disabled=false})});
+<\/script></body></html>`;
+}
+
+function redirectPage(entry, acceptLang, cdnHost, slug, showError) {
   const target = entry.url;
   const seconds = entry.countdown || 0;
+  const needsPw = !!entry.accessHash;
   const lang = detectLang(acceptLang);
   const dir = (lang === "ar" || lang === "he") ? "rtl" : "ltr";
 
-  // Title & body use stored custom values, or locale-aware defaults
-  // NOTE: redirectPageContent field now stores Markdown (kept field name for backward compat)
   const titleRaw = entry.redirectPageTitle || null;
   const bodyRaw = entry.redirectPageContent || null;
   const customBtnTitle = entry.manualBtnTitle || null;
-  const light = entry.lightPage !== false;
+  const light = entry.darkBackground !== true;
+  const center = entry.centerContent === true;
   const bg = light ? '#f4f6f9' : '#0f172a';
   const fg = light ? '#1e293b' : '#e2e8f0';
   const muted = light ? '#64748b' : '#94a3b8';
   const barBg = light ? '#cbd5e1' : '#1e293b';
   const linkColor = light ? '#2563eb' : '#60a5fa';
   const skipBorder = light ? '#94a3b8' : '#475569';
+  const inputBorder = light ? '#cbd5e1' : '#475569';
+  const inputBg = light ? '#fff' : '#1e293b';
 
   return `<!DOCTYPE html>
 <html lang="${lang}" dir="${dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -958,52 +1138,66 @@ function countdownPage(entry, acceptLang, cdnHost) {
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,sans-serif;background:${bg};color:${fg};min-height:100vh;display:flex;align-items:center;justify-content:center}
-.wrap{max-width:520px;width:100%;padding:2rem;text-align:center}
-.countdown{font-size:3rem;font-weight:700;color:#3b82f6;margin:1.2rem 0}
-.body-content{margin:1.5rem 0;font-size:1rem;line-height:1.6}
+.wrap{max-width:520px;width:100%;padding:2rem}
+.countdown{font-size:3rem;font-weight:700;color:#3b82f6;margin:1.2rem 0;text-align:center}
+.body-content{margin:1.5rem 0;font-size:1rem;line-height:1.6${center ? ';text-align:center' : ''}}
 .body-content p{margin-bottom:.8em}
 .body-content blockquote{border-left:3px solid #3b82f6;padding-left:.8em;margin:.5em 0;font-style:italic}
 .body-content ul,.body-content ol{padding-left:1.5em;margin-bottom:.5em}
 .body-content code{background:rgba(127,127,127,.15);padding:1px 4px;border-radius:3px;font-size:.9em}
 .body-content hr{border:none;border-top:1px solid rgba(127,127,127,.3);margin:.8em 0}
-.skip{margin-top:1.2rem}
-.skip a{color:${muted};font-size:.85rem;text-decoration:none;border-bottom:1px dashed ${skipBorder}}
-.skip a:hover{color:${fg}}
+.skip{margin-top:1.2rem;text-align:center}
+.skip a,.skip button{color:${muted};font-size:.85rem;text-decoration:none;border-bottom:1px dashed ${skipBorder};background:none;border-top:none;border-left:none;border-right:none;cursor:pointer}
+.skip a:hover,.skip button:hover{color:${fg}}
 .bar-track{width:100%;height:4px;background:${barBg};border-radius:2px;margin-top:1.5rem;overflow:hidden}
 .bar-fill{height:100%;background:#3b82f6;border-radius:2px;transition:width .3s linear}
+.pw-area{text-align:center;margin:1.2rem 0}
+.pw-area input{padding:.6rem .8rem;border:1px solid ${inputBorder};border-radius:.5rem;font-size:1rem;outline:none;background:${inputBg};color:${fg};width:100%;max-width:280px}
+.pw-area input:focus{border-color:#3b82f6;box-shadow:0 0 0 2px rgba(59,130,246,.15)}
+.pw-err{color:#ef4444;font-size:.85rem;margin-bottom:.6rem;text-align:center}
 </style></head><body><div class="wrap">
 <div class="body-content" id="body-content"></div>
-<div class="countdown" id="count">${seconds}</div>
+${needsPw ? `${showError ? '<p class="pw-err" id="pw-err"></p>' : ''}<form id="pw-form" method="GET" action="/${esc(slug)}"><div class="pw-area"><input type="password" name="_pw" id="pw-input" autofocus required></div><div class="skip"><button type="submit" id="pw-btn" style="display:inline-block;padding:12px 32px;background:#3b82f6;color:#fff;border-radius:8px;font-size:1rem;font-weight:600;border:none;cursor:pointer"></button></div></form>` : `<div class="countdown" id="count">${seconds}</div>
 <div class="bar-track"><div class="bar-fill" id="bar" style="width:100%"></div></div>
-<div class="skip"><a id="skip-link" href="${esc(target)}"></a></div>
+<div class="skip"><a id="skip-link" href="${esc(target)}"></a></div>`}
 </div><script>
 const I18N=${I18N_JSON};
 const lang=${JSON.stringify(lang)};
 const t=I18N[lang]||I18N.en;
 const target=${JSON.stringify(target)};
+const needsPw=${needsPw};
 const customTitle=${JSON.stringify(titleRaw)};
 const customBody=${JSON.stringify(bodyRaw)};
 const customBtnTitle=${JSON.stringify(customBtnTitle)};
-document.getElementById('page-title').textContent=customTitle||t.defaultRedirectTitle.replace('{url}',target);
-if(customBody){var md=window.markdownit({html:false,linkify:true});document.getElementById('body-content').innerHTML=md.render(customBody)}else{document.getElementById('body-content').innerHTML='<a href="'+target+'" style="color:${linkColor};word-break:break-all">'+target.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</a>'}
-var btnTitle=customBtnTitle||t.manualBtnDefault;
-const total=${seconds};
-if(total===0){
-  document.getElementById('count').style.display='none';
-  document.getElementById('bar').parentNode.style.display='none';
-  document.getElementById('skip-link').textContent=btnTitle;
-  document.getElementById('skip-link').style.cssText='display:inline-block;padding:12px 32px;background:#3b82f6;color:#fff;border-radius:8px;text-decoration:none;font-size:1rem;font-weight:600';
+if(needsPw){
+  document.getElementById('page-title').textContent=customTitle||t.accessPromptTitle;
+  if(customBody){var md=window.markdownit({html:false,linkify:true});document.getElementById('body-content').innerHTML=md.render(customBody)}
+  document.getElementById('pw-input').placeholder=t.accessPromptPlaceholder;
+  document.getElementById('pw-btn').textContent=customBtnTitle||t.manualBtnDefault;
+  var errEl=document.getElementById('pw-err');
+  if(errEl) errEl.textContent=t.accessPromptError;
 }else{
-  document.getElementById('skip-link').textContent=btnTitle;
-  let left=${seconds};
-  const countEl=document.getElementById('count');
-  const barEl=document.getElementById('bar');
-  const iv=setInterval(()=>{
-    left--;
-    if(left<=0){clearInterval(iv);location.href=target;return}
-    countEl.textContent=left;
-    barEl.style.width=((left/total)*100)+'%';
-  },1000);
+  document.getElementById('page-title').textContent=customTitle||t.defaultRedirectTitle.replace('{url}',target);
+  if(customBody){var md=window.markdownit({html:false,linkify:true});document.getElementById('body-content').innerHTML=md.render(customBody)}else{document.getElementById('body-content').innerHTML='<a href="'+target+'" style="color:${linkColor};word-break:break-all">'+target.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</a>'}
+  var btnTitle=customBtnTitle||t.manualBtnDefault;
+  const total=${seconds};
+  if(total===0){
+    document.getElementById('count').style.display='none';
+    document.getElementById('bar').parentNode.style.display='none';
+    document.getElementById('skip-link').textContent=btnTitle;
+    document.getElementById('skip-link').style.cssText='display:inline-block;padding:12px 32px;background:#3b82f6;color:#fff;border-radius:8px;text-decoration:none;font-size:1rem;font-weight:600';
+  }else{
+    document.getElementById('skip-link').textContent=btnTitle;
+    let left=${seconds};
+    const countEl=document.getElementById('count');
+    const barEl=document.getElementById('bar');
+    const iv=setInterval(()=>{
+      left--;
+      if(left<=0){clearInterval(iv);location.href=target;return}
+      countEl.textContent=left;
+      barEl.style.width=((left/total)*100)+'%';
+    },1000);
+  }
 }
 </script></body></html>`;
 }
@@ -1027,8 +1221,8 @@ function detectLang(acceptLang) {
 
 const HTML = `<!DOCTYPE html>
 <html lang="en" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>URL Shortener</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%233b82f6'/%3E%3Cstop offset='100%25' stop-color='%2306b6d4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='6' fill='url(%23g)'/%3E%3Cpath d='M12 20l-2 2a3 3 0 01-4.24-4.24l4-4a3 3 0 014.24 0' fill='none' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M20 12l2-2a3 3 0 00-4.24-4.24l-4 4a3 3 0 000 4.24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
+<title>Shurl</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71'/%3E%3C/svg%3E">
 <script src="https://{{CDN_HOST}}/npm/markdown-it@14/dist/markdown-it.min.js"><\/script>
 <style>
 :root{
@@ -1130,7 +1324,7 @@ textarea{resize:vertical;min-height:60px}
 .rd-radio input[type=radio]{accent-color:var(--s-accent)}
 .rd-check{display:flex;align-items:center;gap:.4rem;font-size:.85rem;color:var(--s-text-muted);cursor:pointer}
 .rd-check input[type=checkbox]{accent-color:var(--s-accent)}
-</style></head><body><div class="c">
+</style></head><body><div style="width:100%;max-width:480px"><div class="c">
 <div class="header">
   <div class="header-left">
     <div class="logo-icon">
@@ -1142,7 +1336,6 @@ textarea{resize:vertical;min-height:60px}
     <h1 id="i-title"></h1>
   </div>
   <div style="display:flex;gap:8px;align-items:center">
-    <button type="button" class="theme-toggle" id="themeToggle">☀️</button>
     <select id="lang-select">
     <option value="en">English</option>
     <option value="zh-cn">简体中文</option>
@@ -1156,6 +1349,19 @@ textarea{resize:vertical;min-height:60px}
     <option value="he">עברית</option>
     <option value="ar">العربية</option>
   </select>
+    <button type="button" class="theme-toggle" id="themeToggle">☀️</button>
+    <button type="button" id="adminBtn" style="background:none;border:1px solid var(--s-border);border-radius:.4rem;padding:4px 8px;cursor:pointer;font-size:.85rem;color:var(--s-text-muted)" title="">🔑</button>
+  </div>
+</div>
+<div id="adminKeyOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center" onclick="if(event.target===this){this.className='hidden';this.style.display='none'}">
+  <div style="background:var(--s-surface);border:1px solid var(--s-border);border-radius:.75rem;padding:1.5rem;width:320px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+    <h3 id="adminDialogTitle" style="margin:0 0 1rem;font-size:1rem;color:var(--s-text)"></h3>
+    <input type="password" id="adminKeyInput" style="width:100%;padding:.6rem .75rem;border:1px solid var(--s-border);border-radius:.5rem;background:var(--s-bg);color:var(--s-text);font-size:.9rem;outline:none;margin-bottom:.8rem" placeholder="">
+    <p id="adminKeyError" style="color:#ef4444;font-size:.85rem;margin-bottom:.6rem;display:none"></p>
+    <div style="display:flex;gap:.5rem;justify-content:flex-end">
+      <button type="button" id="adminKeyCancel" style="padding:.5rem 1rem;background:none;border:1px solid var(--s-border);border-radius:.4rem;color:var(--s-text-muted);cursor:pointer;font-size:.85rem"></button>
+      <button type="button" id="adminKeySubmit" style="padding:.5rem 1rem;background:var(--s-accent);color:#fff;border:none;border-radius:.4rem;cursor:pointer;font-size:.85rem"></button>
+    </div>
   </div>
 </div>
 
@@ -1164,23 +1370,18 @@ textarea{resize:vertical;min-height:60px}
   <div class="tab" id="tab-modify" onclick="setMode('modify')"></div>
 </div>
 
-<div id="apikey-section">
-<label id="l-apikey" class="field-label"></label>
-<input id="k" type="password">
-</div>
 
 <label id="l-slug" class="field-label"></label>
 <div class="slug-row">
   <input id="s" type="text" minlength="3" maxlength="10" pattern="[a-zA-Z0-9]{3,10}">
+  <button class="form-btn" onclick="verifySlug()" id="check-btn" disabled style="display:none"></button>
 </div>
 <div id="slug-status"></div>
-<p class="hint" id="h-slug"></p>
 
-<div id="pw-section" class="hidden">
+<div id="pw-section" style="display:none">
   <label id="l-pw" class="field-label"></label>
   <div class="slug-row">
     <input id="p" type="password">
-    <button class="form-btn" onclick="verifySlug()" id="check-btn" disabled></button>
   </div>
   <p class="hint" id="h-pw"></p>
 </div>
@@ -1240,9 +1441,24 @@ textarea{resize:vertical;min-height:60px}
     <span id="l-rdManual"></span>
   </label>
   <div id="rd-manual-opts" class="hidden" style="padding-left:1.5rem">
-    <label id="l-countdown" class="field-label"></label>
-    <input id="countdown" type="number" min="0" max="60" value="0">
-    <p class="hint" id="h-countdown"></p>
+    <label class="rd-radio">
+      <input type="radio" name="manualMode" value="manual" checked>
+      <span id="l-manualSub"></span>
+    </label>
+    <div id="manual-sub-opts" style="padding-left:1.5rem;margin-bottom:.6rem">
+      <label id="l-accessPassword" class="field-label"></label>
+      <input id="accessPassword" type="password" maxlength="16" minlength="3">
+      <p class="hint" id="h-accessPassword" style="color:#ef4444;display:none"></p>
+    </div>
+
+    <label class="rd-radio">
+      <input type="radio" name="manualMode" value="countdown">
+      <span id="l-countdownSub"></span>
+    </label>
+    <div id="countdown-sub-opts" style="display:none;padding-left:1.5rem;margin-bottom:.6rem">
+      <label id="l-countdownSelect" class="field-label"></label>
+      <select id="countdown"></select>
+    </div>
 
     <label id="l-redirectPageTitle" class="field-label"></label>
     <input id="redirectPageTitle" type="text" maxlength="128">
@@ -1274,13 +1490,17 @@ textarea{resize:vertical;min-height:60px}
     </div>
     <p class="hint" id="h-redirectPageContent"></p>
 
-    <label id="l-manualBtn" class="field-label"></label>
-    <input id="manualBtnTitle" type="text" maxlength="128">
-
     <label class="rd-check" style="margin-top:.4rem">
-      <input type="checkbox" id="lightPage" checked>
-      <span id="l-lightPage"></span>
+      <input type="checkbox" id="centerContent">
+      <span id="l-centerContent"></span>
     </label>
+    <label class="rd-check" style="margin-top:.4rem">
+      <input type="checkbox" id="darkBackground">
+      <span id="l-darkBackground"></span>
+    </label>
+
+    <label id="l-manualBtn" class="field-label" style="margin-top:.8rem"></label>
+    <input id="manualBtnTitle" type="text" maxlength="128">
   </div>
 </div>
 </div>
@@ -1301,7 +1521,10 @@ textarea{resize:vertical;min-height:60px}
     </div>
   </div>
 </div>
+<footer style="text-align:center;padding:1.2rem 0 .5rem;font-size:.75rem;color:var(--s-text-muted)">© <span id="footerYear"></span> <a href="https://go.gb.net/gaobo" target="_blank" style="color:var(--s-text-muted);text-decoration:none;border-bottom:1px dashed var(--s-border)"><img src="/gaobo.png" alt="" style="height:20px;vertical-align:middle;margin:0 2px;"><span id="footerBrand">高博的世界</span></a> <span id="footerProd">出品</span> <a href="https://github.com/onegbnet/tinyutils/blob/master/LICENSE" target="_blank" style="color:var(--s-text-muted);text-decoration:none;border-bottom:1px dashed var(--s-border)">MIT License</a></footer>
+</div>
 <script>
+document.getElementById('footerYear').textContent=new Date().getFullYear();
 const I18N=${I18N_JSON};
 
 function detectLang(){
@@ -1464,9 +1687,27 @@ for (var ri = 0; ri < rdModeRadios.length; ri++) {
   rdModeRadios[ri].addEventListener('change', updateRdMode);
 }
 
+var manualModeRadios = document.querySelectorAll('input[name="manualMode"]');
+function updateManualMode() {
+  var mm = document.querySelector('input[name="manualMode"]:checked').value;
+  document.getElementById('manual-sub-opts').style.display = mm === 'manual' ? '' : 'none';
+  document.getElementById('countdown-sub-opts').style.display = mm === 'countdown' ? '' : 'none';
+}
+for (var mi = 0; mi < manualModeRadios.length; mi++) {
+  manualModeRadios[mi].addEventListener('change', updateManualMode);
+}
+(function(){
+  var sel = document.getElementById('countdown');
+  for(var i=1;i<=60;i++){
+    var opt=document.createElement('option');
+    opt.value=i; opt.textContent=i;
+    if(i===30) opt.selected=true;
+    sel.appendChild(opt);
+  }
+})();
+
 var defaultTtl = parseInt('{{DEFAULT_TTL}}') || 0;
 var KEY_REQUIRED = '{{KEY_REQUIRED}}' === 'true';
-if(!KEY_REQUIRED) document.getElementById('apikey-section').style.display='none';
 let mode='create',advOpen=false,ttlOpen=false;
 
 function applyI18n(){
@@ -1488,29 +1729,119 @@ function applyI18n(){
   document.getElementById('l-usePermanent').textContent=t.usePermanent;
   document.getElementById('l-manualBtn').textContent=t.manualBtnLabel;
   document.getElementById('manualBtnTitle').placeholder=t.manualBtnPlaceholder;
-  document.getElementById('l-lightPage').textContent=t.lightPage;
-  document.getElementById('l-countdown').textContent=t.countdownLabel;
-  document.getElementById('h-countdown').textContent=t.countdownHint;
+  document.getElementById('l-darkBackground').textContent=t.darkBackground;
+  document.getElementById('l-centerContent').textContent=t.centerContent;
+  document.getElementById('l-manualSub').textContent=t.manualSub;
+  document.getElementById('l-countdownSub').textContent=t.countdownSub;
+  document.getElementById('l-accessPassword').textContent=t.accessPasswordLabel;
+  document.getElementById('l-countdownSelect').textContent=t.countdownSelectLabel;
   document.getElementById('l-redirectPageTitle').textContent=t.redirectPageTitleLabel;
   document.getElementById('l-redirectPageContent').textContent=t.redirectPageContentLabel;
   document.getElementById('h-redirectPageContent').textContent=t.redirectPageContentHint;
-  document.getElementById('l-apikey').textContent=t.apiKey;
   document.getElementById('redirectPageTitle').placeholder=t.redirectPageTitlePlaceholder;
   document.getElementById('modeRich').textContent=t.mode_rich;
   document.getElementById('modeMd').textContent=t.mode_md;
   wysiwygPane.setAttribute('data-placeholder',t.redirectPageContentPlaceholder);
   mdPane.placeholder=t.redirectPageContentPlaceholder;
   document.getElementById('p').placeholder=t.pwPlaceholder;
-  document.getElementById('check-btn').textContent=t.check;
-  document.getElementById('h-slug').textContent=t.slugHint;
+  document.getElementById('check-btn').textContent=isAdminMode()?t.adminCheck:t.check;
   document.getElementById('l-resetPassword').textContent=t.resetPassword;
   var tooltipMap = {bold:'tb_bold', italic:'tb_italic', underline:'tb_underline', h1:'tb_h1', h2:'tb_h2', h3:'tb_h3', ul:'tb_ul', ol:'tb_ol', blockquote:'tb_blockquote', code:'tb_code', link:'tb_link', hr:'tb_hr'};
   document.querySelectorAll('.tb-btn[data-cmd]').forEach(function(btn){
     var key = tooltipMap[btn.getAttribute('data-cmd')];
     if(key && t[key]) btn.title = t[key];
   });
+  document.getElementById('adminBtn').title=t.adminEnter;
+  document.getElementById('adminDialogTitle').textContent=t.adminEnter;
+  document.getElementById('adminKeyCancel').textContent=t.adminCancel;
+  document.getElementById('adminKeySubmit').textContent=t.adminSubmit;
+  document.getElementById('adminKeyInput').placeholder=t.adminKeyPlaceholder;
+  var isChinese = (lang === 'zh-cn' || lang === 'zh-tw');
+  document.getElementById('footerBrand').textContent = isChinese ? '高博的世界' : 'ONE.GB.NET';
+  document.getElementById('footerProd').textContent = isChinese ? '出品' : '';
 }
 applyI18n();
+
+// ── Admin mode ──
+var adminKey = sessionStorage.getItem('adminKey') || '';
+function isAdminMode() { return !!adminKey; }
+function updateAdminUI() {
+  var btn = document.getElementById('adminBtn');
+  if (!KEY_REQUIRED) {
+    btn.style.display = 'none';
+    return;
+  }
+  if (isAdminMode()) {
+    btn.textContent = '🔓';
+    btn.title = t.adminExit;
+    btn.style.background = 'var(--s-accent)';
+    btn.style.color = '#fff';
+    btn.style.borderColor = 'var(--s-accent)';
+  } else {
+    btn.textContent = '🔑';
+    btn.title = t.adminEnter;
+    btn.style.background = 'none';
+    btn.style.color = 'var(--s-text-muted)';
+    btn.style.borderColor = 'var(--s-border)';
+  }
+}
+function showAdminModal() {
+  var overlay = document.getElementById('adminKeyOverlay');
+  overlay.className = '';
+  overlay.style.display = 'flex';
+  document.getElementById('adminKeyInput').value = '';
+  document.getElementById('adminKeyError').style.display = 'none';
+  document.getElementById('adminKeyInput').style.borderColor = '';
+  setTimeout(function(){ document.getElementById('adminKeyInput').focus(); }, 50);
+}
+function hideAdminModal() {
+  var overlay = document.getElementById('adminKeyOverlay');
+  overlay.className = 'hidden';
+  overlay.style.display = 'none';
+}
+document.getElementById('adminBtn').addEventListener('click', function() {
+  if (isAdminMode()) {
+    adminKey = '';
+    sessionStorage.removeItem('adminKey');
+    updateAdminUI();
+    setMode(mode);
+    applyI18n();
+  } else {
+    showAdminModal();
+  }
+});
+document.getElementById('adminKeyCancel').addEventListener('click', hideAdminModal);
+document.getElementById('adminKeySubmit').addEventListener('click', async function() {
+  var key = document.getElementById('adminKeyInput').value.trim();
+  if (!key) return;
+  var errEl = document.getElementById('adminKeyError');
+  try {
+    var res = await fetch('/', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Admin-Key': key }, body: '{}' });
+    if (res.status !== 401) {
+      adminKey = key;
+      sessionStorage.setItem('adminKey', key);
+      hideAdminModal();
+      updateAdminUI();
+      setMode(mode);
+      applyI18n();
+    } else {
+      document.getElementById('adminKeyInput').style.borderColor = '#ef4444';
+      errEl.textContent = t.adminKeyWrong;
+      errEl.style.display = '';
+    }
+  } catch(e) {
+    document.getElementById('adminKeyInput').style.borderColor = '#ef4444';
+    errEl.textContent = t.adminKeyWrong;
+    errEl.style.display = '';
+  }
+});
+document.getElementById('adminKeyInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('adminKeySubmit').click();
+  this.style.borderColor = '';
+  document.getElementById('adminKeyError').style.display = 'none';
+});
+updateAdminUI();
+function getAdminKey() { return adminKey; }
 
 function setMode(m){
   mode=m;
@@ -1523,13 +1854,17 @@ function setMode(m){
   document.getElementById('ttl-unit').value='s';
   document.querySelector('input[name="rdMode"][value="instant"]').checked=true;
   document.getElementById('usePermanent').checked=true;
-  document.getElementById('countdown').value='0';
+  document.querySelector('input[name="manualMode"][value="manual"]').checked=true;
+  document.getElementById('accessPassword').value='';
+  document.getElementById('countdown').value='30';
   document.getElementById('redirectPageTitle').value='';
   wysiwygPane.innerHTML='';
   mdPane.value='';
   document.getElementById('manualBtnTitle').value='';
-  document.getElementById('lightPage').checked=true;
+  document.getElementById('darkBackground').checked=false;
+  document.getElementById('centerContent').checked=false;
   updateRdMode();
+  updateManualMode();
   document.getElementById('r').style.display='none';
   document.getElementById('renew-pw-section').className='hidden';
   document.getElementById('modify-actions').className='hidden';
@@ -1546,11 +1881,11 @@ function updateLabels(){
   document.getElementById('l-slug').textContent=mode==='create'?(t.slugLabelCreate+' '+t.omittableText):t.slugLabelModify;
   document.getElementById('s').placeholder=mode==='create'?t.slugPlaceholderCreate:t.slugPlaceholderModify;
   document.getElementById('s').required=mode==='modify';
-  document.getElementById('pw-section').className=mode==='modify'?'':'hidden';
+  document.getElementById('pw-section').style.display=(mode==='modify'&&!isAdminMode())?'':'none';
+  document.getElementById('check-btn').style.display=(mode==='modify')?'':'none';
   document.getElementById('submit-btn').textContent=mode==='create'?t.btnCreate:t.btnUpdate;
   document.getElementById('view-btn').textContent=t.btnView;
   document.getElementById('action-delete-btn').textContent=t.btnDelete;
-  document.getElementById('h-slug').style.display=mode==='create'?'':'none';
   document.getElementById('ttl-toggle').textContent=(ttlOpen?'▼':'▶')+' '+t.ttlOptions;
   document.getElementById('adv-toggle').textContent=(advOpen?'▼':'▶')+' '+t.redirectOptions;
   updateCheckBtn();
@@ -1567,7 +1902,7 @@ function checkSubmitState(){
   if(mode==='modify') return; // submit controlled by verify in modify mode
   var urlOk=false,slugOk=true,keyOk=!KEY_REQUIRED;
   var uv=urlInput.value.trim();
-  if(KEY_REQUIRED){var kv=document.getElementById('k').value.trim();if(kv) keyOk=true;}
+  if(isAdminMode()||!KEY_REQUIRED) keyOk=true;
   if(uv){urlOk=true;try{var u=new URL(uv);if((u.protocol!=='http:'&&u.protocol!=='https:')||!/^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z]{2,63}$/i.test(u.hostname))urlOk=false}catch(e){urlOk=false}}
   var sv=document.getElementById('s').value.trim();
   if(sv&&!/^[a-zA-Z0-9]{3,10}$/.test(sv))slugOk=false;
@@ -1582,7 +1917,16 @@ function validateUrl(){
 }
 urlInput.addEventListener('input',validateUrl);
 urlInput.addEventListener('blur',validateUrl);
-document.getElementById('k').addEventListener('input',checkSubmitState);
+document.getElementById('accessPassword').addEventListener('input', function() {
+  var v = this.value;
+  var hint = document.getElementById('h-accessPassword');
+  if (v && (/\s/.test(v) || (v.length > 0 && v.length < 3))) {
+    hint.textContent = t.err_INVALID_ACCESS_PASSWORD;
+    hint.style.display = '';
+  } else {
+    hint.style.display = 'none';
+  }
+});
 
 var slugInput=document.getElementById('s');
 var slugStatus=document.getElementById('slug-status');
@@ -1612,7 +1956,7 @@ function toggleAdvanced(){
 
 async function verifySlug(){
   var s=document.getElementById('s').value.trim();
-  var k=document.getElementById('k').value.trim();
+  var k=getAdminKey();
   var p=document.getElementById('p').value;
   var st=document.getElementById('slug-status');
 
@@ -1621,10 +1965,10 @@ async function verifySlug(){
 
   try{
     var hdrs={'X-Password':p};
-    if(k) hdrs['X-API-Key']=k;
+    if(k) hdrs['X-Admin-Key']=k;
     var res=await fetch('/'+s,{method:'HEAD',headers:hdrs});
     if(res.ok){
-      st.textContent='✓ '+t.slugFound;st.className='free';
+      st.textContent='✓ '+(isAdminMode()?t.adminSlugFound:t.slugFound);st.className='free';
       document.getElementById('modify-actions').className='';
       document.getElementById('s').readOnly=true;
       document.getElementById('p').readOnly=true;
@@ -1632,21 +1976,21 @@ async function verifySlug(){
     }else if(res.status===401){
       st.textContent='❌ '+t.slugAuthFail;st.className='bad';
     }else{
-      st.textContent='❌ '+t.err_VERIFY_FAILED;st.className='bad';
+      st.textContent='❌ '+(isAdminMode()?t.err_NOT_FOUND:t.err_VERIFY_FAILED);st.className='bad';
     }
   }catch(e){st.textContent='❌ '+t.errNet;st.className='bad'}
 }
 
 async function loadEntry(){
   var s=document.getElementById('s').value.trim();
-  var k=document.getElementById('k').value.trim();
+  var k=getAdminKey();
   var p=document.getElementById('p').value;
   var st=document.getElementById('slug-status');
 
   try{
     var res=await fetch('/'+s,{
       method:'POST',
-      headers:{'X-API-Key':k,'X-Password':p}
+      headers:{'X-Admin-Key':k,'X-Password':p}
     });
     if(res.ok){
       var d=await res.json();
@@ -1655,7 +1999,13 @@ async function loadEntry(){
       var rdRadio = document.querySelector('input[name="rdMode"][value="' + rdMode + '"]');
       if (rdRadio) rdRadio.checked = true;
       document.getElementById('usePermanent').checked = d.permanent !== false;
-      document.getElementById('countdown').value = d.countdown || 0;
+      if (rdMode === 'manual' && (d.countdown || 0) > 0) {
+        document.querySelector('input[name="manualMode"][value="countdown"]').checked = true;
+        document.getElementById('countdown').value = d.countdown;
+      } else {
+        document.querySelector('input[name="manualMode"][value="manual"]').checked = true;
+      }
+      document.getElementById('accessPassword').value = '';
       document.getElementById('redirectPageTitle').value = d.redirectPageTitle || '';
       var loadedMd = d.redirectPageContent || '';
       mdPane.value = loadedMd;
@@ -1670,8 +2020,10 @@ async function loadEntry(){
         document.getElementById('modeMd').classList.add('active');
       }
       document.getElementById('manualBtnTitle').value = d.manualBtnTitle || '';
-      document.getElementById('lightPage').checked = d.lightPage !== false;
+      document.getElementById('darkBackground').checked = d.darkBackground === true;
+      document.getElementById('centerContent').checked = d.centerContent === true;
       updateRdMode();
+      updateManualMode();
       document.getElementById('ttl').value=d.ttl||0;
       document.getElementById('renew-pw-section').className='';
       submitBtn.disabled=false;
@@ -1687,19 +2039,16 @@ async function loadEntry(){
 
 function updateCheckBtn(){
   var s=document.getElementById('s').value.trim();
-  var k=KEY_REQUIRED?document.getElementById('k').value.trim():'ok';
-  var p=document.getElementById('p').value;
+  var p=isAdminMode()?'ok':document.getElementById('p').value;
   var btn=document.getElementById('check-btn');
-  btn.disabled=!(s && /^[a-zA-Z0-9]{3,10}$/.test(s) && k && p);
+  btn.disabled=!(s && /^[a-zA-Z0-9]{3,10}$/.test(s) && p);
 }
 document.getElementById('s').addEventListener('input',updateCheckBtn);
-document.getElementById('k').addEventListener('input',updateCheckBtn);
 document.getElementById('p').addEventListener('input',updateCheckBtn);
 
 async function go(){
   const u=document.getElementById('u').value.trim(),s=document.getElementById('s').value.trim(),
-        p=document.getElementById('p').value,k=document.getElementById('k').value.trim(),
-        countdown=parseInt(document.getElementById('countdown').value)||0,
+        p=document.getElementById('p').value,k=getAdminKey(),
         redirectPageTitle=document.getElementById('redirectPageTitle').value.trim(),
         r=document.getElementById('r');
   var redirectPageContent=getEditorMarkdown();
@@ -1707,7 +2056,7 @@ async function go(){
   if(!u){r.textContent='❌ '+t.errUrl;r.className='err';r.style.display='block';return}
   try{var uu=new URL(u);if((uu.protocol!=='http:'&&uu.protocol!=='https:')||!/^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z]{2,63}$/i.test(uu.hostname))throw 0}catch(e){r.textContent='❌ '+t.errUrlInvalid;r.className='err';r.style.display='block';return}
   if(mode==='modify'&&!s){r.textContent='❌ '+t.errSlug;r.className='err';r.style.display='block';return}
-  if(mode==='modify'&&!p){r.textContent='❌ '+t.errPw;r.className='err';r.style.display='block';return}
+  if(mode==='modify'&&!p&&!isAdminMode()){r.textContent='❌ '+t.errPw;r.className='err';r.style.display='block';return}
   const payload={url:u};
   if(mode==='create'&&s) payload.slug=s;
   if(mode==='modify'){
@@ -1724,21 +2073,38 @@ async function go(){
   var rdMode = document.querySelector('input[name="rdMode"]:checked').value;
   payload.redirectMode = rdMode;
   payload.permanent = document.getElementById('usePermanent').checked;
-  payload.countdown=countdown;
+  if (rdMode === 'manual') {
+    var mm = document.querySelector('input[name="manualMode"]:checked').value;
+    if (mm === 'countdown') {
+      payload.countdown = parseInt(document.getElementById('countdown').value) || 30;
+    } else {
+      payload.countdown = 0;
+      var ap = document.getElementById('accessPassword').value.trim();
+      if (ap) {
+        if (!/^\S{3,16}$/.test(ap)) {
+          r.textContent='❌ '+t.err_INVALID_ACCESS_PASSWORD;r.className='err';r.style.display='block';return;
+        }
+        payload.accessPassword = ap;
+      }
+    }
+  } else {
+    payload.countdown = 0;
+  }
   payload.redirectPageTitle=redirectPageTitle;
   payload.redirectPageContent=redirectPageContent;
   payload.manualBtnTitle=document.getElementById('manualBtnTitle').value.trim();
-  payload.lightPage=document.getElementById('lightPage').checked;
+  payload.darkBackground=document.getElementById('darkBackground').checked;
+  payload.centerContent=document.getElementById('centerContent').checked;
   var fetchUrl = mode==='modify' ? '/'+s : (s ? '/'+s : '/');
   var fetchMethod = mode==='modify' ? 'PUT' : 'POST';
   try{
-    var hdrs={'Content-Type':'application/json','X-API-Key':k};
+    var hdrs={'Content-Type':'application/json','X-Admin-Key':k};
     if(mode==='modify') hdrs['X-Password']=p;
     const res=await fetch(fetchUrl,{method:fetchMethod,headers:hdrs,body:JSON.stringify(payload)});
     const d=await res.json();
     if(res.ok){
       let html=(d.updated?t.updated:t.created)+' <a href="'+d.short_url+'" target="_blank">'+d.short_url+'</a>';
-      if(d.warn){html+='<div class="warn">⚠ '+(t['warn_'+d.warn]||d.warn)+'</div>';}
+      if(d.warn){var warns=Array.isArray(d.warn)?d.warn:[d.warn];warns.forEach(function(w){html+='<div class="warn">⚠ '+(t['warn_'+w]||w)+'</div>';});}
       if(d.password){
         html+='<div class="pw-box">'+t.pwBoxLabel+' <strong>'+d.password+'</strong>'
              +'<p>'+t.pwBoxWarn+'</p></div>';
@@ -1761,12 +2127,12 @@ function closeDeleteModal(){
 async function confirmDelete(){
   closeDeleteModal();
   var s=document.getElementById('s').value.trim();
-  var k=KEY_REQUIRED?document.getElementById('k').value.trim():'';
+  var k=getAdminKey();
   var r=document.getElementById('r');
   if(!s) return;
   try{
     var p=document.getElementById('p').value;
-    var res=await fetch('/'+s,{method:'DELETE',headers:{'X-API-Key':k,'X-Password':p}});
+    var res=await fetch('/'+s,{method:'DELETE',headers:{'X-Admin-Key':k,'X-Password':p}});
     var d=await res.json();
     if(res.ok){
       r.textContent='✓';r.className='free';r.style.display='block';
@@ -1783,6 +2149,22 @@ async function confirmDelete(){
 
 </script></body></html>`;
 
+// ── LOCK helpers ─────────────────────────────────────────────────────
+
+function isValidLock(val) {
+  return typeof val === 'string' && val.length >= 4 && /^[\x21-\x7e]+$/.test(val);
+}
+
+async function hashLockToken(password) {
+  const data = new TextEncoder().encode('su:' + password);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function hasApiHeader(request) {
+  return !!(request.headers.get("X-Admin-Key") || (request.headers.get("Authorization") || "").startsWith("Bearer "));
+}
+
 // ── Request handler ──────────────────────────────────────────────────
 
 export default {
@@ -1790,29 +2172,69 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // TODO: Add basic rate limiting (requires additional KV namespace or external state)
-
     // CORS preflight
     if (request.method === "OPTIONS") {
       return new Response(null, {
         headers: {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Methods": "GET,HEAD,POST,PUT,DELETE,OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type,X-API-Key,X-Password,Authorization",
+          "Access-Control-Allow-Headers": "Content-Type,X-Admin-Key,X-Password,Authorization",
         },
       });
     }
 
+    // GET /gaobo.png — serve logo
+    if (request.method === 'GET' && path === '/gaobo.png') {
+      const raw = atob(GAOBO_PNG_B64);
+      const buf = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) buf[i] = raw.charCodeAt(i);
+      return new Response(buf, { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=31536000, immutable' } });
+    }
+
     const slug = path.slice(1);
     const method = request.method;
+    const cdnHost = (request.cf && request.cf.country === 'CN') ? 'cdn.jsdmirror.com' : 'cdn.jsdelivr.net';
+
+    // ── LOCK: unlock endpoint ──
+    if (method === "POST" && slug === "_unlock") {
+      const headers = { "Content-Type": "application/json" };
+      if (!isValidLock(env.LOCK)) {
+        return new Response(JSON.stringify({ ok: true }), { headers });
+      }
+      let input;
+      try { input = await request.json(); } catch {
+        return new Response(JSON.stringify({ ok: false }), { status: 400, headers });
+      }
+      if (!(await safeEqual(input.password || '', env.LOCK))) {
+        return new Response(JSON.stringify({ ok: false }), { status: 403, headers });
+      }
+      const token = await hashLockToken(env.LOCK);
+      const maxAge = input.remember ? 2592000 : 86400;
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...headers, "Set-Cookie": "su_auth=" + token + "; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=" + maxAge },
+      });
+    }
+
+    // ── LOCK: check (skip for API calls with auth header, skip for slug redirects) ──
+    if (isValidLock(env.LOCK) && !hasApiHeader(request)) {
+      const cookie = request.headers.get("Cookie") || "";
+      const match = cookie.match(/su_auth=([^;]+)/);
+      const valid = match && await safeEqual(match[1], await hashLockToken(env.LOCK));
+      if (!valid && method === "GET" && !slug) {
+        return html(lockPage(cdnHost));
+      }
+      if (!valid && (method === "POST" || method === "PUT" || method === "DELETE") && !slug.startsWith("_")) {
+        // Allow slug redirects (GET with slug) but block write operations from locked-out users
+        return json({ error: "UNAUTHORIZED" }, 401);
+      }
+    }
 
     // ── GET: Landing page or redirect ──
     if (method === "GET") {
       if (!slug) {
         const keyRequired = env.KEY ? 'true' : 'false';
-        const cdnHost = (request.cf && request.cf.country === 'CN') ? 'cdn.jsdmirror.com' : 'cdn.jsdelivr.net';
         const page = HTML.replace('{{DEFAULT_TTL}}', String(normalizeTtl(env.TTL || 0))).replace('{{KEY_REQUIRED}}', keyRequired).replace('{{CDN_HOST}}', cdnHost);
-        return new Response(page, { headers: { "Content-Type": "text/html;charset=utf-8" } });
+        return html(page);
       }
       if (slug.includes("/")) return notFound(env, url);
       const raw = await env.DATA.get(slug);
@@ -1821,19 +2243,31 @@ export default {
       const mode = entry.redirectMode || 'instant';
       if (mode === 'manual') {
         const acceptLang = request.headers.get("Accept-Language") || "";
-        const cdnHost = (request.cf && request.cf.country === 'CN') ? 'cdn.jsdmirror.com' : 'cdn.jsdelivr.net';
-        return new Response(countdownPage(entry, acceptLang, cdnHost), {
-          headers: { "Content-Type": "text/html;charset=utf-8" },
-        });
+        if (entry.accessHash) {
+          const providedPw = url.searchParams.get('_pw') || '';
+          if (providedPw) {
+            const h = await hashPassword(providedPw);
+            if (await safeEqual(h, entry.accessHash)) {
+              return Response.redirect(entry.url, entry.permanent === false ? 302 : 301);
+            }
+            return html(redirectPage(entry, acceptLang, cdnHost, slug, true));
+          }
+          return html(redirectPage(entry, acceptLang, cdnHost, slug, false));
+        }
+        return html(redirectPage(entry, acceptLang, cdnHost, slug, false));
       }
       return Response.redirect(entry.url, entry.permanent === false ? 302 : 301);
     }
 
     // ── HEAD /:slug — verify slug + password (no body) ──
     if (method === "HEAD") {
-      const authErr = await checkAuth(request, env);
-      if (authErr) return new Response(null, { status: 401 });
+      const auth = await checkAuth(request, env);
+      if (auth instanceof Response) return new Response(null, { status: 401 });
       if (!slug || slug.includes("/")) return new Response(null, { status: 403 });
+      if (auth.isAdmin) {
+        const raw = await env.DATA.get(slug);
+        return new Response(null, { status: raw ? 200 : 403 });
+      }
       const password = (request.headers.get("X-Password") || "").trim();
       if (!password) return new Response(null, { status: 403 });
       const raw = await env.DATA.get(slug);
@@ -1849,23 +2283,17 @@ export default {
     // ── POST /:slug — verify password & return entry ──
     // ── POST / or POST /:slug — create (single or batch) ──
     if (method === "POST") {
-      const err = await checkAuth(request, env);
-      if (err) return err;
+      const auth = await checkAuth(request, env);
+      if (auth instanceof Response) return auth;
+      const isAdmin = auth.isAdmin;
 
       const password = (request.headers.get("X-Password") || "").trim();
       let body;
       try { body = await request.json(); } catch { body = {}; }
 
-      /*
-      // ── Batch create (POST / with array body, requires KEY configured) ──
-      // checkAuth above already verified the key if KEY is set;
-      // here we additionally require KEY to be configured (no anonymous batch)
+      // ── Batch create (admin only) ──
       if (Array.isArray(body)) {
-        if (!env.KEY) return json({ error: "UNAUTHORIZED" }, 401);
-        const limitVal = Math.floor(Number(env.LIMIT));
-        const batchMax = (limitVal >= BATCH_MIN && limitVal <= BATCH_MAX) ? limitVal : BATCH_DEFAULT;
-        if (body.length > batchMax) return json({ error: "BATCH_TOO_LARGE", max: batchMax }, 400);
-        // Check for duplicate slugs within the batch
+        if (!isAdmin) return json({ error: "UNAUTHORIZED" }, 401);
         const slugsSeen = new Set();
         for (const item of body) {
           const s = (item.slug || "").trim();
@@ -1883,50 +2311,69 @@ export default {
         const status = errors === 0 ? 201 : errors === results.length ? 400 : 207;
         return json(results, status);
       }
-      */
 
       const validSlug = slug && !slug.includes("/") && /^[a-zA-Z0-9]{3,10}$/.test(slug);
       const hasUrl = !!(body.url || '').trim();
 
-      // Slug exists — verify or reject
+      // Slug exists — verify or return entry
       if (validSlug) {
         const raw = await env.DATA.get(slug);
         if (raw) {
+          if (isAdmin) {
+            const entry = JSON.parse(raw);
+            const { pwHash: _, accessHash: _ah, ...safe } = entry;
+            return json({ slug, ...safe });
+          }
           if (!password) return json({ error: "SLUG_EXISTS" }, 400);
           const entry = JSON.parse(raw);
           const pwHash = await hashPassword(password);
           if (!(await safeEqual(entry.pwHash, pwHash))) {
             return json({ error: "VERIFY_FAILED" }, 403);
           }
-          const { pwHash: _, ...safe } = entry;
+          const { pwHash: _, accessHash: _ah, ...safe } = entry;
           return json({ slug, ...safe });
         }
-        // Slug valid but not found — if verify intent, return error
         if (password && !hasUrl) return json({ error: "VERIFY_FAILED" }, 403);
       }
 
-      // Single create
+      // Public mode checks
+      if (!isAdmin) {
+        const rl = await checkRateLimit(env, request);
+        if (rl instanceof Response) return rl;
+        const result = await createOne(body, slug, validSlug, env, url);
+        if (!result.error) await incrementRateLimit(env, rl.key, rl.data);
+        return json(result, result.error ? 400 : 201);
+      }
+
       return json(await createOne(body, slug, validSlug, env, url), 201);
     }
 
     // ── PUT /:slug — update short URL ──
     if (method === "PUT") {
-      const err = await checkAuth(request, env);
-      if (err) return err;
+      const auth = await checkAuth(request, env);
+      if (auth instanceof Response) return auth;
+      const isAdmin = auth.isAdmin;
       if (!slug || slug.includes("/")) return json({ error: "VERIFY_FAILED" }, 403);
 
       const password = (request.headers.get("X-Password") || "").trim();
 
       let body;
       try { body = await request.json(); } catch { return json({ error: "INVALID_JSON" }, 400); }
-      if (!password) return json({ error: "VERIFY_FAILED" }, 403);
 
       const raw = await env.DATA.get(slug);
       if (!raw) return json({ error: "VERIFY_FAILED" }, 403);
       const entry = JSON.parse(raw);
-      const pwHash = await hashPassword(password);
-      if (!(await safeEqual(entry.pwHash, pwHash))) {
-        return json({ error: "VERIFY_FAILED" }, 403);
+
+      if (!isAdmin) {
+        if (!password) return json({ error: "VERIFY_FAILED" }, 403);
+        const pwHash = await hashPassword(password);
+        if (!(await safeEqual(entry.pwHash, pwHash))) {
+          return json({ error: "VERIFY_FAILED" }, 403);
+        }
+        const rl = await checkRateLimit(env, request);
+        if (rl instanceof Response) return rl;
+        // increment after successful update below
+        var _rlKey = rl.key, _rlData = rl.data;
       }
 
       const target = (body.url || "").trim();
@@ -1943,45 +2390,64 @@ export default {
 
       const permanent = body.permanent !== false;
       const manualBtnTitle = (body.manualBtnTitle || '').trim().slice(0, 128);
-      const lightPage = body.lightPage !== false;
+      const darkBackground = body.darkBackground === true;
+      const centerContent = body.centerContent === true;
       const redirectPageTitle = (body.redirectPageTitle || "").trim().slice(0, DELAY_TITLE_MAX);
       const redirectPageContent = (body.redirectPageContent || "").trim().slice(0, DELAY_HTML_MAX);
+      let accessHash = entry.accessHash || null;
+      let updateWarn = null;
+      const accessPassword = (body.accessPassword || '').trim();
+      if (redirectMode === 'manual') {
+        if (accessPassword) {
+          if (/^\S{3,16}$/.test(accessPassword)) {
+            accessHash = await hashPassword(accessPassword);
+          } else {
+            updateWarn = "ACCESS_PASSWORD_IGNORED";
+          }
+        } else if (body.hasOwnProperty('accessPassword') && !accessPassword) {
+          accessHash = null;
+        }
+      } else {
+        accessHash = null;
+      }
       const defaultTtl = normalizeTtl(env.TTL || 0);
       const ttl = normalizeTtl(body.ttl, defaultTtl);
 
       const updatedEntry = clean({
-        ...entry, url: target, redirectMode, permanent, countdown,
+        ...entry, url: target, redirectMode, permanent,
+        countdown: accessHash ? 0 : countdown,
         redirectPageTitle: redirectPageTitle || null,
         redirectPageContent: redirectPageContent || null,
         manualBtnTitle: manualBtnTitle || null,
-        lightPage, ttl, updatedAt: new Date().toISOString(),
+        accessHash: accessHash || null,
+        darkBackground, centerContent, ttl, updatedAt: new Date().toISOString(),
       });
       let newPassword = null;
       if (body.resetPassword === true) {
         newPassword = generatePassword();
         updatedEntry.pwHash = await hashPassword(newPassword);
       }
-      const putOpts = {
-        metadata: { url: target, createdAt: entry.createdAt || new Date().toISOString() }
-      };
+      const putOpts = {};
       if (ttl > 0) putOpts.expirationTtl = ttl;
       await env.DATA.put(slug, JSON.stringify(updatedEntry), putOpts);
+      if (!isAdmin) await incrementRateLimit(env, _rlKey, _rlData);
 
       const resp = { short_url: getBaseUrl(env, url) + slug, slug, target, updated: true };
       if (newPassword) resp.password = newPassword;
+      if (updateWarn) resp.warn = updateWarn;
       return json(resp, 200);
     }
 
-    // ── DELETE / — purge all (requires KEY configured + valid) ──
+    // ── DELETE / — purge all (admin only) ──
     // ── DELETE /:slug — delete single short URL ──
     if (method === "DELETE") {
-      const err = await checkAuth(request, env);
-      if (err) return err;
+      const auth = await checkAuth(request, env);
+      if (auth instanceof Response) return auth;
+      const isAdmin = auth.isAdmin;
 
-      /*
+      // Purge all (admin only)
       if (!slug) {
-        // Purge all
-        if (!env.KEY) return json({ error: "UNAUTHORIZED" }, 401);
+        if (!isAdmin) return json({ error: "UNAUTHORIZED" }, 401);
         let deleted = 0;
         let cursor = null;
         do {
@@ -1994,9 +2460,16 @@ export default {
         } while (cursor);
         return json({ purged: deleted });
       }
-      */
 
       if (slug.includes("/")) return json({ error: "VERIFY_FAILED" }, 403);
+
+      if (isAdmin) {
+        const raw = await env.DATA.get(slug);
+        if (!raw) return json({ error: "VERIFY_FAILED" }, 403);
+        await env.DATA.delete(slug);
+        return json({ deleted: slug });
+      }
+
       const password = (request.headers.get("X-Password") || "").trim();
       if (!password) return json({ error: "VERIFY_FAILED" }, 403);
       const raw = await env.DATA.get(slug);
