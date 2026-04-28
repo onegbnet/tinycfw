@@ -686,6 +686,11 @@ textarea{resize:vertical;min-height:60px}
 
 </div>
 <script>
+// Runtime placeholder that the IIFE compares against \u2014 declared at
+// outer-script scope so it stays external to the IIFE; esbuild can
+// not constant-fold a comparison whose operand is a free var.
+// (Inside the IIFE: \`KEY_REQUIRED_RAW === "true"\`.)
+var KEY_REQUIRED_RAW = "{{KEY_REQUIRED}}";
 //
 // Browser-side footer brand controller. Sets the current year on init
 // and exposes window.FooterBrand.applyLang(code) for the host page to
@@ -1125,6 +1130,111 @@ function applyI18nAttrs(t, root) {
 
 
 (() => {
+  // dev/common/upload2kv/client.mjs
+  var RETRY_BACKOFFS_MS = [200, 500, 1500];
+  async function postJson(url, body, headers) {
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers || {} },
+      body: JSON.stringify(body || {})
+    });
+    let data = null;
+    try {
+      data = await resp.json();
+    } catch {
+      data = {};
+    }
+    return { resp, data };
+  }
+  async function putChunkWithRetry(url, body, headers) {
+    let lastErr;
+    for (let attempt = 0; attempt <= RETRY_BACKOFFS_MS.length; attempt++) {
+      try {
+        const resp = await fetch(url, { method: "PUT", headers, body });
+        if (resp.ok) return resp;
+        if (resp.status >= 400 && resp.status < 500) {
+          const text = await resp.text().catch(() => "");
+          const err = new Error("chunk PUT " + resp.status + ": " + text);
+          err.status = resp.status;
+          throw err;
+        }
+        lastErr = new Error("chunk PUT " + resp.status);
+        lastErr.status = resp.status;
+      } catch (e) {
+        if (e && e.status && e.status >= 400 && e.status < 500) throw e;
+        lastErr = e;
+      }
+      if (attempt < RETRY_BACKOFFS_MS.length) {
+        await new Promise((r) => setTimeout(r, RETRY_BACKOFFS_MS[attempt]));
+      }
+    }
+    throw lastErr || new Error("chunk PUT failed after retries");
+  }
+  async function uploadFiles({
+    reserveUrl,
+    chunkUrlBase,
+    commitUrlBase,
+    reserveBody,
+    reserveHeaders,
+    commitHeaders,
+    files,
+    onProgress
+  }) {
+    const fileList2 = Array.isArray(files) ? files : [];
+    const fileMeta = fileList2.map((f) => ({
+      name: f.name || "unnamed",
+      size: f.size,
+      mime: f.type || "application/octet-stream"
+    }));
+    const reserveBodyFinal = { ...reserveBody || {}, files: fileMeta };
+    const { resp: rResp, data: rData } = await postJson(reserveUrl, reserveBodyFinal, reserveHeaders);
+    if (!rResp.ok) {
+      const err = new Error("reserve failed: " + (rData.error || rResp.status));
+      err.phase = "reserve";
+      err.status = rResp.status;
+      err.data = rData;
+      throw err;
+    }
+    const { uploadKey, uploadToken, chunkSize, chunks } = rData;
+    if (!uploadKey || !uploadToken || !chunkSize || !Array.isArray(chunks)) {
+      const err = new Error("reserve response missing required fields");
+      err.phase = "reserve";
+      err.data = rData;
+      throw err;
+    }
+    const sessionBlob = new Blob(fileList2);
+    const totalBytes = sessionBlob.size;
+    const sessionFirstChunk = chunks.length ? chunks[0].idx : 0;
+    const sessionFirstByte = sessionFirstChunk * chunkSize;
+    if (typeof onProgress === "function") onProgress(0, totalBytes);
+    let uploaded = 0;
+    for (const { idx, size } of chunks) {
+      const localStart = idx * chunkSize - sessionFirstByte;
+      const slice = sessionBlob.slice(localStart, localStart + size);
+      const url = chunkUrlBase + encodeURIComponent(uploadKey) + "?c=" + idx;
+      await putChunkWithRetry(url, slice, {
+        "X-Upload-Token": uploadToken,
+        "Content-Type": "application/octet-stream"
+      });
+      uploaded += size;
+      if (typeof onProgress === "function") onProgress(uploaded, totalBytes);
+    }
+    const commitFinalHeaders = { "X-Upload-Token": uploadToken, ...commitHeaders || {} };
+    const { resp: cResp, data: cData } = await postJson(
+      commitUrlBase + encodeURIComponent(uploadKey),
+      {},
+      commitFinalHeaders
+    );
+    if (!cResp.ok) {
+      const err = new Error("commit failed: " + (cData.error || cResp.status));
+      err.phase = "commit";
+      err.status = cResp.status;
+      err.data = cData;
+      throw err;
+    }
+    return { reserve: rData, commit: cData };
+  }
+
   // dev/apps/shurl/src/views/client.mjs
   var currentLang = detectLang();
   var t = I18N[currentLang] || I18N.en;
@@ -1184,8 +1294,10 @@ function applyI18nAttrs(t, root) {
     }
   })();
   var defaultTtl = parseInt("{{DEFAULT_TTL}}") || 0;
-  var KEY_REQUIRED = false;
+  var KEY_REQUIRED = KEY_REQUIRED_RAW === "true";
   var mode = "create";
+  var advOpen = false;
+  var ttlOpen = false;
   function updateMode() {
     document.querySelectorAll("[data-show-mode]").forEach(function(el) {
       el.style.display = el.getAttribute("data-show-mode") === mode ? "" : "none";
@@ -1388,6 +1500,118 @@ function applyI18nAttrs(t, root) {
     onFileListChanged();
   }
   var resultModalEl = document.getElementById("resultModal");
+  function showResultProcessing(msg) {
+    document.getElementById("mr-status").textContent = "\\u23F3";
+    document.getElementById("mr-title").textContent = msg || (t.modal_processing || "Processing...");
+    document.getElementById("mr-body").innerHTML = "";
+    document.getElementById("mr-btns").innerHTML = "";
+    setResultProgress(null);
+    resultModalEl.classList.add("show");
+  }
+  function setResultProgress(pct) {
+    var el = document.getElementById("mr-progress");
+    var fill = document.getElementById("mr-progress-fill");
+    if (pct == null) {
+      el.style.display = "none";
+      return;
+    }
+    el.style.display = "";
+    fill.style.width = Math.max(0, Math.min(100, pct)) + "%";
+  }
+  function showResultSuccess(data) {
+    document.getElementById("mr-status").textContent = data.updated ? "\\u267B\\uFE0F" : "\\u2705";
+    document.getElementById("mr-title").textContent = data.updated ? t.updated || "Updated" : t.created || "Created";
+    var body = "";
+    if (data.short_url) body += '<a href="' + data.short_url + '" target="_blank">' + data.short_url + "</a>";
+    if (data.warn) {
+      var warns = Array.isArray(data.warn) ? data.warn : [data.warn];
+      warns.forEach(function(w) {
+        body += '<div class="warn">\\u26A0 ' + (t["warn_" + w] || w) + "</div>";
+      });
+    }
+    if (data.password) {
+      body += '<div class="mr-pwbox">' + (t.pw_box_label || "\\u{1F511} Modification password:") + " <strong>" + data.password + '</strong><p style="font-size:.7rem;color:#f59e0b;margin-top:.3rem">' + (t.pw_box_warn || "Save this now! It will never be shown again.") + "</p></div>";
+    }
+    document.getElementById("mr-body").innerHTML = body;
+    setResultProgress(null);
+    document.getElementById("mr-btns").innerHTML = '<button class="mr-btn-primary" id="mr-close">' + (t.btn_ok || "OK") + "</button>";
+    document.getElementById("mr-close").addEventListener("click", function() {
+      resultModalEl.classList.remove("show");
+    });
+  }
+  function showResultError(errMsg, retryFn) {
+    document.getElementById("mr-status").textContent = "\\u274C";
+    document.getElementById("mr-title").textContent = errMsg || "Error";
+    document.getElementById("mr-body").innerHTML = "";
+    setResultProgress(null);
+    document.getElementById("mr-btns").innerHTML = '<button class="mr-btn-secondary" id="mr-back">' + (t.btn_back_edit || "Back to edit") + '</button><button class="mr-btn-primary" id="mr-retry">' + (t.btn_retry || "Retry") + "</button>";
+    document.getElementById("mr-back").addEventListener("click", function() {
+      resultModalEl.classList.remove("show");
+    });
+    document.getElementById("mr-retry").addEventListener("click", function() {
+      if (retryFn) retryFn();
+    });
+  }
+  async function runUploadFlow(basePayload, slugForModify) {
+    const pendingFiles = fileList.filter((f) => f.kind === "pending");
+    const removed = fileList.filter((f) => f.kind === "existing" && f.removed);
+    const payload = Object.assign({}, basePayload, {
+      removedFileIds: removed.map((f) => f.id)
+    });
+    if (slugForModify) payload.slug = slugForModify;
+    const reserveHeaders = {};
+    const adminK = getAdminKey();
+    if (adminK) reserveHeaders["X-Admin-Key"] = adminK;
+    const pwModify = document.getElementById("p").value;
+    if (slugForModify && pwModify) reserveHeaders["X-Password"] = pwModify;
+    showResultProcessing(t.modal_processing);
+    setResultProgress(0);
+    let result;
+    try {
+      result = await uploadFiles({
+        reserveUrl: "/_u/reserve",
+        chunkUrlBase: "/_u/chunk/",
+        commitUrlBase: "/_u/commit/",
+        reserveBody: payload,
+        reserveHeaders,
+        files: pendingFiles.map((f) => f.blob),
+        onProgress: (uploaded, total) => {
+          setResultProgress(total ? Math.floor(uploaded / total * 100) : 100);
+        }
+      });
+    } catch (e) {
+      const code = e.data && e.data.error || e.message;
+      throw new Error(t["err_" + code] || code || "Upload failed");
+    }
+    if (slugForModify) {
+      return {
+        ok: true,
+        short_url: result.commit.short_url || result.reserve.short_url,
+        password: result.commit.password || null,
+        warn: result.commit.warn,
+        updated: true
+      };
+    }
+    return {
+      ok: true,
+      short_url: result.reserve.short_url,
+      password: result.reserve.password,
+      warn: result.reserve.warn,
+      updated: false
+    };
+  }
+  async function submitFileUpload(basePayload, slugForModify) {
+    showResultProcessing(t.modal_processing);
+    try {
+      const result = await runUploadFlow(basePayload, slugForModify);
+      setMode(mode);
+      showResultSuccess(result);
+    } catch (e) {
+      showResultError(e.message || String(e), function() {
+        submitFileUpload(basePayload, slugForModify);
+      });
+    }
+  }
   var modifySlug = null;
   function applyI18n() {
     document.title = t.app_name;
@@ -1484,6 +1708,9 @@ function applyI18nAttrs(t, root) {
     document.getElementById("adminKeyError").style.display = "none";
   });
   updateAdminUI();
+  function getAdminKey() {
+    return adminKey;
+  }
   function setMode(m) {
     mode = m;
     modifySlug = null;
@@ -1624,6 +1851,116 @@ function applyI18nAttrs(t, root) {
     }
   }
   slugInput.addEventListener("input", validateSlug);
+  function toggleTtl() {
+    ttlOpen = !ttlOpen;
+    document.getElementById("ttl-section").className = ttlOpen ? "" : "hidden";
+    document.querySelector("#ttl-toggle .caret").textContent = ttlOpen ? "\\u25BC" : "\\u25B6";
+  }
+  function toggleAdvanced() {
+    advOpen = !advOpen;
+    document.getElementById("advanced").className = advOpen ? "" : "hidden";
+    document.querySelector("#adv-toggle .caret").textContent = advOpen ? "\\u25BC" : "\\u25B6";
+  }
+  async function verifySlug() {
+    var s = document.getElementById("s").value.trim();
+    var k = getAdminKey();
+    var p = document.getElementById("p").value;
+    var st = document.getElementById("slug-status");
+    if (!s) {
+      st.textContent = "\\u274C " + t.err_slug_empty;
+      st.className = "bad";
+      return;
+    }
+    if (!/^[a-zA-Z0-9]{3,10}$/.test(s)) {
+      st.textContent = "\\u274C " + t.err_slug_invalid;
+      st.className = "bad";
+      return;
+    }
+    try {
+      var hdrs = {};
+      if (p) hdrs["X-Password"] = p;
+      if (k) hdrs["X-Admin-Key"] = k;
+      var res = await fetch("/" + s, { method: "HEAD", headers: hdrs });
+      if (res.ok) {
+        st.textContent = "\\u2713 " + (isAdminMode() ? t.admin_slug_found : t.slug_found);
+        st.className = "free";
+        document.getElementById("modify-actions").className = "";
+        document.getElementById("s").readOnly = true;
+        document.getElementById("p").readOnly = true;
+        document.getElementById("check-btn").disabled = true;
+      } else if (res.status === 401) {
+        st.textContent = "\\u274C " + t.slug_auth_fail;
+        st.className = "bad";
+      } else {
+        st.textContent = "\\u274C " + (isAdminMode() ? t.err_NOT_FOUND : t.err_VERIFY_FAILED);
+        st.className = "bad";
+      }
+    } catch (e) {
+      st.textContent = "\\u274C " + t.err_network;
+      st.className = "bad";
+    }
+  }
+  async function loadEntry() {
+    var s = document.getElementById("s").value.trim();
+    var k = getAdminKey();
+    var p = document.getElementById("p").value;
+    var st = document.getElementById("slug-status");
+    try {
+      var res = await fetch("/" + s, {
+        method: "POST",
+        headers: Object.assign({}, p ? { "X-Password": p } : {}, k ? { "X-Admin-Key": k } : {})
+      });
+      if (res.ok) {
+        var d = await res.json();
+        if (d.type === "files") {
+          modifySlug = s;
+          setKind("file");
+          fileList = (d.files || []).map(function(f) {
+            return { kind: "existing", id: f.id, name: f.name, size: f.size, mime: f.mime, removed: false };
+          });
+          document.getElementById("u").value = "";
+        } else {
+          modifySlug = null;
+          setKind("url");
+          fileList = [];
+          document.getElementById("u").value = d.url || "";
+        }
+        onFileListChanged();
+        var rdMode = d.redirectMode || "instant";
+        var rdRadio = document.querySelector('input[name="rdMode"][value="' + rdMode + '"]');
+        if (rdRadio) rdRadio.checked = true;
+        document.getElementById("usePermanent").checked = d.permanent !== false;
+        var hasPw = !!d.accessHash;
+        var hasCd = (d.countdown || 0) > 0;
+        document.getElementById("requirePassword").checked = hasPw;
+        document.getElementById("useCountdown").checked = hasCd;
+        if (hasCd) document.getElementById("countdown").value = d.countdown;
+        document.getElementById("accessPassword").value = "";
+        document.getElementById("redirectPageTitle").value = d.redirectPageTitle || "";
+        document.getElementById("mdPane").value = d.redirectPageContent || "";
+        document.getElementById("manualBtnTitle").value = d.manualBtnTitle || "";
+        document.getElementById("oneTime").checked = d.oneTime === true;
+        document.getElementById("darkBackground").checked = d.darkBackground === true;
+        document.getElementById("centerContent").checked = d.centerContent === true;
+        updateRdMode();
+        updatePwOpts();
+        updateCdOpts();
+        document.getElementById("ttl").value = d.ttl || 0;
+        document.getElementById("renew-pw-section").className = "";
+        submitBtn.disabled = false;
+        document.getElementById("edit-form").className = "";
+        if (rdMode !== "instant" && !advOpen) toggleAdvanced();
+        if (!ttlOpen && d.ttl) toggleTtl();
+      } else {
+        var d2 = await res.json();
+        st.textContent = "\\u274C " + (t["err_" + d2.error] || t.slug_auth_fail);
+        st.className = "bad";
+      }
+    } catch (e) {
+      st.textContent = "\\u274C " + t.err_network;
+      st.className = "bad";
+    }
+  }
   function updateCheckBtn() {
     var s = document.getElementById("s").value.trim();
     var p = isAdminMode() ? "ok" : document.getElementById("p").value;
@@ -1632,6 +1969,178 @@ function applyI18nAttrs(t, root) {
   }
   document.getElementById("s").addEventListener("input", updateCheckBtn);
   document.getElementById("p").addEventListener("input", updateCheckBtn);
+  function buildCommonPayload() {
+    var payload = {};
+    var ttlVal = parseInt(document.getElementById("ttl").value) || 0;
+    var ttlUnit = document.getElementById("ttl-unit").value;
+    var ttlSeconds = ttlVal;
+    if (ttlUnit === "m") ttlSeconds = ttlVal * 60;
+    else if (ttlUnit === "h") ttlSeconds = ttlVal * 3600;
+    else if (ttlUnit === "d") ttlSeconds = ttlVal * 86400;
+    else if (ttlUnit === "mo") ttlSeconds = ttlVal * 2592e3;
+    payload.ttl = ttlSeconds;
+    var rdMode = document.querySelector('input[name="rdMode"]:checked').value;
+    payload.redirectMode = rdMode;
+    payload.permanent = document.getElementById("usePermanent").checked;
+    if (rdMode === "manual") {
+      var wantCd = document.getElementById("useCountdown").checked;
+      var wantPw = document.getElementById("requirePassword").checked;
+      payload.countdown = wantCd ? parseInt(document.getElementById("countdown").value) || 30 : 0;
+      if (wantPw) {
+        var ap = document.getElementById("accessPassword").value.trim();
+        if (ap) payload.accessPassword = ap;
+      } else if (mode === "modify") {
+        payload.accessPassword = "";
+      }
+    } else {
+      payload.countdown = 0;
+      if (mode === "modify") payload.accessPassword = "";
+    }
+    var rpt = document.getElementById("redirectPageTitle").value.trim();
+    var rpc = MarkdownEditor.getMarkdownContent();
+    if (rpc.length > 2e3) rpc = rpc.slice(0, 2e3);
+    payload.redirectPageTitle = rpt;
+    payload.redirectPageContent = rpc;
+    payload.manualBtnTitle = document.getElementById("manualBtnTitle").value.trim();
+    payload.oneTime = document.getElementById("oneTime").checked;
+    payload.darkBackground = document.getElementById("darkBackground").checked;
+    payload.centerContent = document.getElementById("centerContent").checked;
+    if (mode === "modify") payload.resetPassword = document.getElementById("resetPassword").checked;
+    return payload;
+  }
+  async function go() {
+    const s = document.getElementById("s").value.trim();
+    const p = document.getElementById("p").value;
+    const kind = getKind();
+    if (mode === "modify" && !s) {
+      showResultError(t.err_slug);
+      return;
+    }
+    if (mode === "modify" && !p && !isAdminMode()) {
+      showResultError(t.err_pw);
+      return;
+    }
+    var wantPw = document.getElementById("requirePassword").checked;
+    var rdMode = document.querySelector('input[name="rdMode"]:checked').value;
+    if (rdMode === "manual" && wantPw) {
+      var ap = document.getElementById("accessPassword").value.trim();
+      if (ap && !/^\\S{3,16}$/.test(ap)) {
+        showResultError(t.err_INVALID_ACCESS_PASSWORD);
+        return;
+      }
+      if (!ap && mode === "create") {
+        showResultError(t.err_INVALID_ACCESS_PASSWORD);
+        return;
+      }
+    }
+    const base = buildCommonPayload();
+    if (kind === "file") {
+      const hasPending = fileList.some((f) => f.kind === "pending");
+      const hasRemovals = fileList.some((f) => f.kind === "existing" && f.removed);
+      const eff = effectiveFiles();
+      if (eff.length === 0) {
+        showResultError(t.err_no_file_selected || "Please choose a file");
+        return;
+      }
+      if (effectiveTotalSize() > TOTAL_MAX_BYTES) {
+        showResultError(t.err_TOTAL_TOO_BIG || "Total size exceeds limit");
+        return;
+      }
+      if (mode === "create" && !hasPending) {
+        showResultError(t.err_no_file_selected || "Please choose a file");
+        return;
+      }
+      if (mode === "modify" && !hasPending && !hasRemovals) {
+        return submitMetadataOnly(s, p, base, "/" + s, "PUT");
+      }
+      if (mode === "create" && s) base.slug = s;
+      submitFileUpload(base, mode === "modify" ? s : void 0);
+      return;
+    }
+    const u = document.getElementById("u").value.trim();
+    if (!u) {
+      showResultError(t.err_url);
+      return;
+    }
+    try {
+      var uu = new URL(u);
+      if (uu.protocol !== "http:" && uu.protocol !== "https:" || !/^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z]{2,63}$/i.test(uu.hostname)) throw 0;
+    } catch (e) {
+      showResultError(t.err_url_invalid);
+      return;
+    }
+    if (isBlockedUrl(u)) {
+      showResultError(t.err_url_blocked);
+      return;
+    }
+    const payload = Object.assign({ url: u }, base);
+    if (mode === "create" && s) payload.slug = s;
+    var fetchUrl = mode === "modify" ? "/" + s : s ? "/" + s : "/";
+    var fetchMethod = mode === "modify" ? "PUT" : "POST";
+    await submitMetadataOnly(s, p, payload, fetchUrl, fetchMethod);
+  }
+  async function submitMetadataOnly(slugForPw, p, payload, fetchUrl, fetchMethod) {
+    var k = getAdminKey();
+    var hdrs = { "Content-Type": "application/json" };
+    if (k) hdrs["X-Admin-Key"] = k;
+    if (mode === "modify" && p) hdrs["X-Password"] = p;
+    showResultProcessing(t.modal_processing);
+    try {
+      const res = await fetch(fetchUrl, { method: fetchMethod, headers: hdrs, body: JSON.stringify(payload) });
+      const d = await res.json();
+      if (!res.ok) throw new Error(t["err_" + d.error] || d.error || "Failed");
+      const result = { short_url: d.short_url, password: d.password, warn: d.warn, updated: !!d.updated };
+      setMode(mode);
+      showResultSuccess(result);
+    } catch (e) {
+      showResultError(e.message || String(e), function() {
+        submitMetadataOnly(slugForPw, p, payload, fetchUrl, fetchMethod);
+      });
+    }
+  }
+  function deleteSlug() {
+    document.getElementById("modal-msg").textContent = t.confirm_delete_msg;
+    document.getElementById("modal-cancel").textContent = t.confirm_no;
+    document.getElementById("modal-confirm").textContent = t.confirm_yes;
+    document.getElementById("deleteModal").classList.add("show");
+  }
+  function closeDeleteModal() {
+    document.getElementById("deleteModal").classList.remove("show");
+  }
+  async function confirmDelete() {
+    closeDeleteModal();
+    var s = document.getElementById("s").value.trim();
+    var k = getAdminKey();
+    if (!s) return;
+    showResultProcessing(t.modal_processing);
+    try {
+      var p = document.getElementById("p").value;
+      var res = await fetch("/" + s, { method: "DELETE", headers: Object.assign({}, p ? { "X-Password": p } : {}, k ? { "X-Admin-Key": k } : {}) });
+      var d = await res.json();
+      if (res.ok) {
+        setMode(mode);
+        showResultSuccess({ updated: false, short_url: "", warn: null });
+        document.getElementById("mr-status").textContent = "\\u2713";
+        document.getElementById("mr-title").textContent = t.btn_delete || "Delete";
+        document.getElementById("mr-body").innerHTML = "";
+      } else {
+        showResultError(t["err_" + d.error] || d.error);
+      }
+    } catch (e) {
+      showResultError(t.err_network);
+    }
+  }
+  Object.assign(window, {
+    closeDeleteModal,
+    confirmDelete,
+    deleteSlug,
+    go,
+    loadEntry,
+    setMode,
+    toggleAdvanced,
+    toggleTtl,
+    verifySlug
+  });
 })();
 
 </script></body></html>`;
