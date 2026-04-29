@@ -4893,6 +4893,55 @@ async function incrementRateLimit(env, key, data) {
   await env.DATA.put(key, JSON.stringify({ count: data.count + 1, lastOp: (/* @__PURE__ */ new Date()).toISOString() }), { expirationTtl: 172800 });
 }
 
+var UNLOCK_TTL_SECONDS = 3600;
+function hexToBytes(hex) {
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+  return out;
+}
+function bytesToHex(buf) {
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+async function hmacHex(keyHex, msg) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    hexToBytes(keyHex),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  return bytesToHex(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(msg)));
+}
+async function makeUnlockToken(slug, accessHashHex, ttlSeconds = UNLOCK_TTL_SECONDS) {
+  const exp = Date.now() + ttlSeconds * 1e3;
+  const sig = await hmacHex(accessHashHex, slug + ":" + exp);
+  return exp + "." + sig;
+}
+async function verifyUnlockToken(token, slug, accessHashHex) {
+  if (!token) return false;
+  const dot = token.indexOf(".");
+  if (dot < 1) return false;
+  const exp = Number(token.slice(0, dot));
+  if (!exp || exp < Date.now()) return false;
+  const expected = await hmacHex(accessHashHex, slug + ":" + exp);
+  return await safeEqual(token.slice(dot + 1), expected);
+}
+function unlockCookieName(slug) {
+  return "shul_a_" + slug;
+}
+function makeUnlockCookieHeader(slug, token, ttlSeconds = UNLOCK_TTL_SECONDS) {
+  return `${unlockCookieName(slug)}=${token}; Path=/${slug}; Max-Age=${ttlSeconds}; HttpOnly; Secure; SameSite=Lax`;
+}
+function readCookie(request, name) {
+  const c = request.headers.get("Cookie") || "";
+  for (const part of c.split(/;\s*/)) {
+    const eq = part.indexOf("=");
+    if (eq < 0) continue;
+    if (part.slice(0, eq) === name) return part.slice(eq + 1);
+  }
+  return null;
+}
+
 var LOCK_PAGE_HTML = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Shurl</title>
@@ -5250,14 +5299,13 @@ var lockModule = makeLockModule({
   lockPageHtml: LOCK_PAGE_HTML
 });
 
-function redirectPage(entry, acceptLang, cdnHost, slug, showError, verifiedPw) {
+function redirectPage(entry, acceptLang, cdnHost, slug, showError, authed) {
   const isFile = entry.type === "files";
   const files = entry.files || [];
   const filesMany = isFile && files.length > 1;
-  const pwSuffix = verifiedPw ? "&_pw=" + encodeURIComponent(verifiedPw) : "";
-  const target = isFile ? files.length === 1 ? "/" + slug + "?__f=1&i=0" + pwSuffix : "" : entry.url || "";
+  const target = isFile ? files.length === 1 ? "/" + slug + "?__f=1&i=0" : "" : entry.url || "";
   const seconds = filesMany ? 0 : entry.countdown || 0;
-  const needsPw = !!entry.accessHash && !verifiedPw;
+  const needsPw = !!entry.accessHash && !authed;
   const currentLang = detectLang(acceptLang);
   const dir = currentLang === "ar" || currentLang === "he" ? "rtl" : "ltr";
   const titleRaw = entry.redirectPageTitle || null;
@@ -5308,7 +5356,7 @@ body{font-family:system-ui,sans-serif;background:${bg};color:${fg};min-height:10
 .file-row .size{color:${muted};font-size:.82rem;font-variant-numeric:tabular-nums}
 </style></head><body><div class="wrap">
 <div class="body-content" id="body-content"></div>
-${needsPw ? `${showError ? '<p class="pw-err" id="pw-err"></p>' : ""}<form id="pw-form" method="GET" action="/${esc(slug)}"><div class="pw-area"><input type="password" name="_pw" id="pw-input" autofocus required></div><div class="skip"><button type="submit" id="pw-btn" style="display:inline-block;padding:12px 32px;background:#3b82f6;color:#fff;border-radius:8px;font-size:1rem;font-weight:600;border:none;cursor:pointer"></button></div></form>` : filesMany ? `<div class="files-heading" id="files-heading"></div><div id="file-list"></div>` : `<div class="countdown" id="count">${seconds}</div>
+${needsPw ? `${showError ? '<p class="pw-err" id="pw-err"></p>' : ""}<form id="pw-form" method="POST" action="/_a/${esc(slug)}"><div class="pw-area"><input type="password" name="_pw" id="pw-input" autofocus required></div><div class="skip"><button type="submit" id="pw-btn" style="display:inline-block;padding:12px 32px;background:#3b82f6;color:#fff;border-radius:8px;font-size:1rem;font-weight:600;border:none;cursor:pointer"></button></div></form>` : filesMany ? `<div class="files-heading" id="files-heading"></div><div id="file-list"></div>` : `<div class="countdown" id="count">${seconds}</div>
 <div class="bar-track"><div class="bar-fill" id="bar" style="width:100%"></div></div>
 <div class="skip"><a id="go-link" href="${esc(target)}" onclick="consumeAndGo();return false"></a></div>`}
 </div><script>
@@ -5322,7 +5370,6 @@ const filesMany=${filesMany};
 const oneTime=${!!entry.oneTime};
 const slug=${JSON.stringify(slug)};
 const files=${JSON.stringify(filesForPage)};
-const pwSuffix=${JSON.stringify(pwSuffix)};
 function formatSize(n){
   if(n<1024)return n+' B';
   if(n<1048576)return (n/1024).toFixed(1)+' KB';
@@ -5358,7 +5405,7 @@ if(needsPw){
   files.forEach(function(f,idx){
     var a=document.createElement('a');
     a.className='file-row';
-    a.href='/'+slug+'?__f=1&i='+idx+pwSuffix;
+    a.href='/'+slug+'?__f=1&i='+idx;
     a.innerHTML='<span class="icon">\u{1F4C4}</span><span class="name"></span><span class="size"></span>';
     a.querySelector('.name').textContent=f.name;
     a.querySelector('.size').textContent=formatSize(f.size);
@@ -5852,12 +5899,19 @@ var index_default = {
         const file = files[idx];
         if (!file) return notFound(env, url);
         if (entry.accessHash) {
-          const providedPw = url.searchParams.get("_pw") || "";
-          if (!providedPw) return new Response("Unauthorized", { status: 403 });
-          const h = await hashPassword(providedPw);
-          if (!await safeEqual(h, entry.accessHash)) {
-            return new Response("Unauthorized", { status: 403 });
+          let authed = false;
+          const cookieToken = readCookie(request, unlockCookieName(slug));
+          if (cookieToken && await verifyUnlockToken(cookieToken, slug, entry.accessHash)) {
+            authed = true;
           }
+          if (!authed) {
+            const pw = (request.headers.get("X-Password") || "").trim();
+            if (pw) {
+              const h = await hashPassword(pw);
+              if (await safeEqual(h, entry.accessHash)) authed = true;
+            }
+          }
+          if (!authed) return new Response("Unauthorized", { status: 403 });
         }
         const blob = await upload.readFile(env.DATA, slug, file);
         if (!blob) return notFound(env, url);
@@ -5911,25 +5965,49 @@ var index_default = {
       }
       if (mode === "manual" || isFile) {
         const acceptLang = request.headers.get("Accept-Language") || "";
+        const showError = url.searchParams.get("e") === "1";
         if (entry.accessHash) {
-          const providedPw = url.searchParams.get("_pw") || "";
-          if (providedPw) {
-            const h = await hashPassword(providedPw);
-            if (await safeEqual(h, entry.accessHash)) {
-              if (!isFile) {
-                consumeOneTime();
-                return Response.redirect(entry.url, entry.permanent === false ? 302 : 301);
-              }
-              return html(redirectPage(entry, acceptLang, cdnHost, slug, false, providedPw));
+          if (isFile) {
+            const cookieToken = readCookie(request, unlockCookieName(slug));
+            if (cookieToken && await verifyUnlockToken(cookieToken, slug, entry.accessHash)) {
+              return html(redirectPage(entry, acceptLang, cdnHost, slug, false, true));
             }
-            return html(redirectPage(entry, acceptLang, cdnHost, slug, true));
           }
-          return html(redirectPage(entry, acceptLang, cdnHost, slug, false));
+          return html(redirectPage(entry, acceptLang, cdnHost, slug, showError, false));
         }
-        return html(redirectPage(entry, acceptLang, cdnHost, slug, false));
+        return html(redirectPage(entry, acceptLang, cdnHost, slug, false, false));
       }
       consumeOneTime();
       return Response.redirect(entry.url, entry.permanent === false ? 302 : 301);
+    }
+    if (method === "POST" && slug.startsWith("_a/")) {
+      const realSlug = slug.slice(3);
+      if (!realSlug || !/^[a-zA-Z0-9]{3,10}$/.test(realSlug)) return notFound(env, url);
+      const raw = await env.DATA.get(realSlug);
+      if (!raw) return notFound(env, url);
+      const entry = JSON.parse(raw);
+      if (!entry.accessHash) return Response.redirect(getBaseUrl(env, url) + realSlug, 303);
+      let pw = "";
+      try {
+        const fd = await request.formData();
+        pw = (fd.get("_pw") || "").toString().trim();
+      } catch {
+      }
+      const base = getBaseUrl(env, url);
+      if (!pw) return Response.redirect(base + realSlug + "?e=1", 303);
+      const h = await hashPassword(pw);
+      if (!await safeEqual(h, entry.accessHash)) {
+        return Response.redirect(base + realSlug + "?e=1", 303);
+      }
+      const isFileSlug = entry.type === "files";
+      if (!isFileSlug) {
+        if (entry.oneTime) ctx.waitUntil(env.DATA.delete(realSlug));
+        return Response.redirect(entry.url, entry.permanent === false ? 302 : 301);
+      }
+      const token = await makeUnlockToken(realSlug, entry.accessHash);
+      const headers = new Headers({ "Location": base + realSlug });
+      headers.append("Set-Cookie", makeUnlockCookieHeader(realSlug, token));
+      return new Response(null, { status: 303, headers });
     }
     if (method === "POST" && slug.startsWith("_ot/")) {
       const realSlug = slug.slice(4);
