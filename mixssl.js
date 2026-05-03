@@ -785,7 +785,7 @@ function applyI18nAttrs(t, root) {
 
 
 (() => {
-  // dev/apps/mixssl/src/views/i18n.mjs
+  // src/views/i18n.mjs
   var I18N = {
     en: {
       app_name: "MixSSL",
@@ -4689,7 +4689,7 @@ function applyI18nAttrs(t, root) {
     }
   };
 
-  // dev/apps/mixssl/src/views/client.mjs
+  // src/views/client.mjs
   var $ = (s, el = document) => el.querySelector(s);
   var $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
   function esc(s) {
@@ -6545,7 +6545,7 @@ function b64uDecode(str) {
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 }
-async function sha2562(data) {
+async function sha256(data) {
   const buf = typeof data === "string" ? enc.encode(data) : data;
   return new Uint8Array(await crypto.subtle.digest("SHA-256", buf));
 }
@@ -6749,7 +6749,7 @@ async function importEcPrivateKey(privateJwk) {
 }
 async function jwkThumbprint(publicJwk) {
   const canonical = `{"crv":"${publicJwk.crv}","kty":"${publicJwk.kty}","x":"${publicJwk.x}","y":"${publicJwk.y}"}`;
-  return b64uEncode(await sha2562(canonical));
+  return b64uEncode(await sha256(canonical));
 }
 async function jwsSignEs256(privateKey, protectedHeader, payloadObj) {
   const protectedB64 = b64uEncode(enc.encode(JSON.stringify(protectedHeader)));
@@ -7001,7 +7001,7 @@ async function keyAuthorization(token, accountPublicJwk) {
   return `${token}.${await jwkThumbprint(accountPublicJwk)}`;
 }
 async function dnsChallengeTxtValue(keyAuth) {
-  return b64uEncode(await sha2562(keyAuth));
+  return b64uEncode(await sha256(keyAuth));
 }
 
 function bytesToHex(buf) {
@@ -7016,6 +7016,9 @@ async function hmacSha256Raw(key, data) {
 }
 function baseDomain(d) {
   return d.startsWith("*.") ? d.slice(2) : d;
+}
+function txtChallengeName(domain) {
+  return `_acme-challenge.${baseDomain(domain)}`;
 }
 
 async function cfRequest(token, method, urlPath, body) {
