@@ -150,6 +150,7 @@ var landing_default = `<!DOCTYPE html>
 <title>Shurl</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71'/%3E%3C/svg%3E">
 <script src="https://{{CDN_HOST}}/npm/markdown-it@14/dist/markdown-it.min.js"></script>
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/overlay/style.min.css">
 <style>:root{
   --s-bg:#0f172a;--s-surface:#1e293b;--s-surface2:#0f172a;
   --s-border:#334155;--s-border-hi:#475569;
@@ -157,7 +158,13 @@ var landing_default = `<!DOCTYPE html>
   --s-accent:#3b82f6;--s-accent-hover:#2563eb;
   --s-err:#f87171;--s-found:#fbbf24;--s-free:#34d399;
   --footer-color:var(--s-text-muted);--footer-border:var(--s-border);
+  /* Canonical aliases for cross-app common modules (common/modal etc.).
+     Pre-existing --s-* names stay app-local. Adding aliases is cheaper
+     than batch-renaming every --s-X reference inside view.css. */
+  --surface:var(--s-surface);--border:var(--s-border);--text:var(--s-text);
+  --text-muted:var(--s-text-muted);--accent:var(--s-accent);--err:var(--s-err);
 }
+/* overlay CSS now loaded via <link> from ccs CDN \u2014 see landing.html head. */
 [data-theme="light"]{
   --s-bg:#f4f6f9;--s-surface:#ffffff;--s-surface2:#f8fafc;
   --s-border:#cbd5e1;--s-border-hi:#94a3b8;
@@ -189,15 +196,6 @@ textarea{resize:vertical;min-height:60px}
 .btn-row .form-btn{width:auto;flex:1}
 .btn-delete{background:#dc2626!important}
 .btn-delete:hover{background:#b91c1c!important}
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:999}
-.modal-overlay.show{display:flex}
-.modal-box{background:var(--s-surface);border:1px solid var(--s-border);border-radius:.75rem;padding:1.5rem;max-width:340px;width:90%;text-align:center}
-.modal-box p{color:var(--s-text);font-size:.95rem;margin-bottom:1.2rem}
-.modal-btns{display:flex;gap:.5rem}
-.modal-btns button{flex:1;padding:.5rem;border:none;border-radius:.5rem;font-size:.85rem;font-weight:600;cursor:pointer}
-.modal-cancel{background:var(--s-border);color:var(--s-text)}
-.modal-confirm{background:#dc2626;color:#fff}
-.modal-confirm:hover{background:#b91c1c}
 #r{margin-top:1rem;padding:.75rem;border-radius:.5rem;background:var(--s-surface);word-break:break-all;display:none}
 #r a{color:var(--s-accent);text-decoration:none}
 .err{color:var(--s-err)}
@@ -416,22 +414,12 @@ textarea{resize:vertical;min-height:60px}
 .file-item .fact{background:none;border:none;color:var(--s-text-muted);cursor:pointer;font-size:1rem;padding:0 .2rem}
 .file-item .fact:hover{color:var(--s-err)}
 .file-item a.fact{text-decoration:none}
-.modal-overlay.modal-result{z-index:1000}
-.modal-result .modal-box{max-width:420px;padding:1.8rem 1.6rem}
-.modal-result .mr-status{font-size:2.2rem;text-align:center;margin-bottom:.4rem}
-.modal-result .mr-title{font-size:1.05rem;font-weight:600;text-align:center;margin-bottom:.8rem;color:var(--s-text)}
-.modal-result .mr-body{font-size:.85rem;color:var(--s-text);line-height:1.5;text-align:center;margin-bottom:1rem;word-break:break-all}
-.modal-result .mr-body a{color:var(--s-accent);text-decoration:none}
-.modal-result .mr-body a:hover{text-decoration:underline}
-.modal-result .mr-pwbox{margin-top:.5rem;padding:.6rem;background:var(--s-surface2);border:1px solid #f59e0b;border-radius:.4rem;font-size:.8rem;color:var(--s-text)}
-.modal-result .mr-pwbox strong{color:var(--s-found);font-family:monospace;font-size:.95rem;user-select:all}
-.modal-result .mr-progress{height:6px;background:var(--s-border);border-radius:3px;overflow:hidden;margin:.8rem 0}
-.modal-result .mr-progress-fill{height:100%;background:var(--s-accent);border-radius:3px;transition:width .2s linear;width:0%}
-.modal-result .mr-btns{display:flex;gap:.5rem;justify-content:center}
-.modal-result .mr-btns button{padding:.5rem 1rem;border-radius:.4rem;border:none;font-size:.85rem;font-weight:600;cursor:pointer}
-.mr-btn-primary{background:var(--s-accent);color:#fff}
-.mr-btn-primary:hover{background:var(--s-accent-hover)}
-.mr-btn-secondary{background:var(--s-border);color:var(--s-text)}
+/* result modal styles for the dynamic body content (rendered by client.mjs
+   into common Modal.custom's body slot) */
+.mr-pwbox{margin-top:.5rem;padding:.6rem;background:var(--s-surface2);border:1px solid #f59e0b;border-radius:.4rem;font-size:.8rem;color:var(--s-text);text-align:center}
+.mr-pwbox strong{color:var(--s-found);font-family:monospace;font-size:.95rem;user-select:all}
+.mr-success-link{color:var(--s-accent);text-decoration:none;display:block;text-align:center;margin-bottom:.6rem}
+.mr-success-link:hover{text-decoration:underline}
 </style></head><body><div style="width:100%;max-width:480px"><div class="c">
 <div class="header">
   <div class="header-left">
@@ -472,18 +460,6 @@ textarea{resize:vertical;min-height:60px}
     <button type="button" id="adminBtn" data-i18n-title="admin_enter" style="background:none;border:1px solid var(--s-border);border-radius:.4rem;padding:4px 8px;cursor:pointer;font-size:.85rem;color:var(--s-text-muted)" title="">\u{1F511}</button>
   </div>
 </div>
-<div id="adminKeyOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center" onclick="if(event.target===this){this.className='hidden';this.style.display='none'}">
-  <div style="background:var(--s-surface);border:1px solid var(--s-border);border-radius:.75rem;padding:1.5rem;width:320px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.2)">
-    <h3 id="adminDialogTitle" data-i18n="admin_enter" style="margin:0 0 1rem;font-size:1rem;color:var(--s-text)"></h3>
-    <input type="password" id="adminKeyInput" data-i18n-ph="admin_key_placeholder" style="width:100%;padding:.6rem .75rem;border:1px solid var(--s-border);border-radius:.5rem;background:var(--s-bg);color:var(--s-text);font-size:.9rem;outline:none;margin-bottom:.8rem" placeholder="">
-    <p id="adminKeyError" style="color:#ef4444;font-size:.85rem;margin-bottom:.6rem;display:none"></p>
-    <div style="display:flex;gap:.5rem;justify-content:flex-end">
-      <button type="button" id="adminKeyCancel" data-i18n="admin_cancel" style="padding:.5rem 1rem;background:none;border:1px solid var(--s-border);border-radius:.4rem;color:var(--s-text-muted);cursor:pointer;font-size:.85rem"></button>
-      <button type="button" id="adminKeySubmit" data-i18n="admin_submit" style="padding:.5rem 1rem;background:var(--s-accent);color:#fff;border:none;border-radius:.4rem;cursor:pointer;font-size:.85rem"></button>
-    </div>
-  </div>
-</div>
-
 <div class="tabs">
   <div class="tab active" id="tab-create" data-i18n="tab_create" onclick="setMode('create')"></div>
   <div class="tab" id="tab-modify" data-i18n="tab_modify" onclick="setMode('modify')"></div>
@@ -664,24 +640,6 @@ textarea{resize:vertical;min-height:60px}
 <div id="r"></div>
 
 </div>
-<div class="modal-overlay" id="deleteModal">
-  <div class="modal-box">
-    <p id="modal-msg"></p>
-    <div class="modal-btns">
-      <button class="modal-cancel" onclick="closeDeleteModal()" id="modal-cancel"></button>
-      <button class="modal-confirm" onclick="confirmDelete()" id="modal-confirm"></button>
-    </div>
-  </div>
-</div>
-<div class="modal-overlay modal-result" id="resultModal">
-  <div class="modal-box">
-    <div class="mr-status" id="mr-status"></div>
-    <div class="mr-title" id="mr-title"></div>
-    <div class="mr-body" id="mr-body"></div>
-    <div class="mr-progress" id="mr-progress" style="display:none"><div class="mr-progress-fill" id="mr-progress-fill"></div></div>
-    <div class="mr-btns" id="mr-btns"></div>
-  </div>
-</div>
 <footer style="text-align:center;padding:1rem 0;font-size:.75rem;color:var(--footer-color,inherit)">\xA9 <span id="footerYear"></span> <a href="https://go.gb.net/gaobo" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)"><img src="/gaobo.png" alt="" style="height:20px;vertical-align:middle;margin:0 2px;"><span id="footerBrand"></span></a> <span id="footerProd"></span> <a href="https://github.com/onegbnet/tinyutils/blob/master/LICENSE" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)">MIT License</a></footer>
 
 </div>
@@ -691,32 +649,7 @@ textarea{resize:vertical;min-height:60px}
 // not constant-fold a comparison whose operand is a free var.
 // (Inside the IIFE: \`KEY_REQUIRED_RAW === "true"\`.)
 var KEY_REQUIRED_RAW = "{{KEY_REQUIRED}}";
-//
-// Browser-side footer brand controller. Sets the current year on init
-// and exposes window.FooterBrand.applyLang(code) for the host page to
-// call from its applyI18n() on locale change.
-//
-// The brand text is intentionally inline (\`\u9AD8\u535A\u7684\u4E16\u754C\` / \`ONE.GB.NET\`) \u2014
-// not in lang/*.mjs \u2014 because it's a personal-brand signature, not a
-// per-locale UI string. Today it switches on Chinese vs everything-else;
-// future variants (buy-me-a-coffee link, sponsor logo, etc.) get added
-// here once and propagate to all consuming apps without per-app code.
-
-(function(){
-  var brandEl = document.getElementById('footerBrand');
-  var prodEl  = document.getElementById('footerProd');
-  var yearEl  = document.getElementById('footerYear');
-  if (yearEl) yearEl.textContent = new Date().getFullYear();
-
-  function applyLang(code) {
-    var isChinese = (code === 'zh-cn' || code === 'zh-tw');
-    if (brandEl) brandEl.textContent = isChinese ? '\u9AD8\u535A\u7684\u4E16\u754C' : 'ONE.GB.NET';
-    if (prodEl)  prodEl.textContent  = isChinese ? '\u51FA\u54C1' : '';
-  }
-
-  window.FooterBrand = { applyLang: applyLang };
-})();
-
+const I18N={{i18n-json}};
 //
 // Browser-side theme toggle. Reads/writes \`theme\` localStorage key,
 // applies \`<html data-theme="dark|light">\` attribute, and flips the
@@ -749,111 +682,19 @@ var KEY_REQUIRED_RAW = "{{KEY_REQUIRED}}";
   });
 })();
 
-const I18N={{i18n-json}};
-//
-// Browser-side i18n module \u2014 single source of truth across mg / shurl /
-// common/lock / common/markdown-editor. Plain JS source (no imports);
-// apps inject this into their inline <script> at build time via the
-// {{i18n-engine:client-js}} placeholder.
-//
-// Two halves in one file:
-//
-//   1. ENGINE \u2014 top-level functions/constants usable from anywhere
-//      else in the app's inline script:
-//
-//      SUPPORTED_LANGS / RTL_LANGS  constants
-//      detectLang(supported?)       walks navigator.languages, falls
-//                                   through zh-{hant,tw,hk,mo} \u2192 zh-tw,
-//                                   zh* \u2192 zh-cn, prefix match
-//      isRTL(code)                  boolean
-//      applyLocaleAttrs(code)       sets <html lang> + <html dir>
-//      applyI18nAttrs(t, root?)     scans [data-i18n] /
-//                                   [data-i18n-ph] / [data-i18n-title]
-//                                   and writes textContent / placeholder
-//                                   / title from t[key]
-//
-//   2. UI \u2014 IIFE that wires the user-facing language switcher (markup
-//      lives in view.html, hosted by app via {{lang-select:html}}):
-//
-//      window.LangSelect.init(currentLang, onChange)
-//                                   set the <select>'s initial value
-//                                   and bind change \u2192 onChange(newLang)
-//
-// Apps own the app-specific tail of applyI18n (mode-conditional labels,
-// brand-signature swap, mde-applyLang delegate). Only the generic
-// machinery and the basic switcher binding live here.
+</script>
 
-// \u2500\u2500 1. Engine \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+<!-- CDN-served browser modules \u2014 order: i18n-engine first; action before
+     overlay; footer-brand self-init. {{CDN_HOST}} swapped per-request by
+     handleGet(). theme stays inline ABOVE: it touches localStorage('theme'),
+     and Edge's Tracking Prevention warns/blocks storage access from
+     cross-origin script origins (cdn.jsdelivr.net). -->
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/i18n-engine/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/footer-brand/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/action/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/overlay/client.min.js"></script>
 
-var SUPPORTED_LANGS = ['en','eo','fr','de','es','it','nl','da','zh-cn','zh-tw','ja','ko','ms','vi','th','ta','my','uk','he','ar'];
-var RTL_LANGS = { he: true, ar: true };
-
-function detectLang(supported) {
-  supported = supported || SUPPORTED_LANGS;
-  var c = navigator.languages || [navigator.language || 'en'];
-  for (var i = 0; i < c.length; i++) {
-    var l = c[i].toLowerCase();
-    if (supported.indexOf(l) !== -1) return l;
-    if (/^zh-(hant|tw|hk|mo)/.test(l) && supported.indexOf('zh-tw') !== -1) return 'zh-tw';
-    if (/^zh/.test(l) && supported.indexOf('zh-cn') !== -1) return 'zh-cn';
-    var p = l.split('-')[0];
-    if (supported.indexOf(p) !== -1) return p;
-  }
-  return 'en';
-}
-
-function isRTL(code) {
-  return !!RTL_LANGS[code];
-}
-
-function applyLocaleAttrs(code) {
-  document.documentElement.lang = code;
-  document.documentElement.dir = isRTL(code) ? 'rtl' : 'ltr';
-}
-
-function applyI18nAttrs(t, root) {
-  root = root || document;
-  root.querySelectorAll('[data-i18n]').forEach(function(el){
-    var k = el.getAttribute('data-i18n');
-    if (t[k]) el.textContent = t[k];
-  });
-  root.querySelectorAll('[data-i18n-ph]').forEach(function(el){
-    var k = el.getAttribute('data-i18n-ph');
-    if (t[k]) el.placeholder = t[k];
-  });
-  root.querySelectorAll('[data-i18n-title]').forEach(function(el){
-    var k = el.getAttribute('data-i18n-title');
-    if (t[k]) el.title = t[k];
-  });
-}
-
-// \u2500\u2500 2. LangSelect IIFE \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-//
-// Wrapped in build-time markers. Apps that host the {{lang-select:html}}
-// markup get this IIFE via loadClient(). Apps/modules that don't need
-// the UI (common/lock and common/markdown-editor \u2014 their pages have no
-// \`<select id="lang-select">\`) call loadEngineOnly() instead, which
-// strips this section out at build time so it doesn't appear in their
-// bundled IIFEs.
-
-// LANG-SELECT-IIFE:START
-(function(){
-  // Lazy lookup at init() time \u2014 robust to the IIFE running before the
-  // <select> exists in the DOM (rare but possible if the host script
-  // runs from <head> or with \`async\`/\`defer\`).
-  window.LangSelect = {
-    init: function(currentLang, onChange) {
-      var sel = document.getElementById('lang-select');
-      if (!sel) return;
-      sel.value = currentLang;
-      sel.addEventListener('change', function() {
-        onChange(this.value);
-      });
-    },
-  };
-})();
-// LANG-SELECT-IIFE:END
-
+<script>
 //
 // Client-side JavaScript for the markdown editor. This runs in the browser
 // as inline <script> injected by the app's build. Path B design:
@@ -1128,9 +969,8 @@ function applyI18nAttrs(t, root) {
   applyLang(detectLang(typeof MDE_I18N === 'object' ? Object.keys(MDE_I18N) : undefined));
 })();
 
-
 (() => {
-  // dev/common/upload2kv/client.mjs
+  // ../ccs/upload2kv/client.mjs
   var RETRY_BACKOFFS_MS = [200, 500, 1500];
   async function postJson(url, body, headers) {
     const resp = await fetch(url, {
@@ -1235,10 +1075,13 @@ function applyI18nAttrs(t, root) {
     return { reserve: rData, commit: cData };
   }
 
-  // dev/apps/shurl/src/views/client.mjs
+  // apps/shurl/src/views/client.mjs
   var currentLang = detectLang();
   var t = I18N[currentLang] || I18N.en;
   applyLocaleAttrs(currentLang);
+  window.tr = function(k) {
+    return t && t[k] || k;
+  };
   window.LangSelect.init(currentLang, function(newLang) {
     currentLang = newLang;
     t = I18N[currentLang] || I18N.en;
@@ -1499,30 +1342,36 @@ function applyI18nAttrs(t, root) {
     }
     onFileListChanged();
   }
-  var resultModalEl = document.getElementById("resultModal");
+  var currentResultModal = null;
+  function ensureResultModal() {
+    if (currentResultModal) return currentResultModal;
+    currentResultModal = window.Modal.custom({
+      hasStatus: true,
+      hasProgress: true,
+      closable: { escape: false, clickOutside: false },
+      onClose: function() {
+        currentResultModal = null;
+      }
+    });
+    return currentResultModal;
+  }
   function showResultProcessing(msg) {
-    document.getElementById("mr-status").textContent = "\\u23F3";
-    document.getElementById("mr-title").textContent = msg || (t.modal_processing || "Processing...");
-    document.getElementById("mr-body").innerHTML = "";
-    document.getElementById("mr-btns").innerHTML = "";
-    setResultProgress(null);
-    resultModalEl.classList.add("show");
+    var r = ensureResultModal();
+    r.body.innerHTML = "";
+    r.actions.innerHTML = "";
+    r.setStatus("\\u23F3 " + (msg || t.modal_processing || "Processing..."), "info");
+    r.setProgress(null);
   }
   function setResultProgress(pct) {
-    var el = document.getElementById("mr-progress");
-    var fill = document.getElementById("mr-progress-fill");
-    if (pct == null) {
-      el.style.display = "none";
-      return;
-    }
-    el.style.display = "";
-    fill.style.width = Math.max(0, Math.min(100, pct)) + "%";
+    if (currentResultModal) currentResultModal.setProgress(pct);
   }
   function showResultSuccess(data) {
-    document.getElementById("mr-status").textContent = data.updated ? "\\u267B\\uFE0F" : "\\u2705";
-    document.getElementById("mr-title").textContent = data.updated ? t.updated || "Updated" : t.created || "Created";
+    var r = ensureResultModal();
+    var statusIcon = data.updated ? "\\u267B\\uFE0F " : "\\u2705 ";
+    var statusLabel = data.updated ? t.updated || "Updated" : t.created || "Created";
+    r.setStatus(statusIcon + statusLabel, "success");
     var body = "";
-    if (data.short_url) body += '<a href="' + data.short_url + '" target="_blank">' + data.short_url + "</a>";
+    if (data.short_url) body += '<a class="mr-success-link" href="' + data.short_url + '" target="_blank">' + data.short_url + "</a>";
     if (data.warn) {
       var warns = Array.isArray(data.warn) ? data.warn : [data.warn];
       warns.forEach(function(w) {
@@ -1532,25 +1381,24 @@ function applyI18nAttrs(t, root) {
     if (data.password) {
       body += '<div class="mr-pwbox">' + (t.pw_box_label || "\\u{1F511} Modification password:") + " <strong>" + data.password + '</strong><p style="font-size:.7rem;color:#f59e0b;margin-top:.3rem">' + (t.pw_box_warn || "Save this now! It will never be shown again.") + "</p></div>";
     }
-    document.getElementById("mr-body").innerHTML = body;
-    setResultProgress(null);
-    document.getElementById("mr-btns").innerHTML = '<button class="mr-btn-primary" id="mr-close">' + (t.btn_ok || "OK") + "</button>";
-    document.getElementById("mr-close").addEventListener("click", function() {
-      resultModalEl.classList.remove("show");
-    });
+    r.body.innerHTML = body;
+    r.setProgress(null);
+    r.setButtons([{ id: "ok", text: t.btn_ok || "OK", kind: "primary", onClick: function(h) {
+      h.close("ok");
+    } }]);
   }
   function showResultError(errMsg, retryFn) {
-    document.getElementById("mr-status").textContent = "\\u274C";
-    document.getElementById("mr-title").textContent = errMsg || "Error";
-    document.getElementById("mr-body").innerHTML = "";
-    setResultProgress(null);
-    document.getElementById("mr-btns").innerHTML = '<button class="mr-btn-secondary" id="mr-back">' + (t.btn_back_edit || "Back to edit") + '</button><button class="mr-btn-primary" id="mr-retry">' + (t.btn_retry || "Retry") + "</button>";
-    document.getElementById("mr-back").addEventListener("click", function() {
-      resultModalEl.classList.remove("show");
-    });
-    document.getElementById("mr-retry").addEventListener("click", function() {
-      if (retryFn) retryFn();
-    });
+    var r = ensureResultModal();
+    r.setStatus("\\u274C " + (errMsg || "Error"), "err");
+    r.body.innerHTML = "";
+    r.setProgress(null);
+    var buttons = [{ id: "back", text: t.btn_back_edit || "Back to edit", onClick: function(h) {
+      h.close("back");
+    } }];
+    if (retryFn) buttons.push({ id: "retry", text: t.btn_retry || "Retry", kind: "primary", onClick: function() {
+      retryFn();
+    } });
+    r.setButtons(buttons);
   }
   async function runUploadFlow(basePayload, slugForModify) {
     const pendingFiles = fileList.filter((f) => f.kind === "pending");
@@ -1650,62 +1498,33 @@ function applyI18nAttrs(t, root) {
       btn.style.borderColor = "var(--s-border)";
     }
   }
-  function showAdminModal() {
-    var overlay = document.getElementById("adminKeyOverlay");
-    overlay.className = "";
-    overlay.style.display = "flex";
-    document.getElementById("adminKeyInput").value = "";
-    document.getElementById("adminKeyError").style.display = "none";
-    document.getElementById("adminKeyInput").style.borderColor = "";
-    setTimeout(function() {
-      document.getElementById("adminKeyInput").focus();
-    }, 50);
-  }
-  function hideAdminModal() {
-    var overlay = document.getElementById("adminKeyOverlay");
-    overlay.className = "hidden";
-    overlay.style.display = "none";
-  }
-  document.getElementById("adminBtn").addEventListener("click", function() {
+  var adminBtnEl = document.getElementById("adminBtn");
+  adminBtnEl.addEventListener("click", function() {
     if (isAdminMode()) {
       adminKey = "";
       sessionStorage.removeItem("adminKey");
       updateAdminUI();
       setMode(mode);
       applyI18n();
-    } else {
-      showAdminModal();
+      return;
     }
-  });
-  document.getElementById("adminKeyCancel").addEventListener("click", hideAdminModal);
-  document.getElementById("adminKeySubmit").addEventListener("click", async function() {
-    var key = document.getElementById("adminKeyInput").value.trim();
-    if (!key) return;
-    var errEl = document.getElementById("adminKeyError");
-    try {
-      var res = await fetch("/", { method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Key": key }, body: "{}" });
-      if (res.status !== 401) {
+    window.Modal.input(t.admin_enter, "", {
+      type: "password",
+      placeholder: t.admin_key_placeholder,
+      okText: t.admin_submit,
+      cancelText: t.admin_cancel,
+      disableTrigger: adminBtnEl,
+      doAction: async function(key) {
+        if (!key) throw new Error(t.admin_key_wrong);
+        var res = await fetch("/", { method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Key": key }, body: "{}" });
+        if (res.status === 401) throw new Error(t.admin_key_wrong);
         adminKey = key;
         sessionStorage.setItem("adminKey", key);
-        hideAdminModal();
         updateAdminUI();
         setMode(mode);
         applyI18n();
-      } else {
-        document.getElementById("adminKeyInput").style.borderColor = "#ef4444";
-        errEl.textContent = t.admin_key_wrong;
-        errEl.style.display = "";
       }
-    } catch (e) {
-      document.getElementById("adminKeyInput").style.borderColor = "#ef4444";
-      errEl.textContent = t.admin_key_wrong;
-      errEl.style.display = "";
-    }
-  });
-  document.getElementById("adminKeyInput").addEventListener("keydown", function(e) {
-    if (e.key === "Enter") document.getElementById("adminKeySubmit").click();
-    this.style.borderColor = "";
-    document.getElementById("adminKeyError").style.display = "none";
+    });
   });
   updateAdminUI();
   function getAdminKey() {
@@ -2099,40 +1918,36 @@ function applyI18nAttrs(t, root) {
     }
   }
   function deleteSlug() {
-    document.getElementById("modal-msg").textContent = t.confirm_delete_msg;
-    document.getElementById("modal-cancel").textContent = t.confirm_no;
-    document.getElementById("modal-confirm").textContent = t.confirm_yes;
-    document.getElementById("deleteModal").classList.add("show");
-  }
-  function closeDeleteModal() {
-    document.getElementById("deleteModal").classList.remove("show");
-  }
-  async function confirmDelete() {
-    closeDeleteModal();
     var s = document.getElementById("s").value.trim();
-    var k = getAdminKey();
     if (!s) return;
-    showResultProcessing(t.modal_processing);
-    try {
-      var p = document.getElementById("p").value;
-      var res = await fetch("/" + s, { method: "DELETE", headers: Object.assign({}, p ? { "X-Password": p } : {}, k ? { "X-Admin-Key": k } : {}) });
-      var d = await res.json();
-      if (res.ok) {
+    window.Modal.confirm(t.confirm_delete_msg, {
+      okText: t.confirm_yes,
+      cancelText: t.confirm_no,
+      danger: true,
+      doAction: async function() {
+        var k = getAdminKey();
+        var p = document.getElementById("p").value;
+        var res = await fetch("/" + s, { method: "DELETE", headers: Object.assign({}, p ? { "X-Password": p } : {}, k ? { "X-Admin-Key": k } : {}) });
+        if (!res.ok) {
+          var d = await res.json().catch(function() {
+            return {};
+          });
+          throw new Error(t["err_" + d.error] || d.error || "HTTP " + res.status);
+        }
         setMode(mode);
-        showResultSuccess({ updated: false, short_url: "", warn: null });
-        document.getElementById("mr-status").textContent = "\\u2713";
-        document.getElementById("mr-title").textContent = t.btn_delete || "Delete";
-        document.getElementById("mr-body").innerHTML = "";
-      } else {
-        showResultError(t["err_" + d.error] || d.error);
       }
-    } catch (e) {
-      showResultError(t.err_network);
-    }
+    }).then(function(ok) {
+      if (!ok) return;
+      var r = ensureResultModal();
+      r.setStatus("\\u2713 " + (t.btn_delete || "Delete"), "success");
+      r.body.innerHTML = "";
+      r.setProgress(null);
+      r.setButtons([{ id: "ok", text: t.btn_ok || "OK", kind: "primary", onClick: function(h) {
+        h.close("ok");
+      } }]);
+    });
   }
   Object.assign(window, {
-    closeDeleteModal,
-    confirmDelete,
     deleteSlug,
     go,
     loadEntry,
@@ -5884,7 +5699,7 @@ var index_default = {
       if (!slug) {
         const keyRequired = env.KEY ? "true" : "false";
         const ttlStr = String(normalizeTtl(env.TTL || 0));
-        const page = HTML.replace("{{DEFAULT_TTL}}", () => ttlStr).replace("{{KEY_REQUIRED}}", () => keyRequired).replace("{{CDN_HOST}}", () => cdnHost);
+        const page = HTML.replace(/\{\{DEFAULT_TTL\}\}/g, ttlStr).replace(/\{\{KEY_REQUIRED\}\}/g, keyRequired).replace(/\{\{CDN_HOST\}\}/g, cdnHost);
         return html(page);
       }
       if (slug.includes("/")) return notFound(env, url);

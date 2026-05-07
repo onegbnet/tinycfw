@@ -94,6 +94,13 @@ function makeLockModule({
   };
 }
 
+var HOST_DEFAULT = "cdn.jsdelivr.net";
+var HOST_CN = "jsd.onmicrosoft.cn";
+function selectJsdelivrCdnHost(request) {
+  if (request && request.cf && request.cf.country === "CN") return HOST_CN;
+  return HOST_DEFAULT;
+}
+
 function makeResponseHelpers({
   cors = null,
   prettyJson = false,
@@ -128,7 +135,11 @@ var main_default = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MixSSL \u2014 Certificates with domains from mixed DNS accounts under same or different registrars</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2.5' stroke-linecap='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2'/%3E%3Cpath d='M7 11V7a5 5 0 0110 0v4'/%3E%3C/svg%3E">
-<style>:root{--bg:#f4f6f9;--surface:#fff;--text:#1e293b;--muted:#64748b;--border:#e2e8f0;--accent:#2563eb;--ok:#16a34a;--warn:#f59e0b;--err:#dc2626;--font:system-ui,-apple-system,Segoe UI,sans-serif;--radius:10px;--shadow:0 1px 3px rgba(0,0,0,.08);--transition:.2s;--footer-color:var(--muted);--footer-border:var(--border)}
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/overlay/style.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/toast/style.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/spinner/style.min.css">
+<style>:root{--bg:#f4f6f9;--surface:#fff;--text:#1e293b;--muted:#64748b;--text-muted:var(--muted);--border:#e2e8f0;--accent:#2563eb;--ok:#16a34a;--warn:#f59e0b;--err:#dc2626;--font:system-ui,-apple-system,Segoe UI,sans-serif;--radius:10px;--shadow:0 1px 3px rgba(0,0,0,.08);--transition:.2s;--footer-color:var(--muted);--footer-border:var(--border)}
+/* overlay/toast/spinner CSS now loaded via <link> from ccs CDN \u2014 see main.html head. */
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5}
 header{position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:16px;z-index:100;box-shadow:var(--shadow)}
@@ -174,9 +185,6 @@ main{max-width:1200px;margin:0 auto;padding:20px;display:grid;grid-template-colu
 .filter-multi-pop label input{cursor:pointer}
 .conf-card{position:relative;padding:14px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px}
 .conf-card .row-top,.conf-card .row-bottom{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
-.conf-card-overlay{position:absolute;inset:0;background:rgba(248,250,252,.88);display:flex;align-items:center;justify-content:center;border-radius:8px;z-index:2}
-.conf-card-overlay-inner{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
-.conf-card-overlay-text{font-weight:600;color:var(--text)}
 .conf-card .doms{font-family:ui-monospace,SF Mono,Consolas,monospace;font-size:.82rem;color:var(--muted);padding:6px 8px;border:1px solid var(--border);border-radius:6px;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
 .conf-card .dom-chip{display:inline-flex;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 2px 1px 6px;gap:2px}
 .conf-card .dom-chip .dom-name{cursor:pointer;color:var(--text)}
@@ -224,48 +232,43 @@ main{max-width:1200px;margin:0 auto;padding:20px;display:grid;grid-template-colu
 .menu-pop button:disabled{color:var(--muted);cursor:not-allowed}
 .menu-pop button:disabled:hover{background:none}
 .menu-pop button.danger{color:var(--err)}
-.confirm-box{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 10px 40px rgba(0,0,0,.22);padding:20px 22px;max-width:440px;width:90%;z-index:410}
-.confirm-msg{line-height:1.5;margin-bottom:16px;white-space:pre-wrap;word-wrap:break-word}
-.confirm-actions{display:flex;gap:8px;justify-content:flex-end}
-.confirm-status{font-size:.82rem;margin:10px 0 4px}
 .conf-card .btn-row{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .auto-renew-row{display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--muted);user-select:none}
 .toggle-switch{position:relative;width:30px;height:16px;border-radius:10px;border:none;padding:0;background:#cbd5e1;cursor:pointer;transition:background .2s;flex-shrink:0}
 .toggle-switch.on{background:var(--accent)}
 .toggle-switch::before{content:"";position:absolute;left:2px;top:2px;width:12px;height:12px;background:#fff;border-radius:50%;transition:transform .2s}
 .toggle-switch.on::before{transform:translateX(14px)}
-.cert-view-box{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:720px;max-width:95vw;max-height:90vh;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 10px 40px rgba(0,0,0,.22);z-index:410}
-.cert-view-box .cv-head{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
-.cert-view-box .cv-head h2{flex:1;font-size:1rem;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cert-view-box .cv-body{flex:1;overflow-y:auto;padding:14px 18px;display:flex;flex-direction:column;gap:14px}
-.cert-view-box .cv-section{display:flex;flex-direction:column;gap:6px}
-.cert-view-box .cv-head-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.cert-view-box .cv-mode-row{display:flex;gap:16px;font-size:.82rem;color:var(--text)}
-.cert-view-box .cv-mode-row label{display:flex;align-items:center;gap:4px;cursor:pointer}
-.cert-view-box .cv-label{font-size:.82rem;color:var(--muted)}
-.cert-view-box .cv-info-line{font-size:.88rem;color:var(--text)}
-.cert-view-box .cv-domains{display:flex;flex-wrap:wrap;gap:6px;font-family:ui-monospace,SF Mono,Consolas,monospace;font-size:.82rem}
-.cert-view-box .cv-dom{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px 8px;color:var(--text)}
-.cert-view-box .cv-dom-primary{border-color:var(--accent);color:var(--accent);font-weight:600}
-.cert-view-box .cv-status{font-size:.82rem;text-align:center;padding:6px;color:var(--muted)}
-.cert-view-box .cv-area{width:100%;font-family:ui-monospace,SF Mono,Consolas,monospace;font-size:.74rem;padding:8px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);min-height:140px;resize:vertical;white-space:pre;overflow-wrap:normal;overflow-x:auto}
-.cert-view-box .cv-foot{padding:10px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+/* viewCert modal: width override + cv-* internal layout. Outer chrome
+   (.cmn-modal-overlay > .cmn-modal-box) is owned by ccs/overlay; we
+   widen the box and use the body slot in flat (padding:0) mode so cv-body
+   takes over the scroll region. cv-foot lives in .cmn-modal-actions. */
+.cert-view-modal .cmn-modal-box{width:720px;max-width:95vw;max-height:90vh}
+.cert-view-modal .cmn-modal-body{padding:0;overflow:hidden;display:flex;flex-direction:column;flex:1;min-height:0}
+.cert-view-modal .cv-body{flex:1;overflow-y:auto;padding:14px 18px;display:flex;flex-direction:column;gap:14px}
+.cert-view-modal .cv-section{display:flex;flex-direction:column;gap:6px}
+.cert-view-modal .cv-head-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.cert-view-modal .cv-mode-row{display:flex;gap:16px;font-size:.82rem;color:var(--text)}
+.cert-view-modal .cv-mode-row label{display:flex;align-items:center;gap:4px;cursor:pointer}
+.cert-view-modal .cv-label{font-size:.82rem;color:var(--muted)}
+.cert-view-modal .cv-info-line{font-size:.88rem;color:var(--text)}
+.cert-view-modal .cv-domains{display:flex;flex-wrap:wrap;gap:6px;font-family:ui-monospace,SF Mono,Consolas,monospace;font-size:.82rem}
+.cert-view-modal .cv-dom{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px 8px;color:var(--text)}
+.cert-view-modal .cv-dom-primary{border-color:var(--accent);color:var(--accent);font-weight:600}
+.cert-view-modal .cv-status{font-size:.82rem;text-align:center;padding:6px;color:var(--muted)}
+.cert-view-modal .cv-area{width:100%;font-family:ui-monospace,SF Mono,Consolas,monospace;font-size:.74rem;padding:8px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);min-height:140px;resize:vertical;white-space:pre;overflow-wrap:normal;overflow-x:auto}
+.cert-view-modal .cv-fmt-row{display:flex;gap:10px;align-items:center;font-size:.82rem}
+.cert-view-modal .cv-fmt-row label{display:flex;align-items:center;gap:4px;cursor:pointer}
 
-/* Drawer */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity var(--transition);z-index:200}
-.overlay.open{opacity:1;pointer-events:auto}
-.drawer{position:fixed;top:0;right:0;bottom:0;width:520px;max-width:95vw;background:var(--surface);transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:201;display:flex;flex-direction:column;box-shadow:-4px 0 24px rgba(0,0,0,.1)}
-.drawer.open{transform:translateX(0)}
-.drawer .head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
-.drawer .head h2{font-size:1rem;flex:1}
-.drawer .tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg)}
-.drawer .tabs button{flex:1;padding:10px;border:none;background:none;cursor:pointer;color:var(--muted);font:inherit;border-bottom:2px solid transparent;transition:all var(--transition)}
-.drawer .tabs button.active{color:var(--accent);border-bottom-color:var(--accent);background:var(--surface)}
-.drawer .body{flex:1;overflow-y:auto;padding:16px 20px}
-.drawer .body section{display:none}
-.drawer .body section.active{display:block}
-.drawer .tabs button.tab-danger{color:var(--err);font-weight:600;letter-spacing:.04em}
-.drawer .tabs button.tab-danger.active{color:var(--err);border-bottom-color:var(--err)}
+/* Drawer / app-local drawer overrides (width + tab styling). Common owns base structure. */
+.drawer{width:520px;max-width:95vw}
+.drawer .drawer-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg)}
+.drawer .drawer-tabs button{flex:1;padding:10px;border:none;background:none;cursor:pointer;color:var(--muted);font:inherit;border-bottom:2px solid transparent;transition:all var(--transition)}
+.drawer .drawer-tabs button.active{color:var(--accent);border-bottom-color:var(--accent);background:var(--surface)}
+.drawer .drawer-body{padding:16px 20px}
+.drawer .drawer-body section{display:none}
+.drawer .drawer-body section.active{display:block}
+.drawer .drawer-tabs button.tab-danger{color:var(--err);font-weight:600;letter-spacing:.04em}
+.drawer .drawer-tabs button.tab-danger.active{color:var(--err);border-bottom-color:var(--err)}
 .drawer .sub-tabs{display:flex;gap:20px;padding:4px 0 12px;border-bottom:1px solid var(--border);margin-bottom:10px}
 .drawer .sub-tabs label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:.88rem;color:var(--text);font-weight:500}
 .drawer .sub-tabs input[type=radio]{accent-color:var(--accent);cursor:pointer}
@@ -294,8 +297,6 @@ main{max-width:1200px;margin:0 auto;padding:20px;display:grid;grid-template-colu
 .drawer form .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .drawer form button{justify-self:start}
 .warn-box{background:#fef3c7;border:1px solid #fcd34d;color:#78350f;padding:8px 10px;border-radius:6px;font-size:.8rem;margin-bottom:10px}
-[dir=rtl] .drawer{right:auto;left:0;transform:translateX(-100%)}
-[dir=rtl] .drawer.open{transform:translateX(0)}
 
 /* DNS account card inside drawer */
 .dns-card-wrap{margin-top:14px}
@@ -345,17 +346,14 @@ main{max-width:1200px;margin:0 auto;padding:20px;display:grid;grid-template-colu
 .ca-form-actions .ca-status{flex:1;text-align:right;font-size:.82rem}
 .ca-le-desc{color:var(--muted);font-size:.88rem;flex:1}
 
-/* Modal */
-.modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.95);background:var(--surface);border-radius:var(--radius);box-shadow:0 20px 60px rgba(0,0,0,.25);width:620px;max-width:95vw;max-height:90vh;display:flex;flex-direction:column;z-index:210;opacity:0;pointer-events:none;transition:all var(--transition)}
-.modal.open{transform:translate(-50%,-50%) scale(1);opacity:1;pointer-events:auto}
-.modal-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
-.modal-head h2{flex:1;font-size:1.05rem;margin:0}
-.modal-body{padding:16px 18px;overflow-y:auto}
-.modal form{display:grid;gap:8px}
-.modal form label{font-size:.82rem;color:var(--muted);display:block;margin-bottom:3px}
-.modal form input,.modal form select,.modal form textarea{width:100%;font:inherit;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:.88rem}
-.modal form textarea{font-family:ui-monospace,SF Mono,Consolas,monospace;font-size:.82rem;resize:vertical;min-height:100px}
-.modal form .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+/* New-cert modal: width override + #certForm internal styling. Outer chrome
+   owned by ccs/overlay (.cmn-modal-overlay > .cmn-modal-box). */
+.new-cert-modal .cmn-modal-box{width:620px;max-width:95vw}
+#certForm{display:grid;gap:8px}
+#certForm label{font-size:.82rem;color:var(--muted);display:block;margin-bottom:3px}
+#certForm input,#certForm select,#certForm textarea{width:100%;font:inherit;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:.88rem}
+#certForm textarea{font-family:ui-monospace,SF Mono,Consolas,monospace;font-size:.82rem;resize:vertical;min-height:100px}
+#certForm .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .domain-row{display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--border)}
 .domain-row:last-child{border-bottom:none}
 .domain-row select{padding:5px 8px;width:auto}
@@ -382,25 +380,12 @@ main{max-width:1200px;margin:0 auto;padding:20px;display:grid;grid-template-colu
 .domain-row .row-locked{display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%}
 .domain-row .row-locked code{font-family:ui-monospace,SF Mono,Consolas,monospace;font-size:.82rem;background:var(--bg);padding:3px 8px;border-radius:4px;color:var(--text);flex:1}
 .modal-loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px 0;color:var(--muted);font-size:.9rem}
-.spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
 .domain-row .primary-radio{display:inline-flex;align-items:center;gap:4px;font-size:.8rem;color:var(--muted);cursor:pointer}
 .domain-row .row-msg{color:var(--err);font-size:.8rem;opacity:0;transition:opacity .3s;pointer-events:none;margin-left:6px}
 .domain-row .row-msg.show{opacity:1;animation:row-msg-fade 3s forwards}
 @keyframes row-msg-fade{0%{opacity:1}80%{opacity:1}100%{opacity:0}}
 
 footer{text-align:center;color:var(--muted);font-size:.75rem;padding:16px}
-
-/* Toast notifications */
-#toasts{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:500;pointer-events:none}
-.toast{padding:8px 14px;border-radius:6px;background:var(--surface);border:1px solid var(--border);box-shadow:0 4px 12px rgba(0,0,0,.1);font-size:.85rem;animation:toast-in .25s ease-out,toast-out .3s ease-in 1.5s forwards;max-width:360px}
-.toast.ok{border-left:3px solid var(--ok);color:var(--text)}
-.toast.ok::before{content:"\u2713 ";color:var(--ok);font-weight:700}
-.toast.err{border-left:3px solid var(--err);color:var(--text);animation:toast-in .25s ease-out,toast-out .3s ease-in 4s forwards}
-.toast.err::before{content:"\u2715 ";color:var(--err);font-weight:700}
-@keyframes toast-in{from{transform:translateX(30px);opacity:0}to{transform:translateX(0);opacity:1}}
-@keyframes toast-out{to{transform:translateX(30px);opacity:0}}
-[dir=rtl] #toasts{right:auto;left:20px}
 
 [data-theme="dark"]{
   --bg:#0f172a;--surface:#1e293b;--text:#e2e8f0;--muted:#94a3b8;--border:#334155;
@@ -419,7 +404,7 @@ footer{text-align:center;color:var(--muted);font-size:.75rem;padding:16px}
   main{padding:12px;gap:12px}
   .card{padding:14px}
   .drawer{width:100%;max-width:100%}
-  .modal{width:calc(100% - 20px)}
+  .new-cert-modal .cmn-modal-box{width:calc(100% - 20px)}
   .domain-row{grid-template-columns:1fr 1fr auto;gap:4px}
   .dns-row .zones{grid-template-columns:1fr}
   .ca-form-actions{flex-direction:column-reverse;align-items:stretch}
@@ -490,20 +475,20 @@ footer{text-align:center;color:var(--muted);font-size:.75rem;padding:16px}
 
 
 <div id="toasts"></div>
-<div class="overlay" id="overlay"></div>
-<div class="drawer" id="drawer">
-  <div class="head">
-    <div style="flex:1"></div>
-    <button class="btn btn-sm" id="closeDrawerBtn">\u2715</button>
-  </div>
-  <div class="tabs">
+
+<!-- Drawer content host: hidden until openDrawer() moves these nodes into the
+     Overlay-owned .drawer shell (h.box.insertBefore for tabs/loading; h.body
+     for the section grid). On close, nodes move back here so listeners
+     attached at module init survive across open/close cycles. -->
+<div id="drawerHost" hidden>
+  <div class="drawer-tabs" id="drawerTabsHost">
     <button data-tab="accounts" class="active" data-i18n="tab_accounts">Accounts Configuration</button>
     <button data-tab="settings" data-i18n="tab_settings">Settings</button>
   </div>
   <div id="drawerLoading" class="modal-loading" style="display:none">
     <div class="spinner"></div><span data-i18n="loading">Loading\u2026</span>
   </div>
-  <div class="body" id="drawerBody">
+  <div class="drawer-body" id="drawerBody">
     <section id="tab-accounts" class="active">
       <div class="sub-tabs">
         <label><input type="radio" name="accountsSub" value="dns" checked> <span data-i18n="sub_dns">DNS Registrars</span></label>
@@ -559,94 +544,55 @@ footer{text-align:center;color:var(--muted);font-size:.75rem;padding:16px}
   </div>
 </div>
 
-<!-- Job progress modal -->
-<div class="overlay" id="jobOverlay"></div>
-<div class="modal" id="jobModal">
-  <div class="modal-head">
-    <h2 data-i18n="modal_job">Issuing certificate</h2>
-    <button class="btn btn-sm" id="closeJobBtn">\u2715</button>
+<!-- New-cert modal content host: hidden until openCertModal() moves these
+     children into the Overlay-owned .cmn-modal-box body. Same move-on-
+     open / move-back-on-close pattern as #drawerHost \u2014 preserves the
+     listeners attached at module init (#certForm submit, #toggleAdvBtn,
+     #addDomainBtn, #cancelModalBtn etc.) across open/close cycles. -->
+<div id="certModalHost" hidden>
+  <div id="certLoading" class="modal-loading">
+    <div class="spinner"></div><span data-i18n="loading">Loading\u2026</span>
   </div>
-  <div class="modal-body">
-    <div id="jobState" style="margin-bottom:10px"></div>
-    <div id="jobLogs" class="job-logs"></div>
-  </div>
-</div>
-
-<!-- Certificate modal -->
-<div class="overlay" id="modalOverlay"></div>
-<div class="modal" id="certModal">
-  <div class="modal-head">
-    <h2 data-i18n="modal_new_cert">New certificate</h2>
-    <button class="btn btn-sm" id="closeModalBtn">\u2715</button>
-  </div>
-  <div class="modal-body">
-    <div id="certLoading" class="modal-loading">
-      <div class="spinner"></div><span data-i18n="loading">Loading\u2026</span>
+  <form id="certForm" style="display:none">
+    <label data-i18n="lbl_label">Label</label>
+    <input name="name" data-i18n-ph="ph_auto" placeholder="leave blank for auto">
+    <div class="row">
+      <div><label data-i18n="lbl_ca">Certificate Authority</label><select name="primary_acme_directory_name" id="certCaSel" required></select></div>
+      <div><label data-i18n="lbl_keytype">Key type</label><select name="key_type">
+        <option value="ec256" selected>ECDSA P-256</option>
+        <option value="ec384">ECDSA P-384</option>
+        <option value="rsa2048">RSA 2048</option>
+        <option value="rsa3072">RSA 3072</option>
+        <option value="rsa4096">RSA 4096</option>
+      </select></div>
     </div>
-    <form id="certForm" style="display:none">
-      <label data-i18n="lbl_label">Label</label>
-      <input name="name" data-i18n-ph="ph_auto" placeholder="leave blank for auto">
-      <div class="row">
-        <div><label data-i18n="lbl_ca">Certificate Authority</label><select name="primary_acme_directory_name" id="certCaSel" required></select></div>
-        <div><label data-i18n="lbl_keytype">Key type</label><select name="key_type">
-          <option value="ec256" selected>ECDSA P-256</option>
-          <option value="ec384">ECDSA P-384</option>
-          <option value="rsa2048">RSA 2048</option>
-          <option value="rsa3072">RSA 3072</option>
-          <option value="rsa4096">RSA 4096</option>
-        </select></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
-        <label style="margin:0"><b data-i18n="lbl_domains">Domains</b></label>
-        <button type="button" class="btn btn-sm" id="toggleAdvBtn" data-i18n="btn_advanced">Advanced</button>
-      </div>
-      <div id="structuredPane">
-        <div id="domainRows"></div>
-        <button type="button" class="btn btn-sm" id="addDomainBtn" data-i18n="btn_add_domain">+ Add domain</button>
-      </div>
-      <div id="advancedPane" style="display:none">
-        <small style="color:var(--muted)" data-i18n="hnt_fqdn">One FQDN per line. First one as primary. Wildcards like *.foo.bar.com supported.</small>
-        <textarea name="advancedDomains" id="advancedText" placeholder="example.com
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+      <label style="margin:0"><b data-i18n="lbl_domains">Domains</b></label>
+      <button type="button" class="btn btn-sm" id="toggleAdvBtn" data-i18n="btn_advanced">Advanced</button>
+    </div>
+    <div id="structuredPane">
+      <div id="domainRows"></div>
+      <button type="button" class="btn btn-sm" id="addDomainBtn" data-i18n="btn_add_domain">+ Add domain</button>
+    </div>
+    <div id="advancedPane" style="display:none">
+      <small style="color:var(--muted)" data-i18n="hnt_fqdn">One FQDN per line. First one as primary. Wildcards like *.foo.bar.com supported.</small>
+      <textarea name="advancedDomains" id="advancedText" placeholder="example.com
 *.example.com
 foo.bar.example.com"></textarea>
-        <div id="advError" style="color:var(--err);font-size:.82rem;display:none"></div>
-      </div>
+      <div id="advError" style="color:var(--err);font-size:.82rem;display:none"></div>
+    </div>
 
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
-        <button type="button" class="btn btn-sm" id="cancelModalBtn" data-i18n="btn_cancel">Cancel</button>
-        <button type="submit" class="btn btn-primary btn-sm" data-i18n="btn_create">Create</button>
-      </div>
-    </form>
-  </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+      <button type="button" class="btn btn-sm" id="cancelModalBtn" data-i18n="btn_cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary btn-sm" data-i18n="btn_create">Create</button>
+    </div>
+  </form>
 </div>
 
+<!-- theme stays inline: it touches localStorage('theme'), and Edge's
+     Tracking Prevention warns/blocks storage access from cross-origin
+     script origins (cdn.jsdelivr.net). Same-origin inline avoids it. -->
 <script>
-//
-// Browser-side footer brand controller. Sets the current year on init
-// and exposes window.FooterBrand.applyLang(code) for the host page to
-// call from its applyI18n() on locale change.
-//
-// The brand text is intentionally inline (\`\u9AD8\u535A\u7684\u4E16\u754C\` / \`ONE.GB.NET\`) \u2014
-// not in lang/*.mjs \u2014 because it's a personal-brand signature, not a
-// per-locale UI string. Today it switches on Chinese vs everything-else;
-// future variants (buy-me-a-coffee link, sponsor logo, etc.) get added
-// here once and propagate to all consuming apps without per-app code.
-
-(function(){
-  var brandEl = document.getElementById('footerBrand');
-  var prodEl  = document.getElementById('footerProd');
-  var yearEl  = document.getElementById('footerYear');
-  if (yearEl) yearEl.textContent = new Date().getFullYear();
-
-  function applyLang(code) {
-    var isChinese = (code === 'zh-cn' || code === 'zh-tw');
-    if (brandEl) brandEl.textContent = isChinese ? '\u9AD8\u535A\u7684\u4E16\u754C' : 'ONE.GB.NET';
-    if (prodEl)  prodEl.textContent  = isChinese ? '\u51FA\u54C1' : '';
-  }
-
-  window.FooterBrand = { applyLang: applyLang };
-})();
-
 //
 // Browser-side theme toggle. Reads/writes \`theme\` localStorage key,
 // applies \`<html data-theme="dark|light">\` attribute, and flips the
@@ -679,113 +625,24 @@ foo.bar.example.com"></textarea>
   });
 })();
 
-//
-// Browser-side i18n module \u2014 single source of truth across mg / shurl /
-// common/lock / common/markdown-editor. Plain JS source (no imports);
-// apps inject this into their inline <script> at build time via the
-// {{i18n-engine:client-js}} placeholder.
-//
-// Two halves in one file:
-//
-//   1. ENGINE \u2014 top-level functions/constants usable from anywhere
-//      else in the app's inline script:
-//
-//      SUPPORTED_LANGS / RTL_LANGS  constants
-//      detectLang(supported?)       walks navigator.languages, falls
-//                                   through zh-{hant,tw,hk,mo} \u2192 zh-tw,
-//                                   zh* \u2192 zh-cn, prefix match
-//      isRTL(code)                  boolean
-//      applyLocaleAttrs(code)       sets <html lang> + <html dir>
-//      applyI18nAttrs(t, root?)     scans [data-i18n] /
-//                                   [data-i18n-ph] / [data-i18n-title]
-//                                   and writes textContent / placeholder
-//                                   / title from t[key]
-//
-//   2. UI \u2014 IIFE that wires the user-facing language switcher (markup
-//      lives in view.html, hosted by app via {{lang-select:html}}):
-//
-//      window.LangSelect.init(currentLang, onChange)
-//                                   set the <select>'s initial value
-//                                   and bind change \u2192 onChange(newLang)
-//
-// Apps own the app-specific tail of applyI18n (mode-conditional labels,
-// brand-signature swap, mde-applyLang delegate). Only the generic
-// machinery and the basic switcher binding live here.
+</script>
 
-// \u2500\u2500 1. Engine \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-
-var SUPPORTED_LANGS = ['en','eo','fr','de','es','it','nl','da','zh-cn','zh-tw','ja','ko','ms','vi','th','ta','my','uk','he','ar'];
-var RTL_LANGS = { he: true, ar: true };
-
-function detectLang(supported) {
-  supported = supported || SUPPORTED_LANGS;
-  var c = navigator.languages || [navigator.language || 'en'];
-  for (var i = 0; i < c.length; i++) {
-    var l = c[i].toLowerCase();
-    if (supported.indexOf(l) !== -1) return l;
-    if (/^zh-(hant|tw|hk|mo)/.test(l) && supported.indexOf('zh-tw') !== -1) return 'zh-tw';
-    if (/^zh/.test(l) && supported.indexOf('zh-cn') !== -1) return 'zh-cn';
-    var p = l.split('-')[0];
-    if (supported.indexOf(p) !== -1) return p;
-  }
-  return 'en';
-}
-
-function isRTL(code) {
-  return !!RTL_LANGS[code];
-}
-
-function applyLocaleAttrs(code) {
-  document.documentElement.lang = code;
-  document.documentElement.dir = isRTL(code) ? 'rtl' : 'ltr';
-}
-
-function applyI18nAttrs(t, root) {
-  root = root || document;
-  root.querySelectorAll('[data-i18n]').forEach(function(el){
-    var k = el.getAttribute('data-i18n');
-    if (t[k]) el.textContent = t[k];
-  });
-  root.querySelectorAll('[data-i18n-ph]').forEach(function(el){
-    var k = el.getAttribute('data-i18n-ph');
-    if (t[k]) el.placeholder = t[k];
-  });
-  root.querySelectorAll('[data-i18n-title]').forEach(function(el){
-    var k = el.getAttribute('data-i18n-title');
-    if (t[k]) el.title = t[k];
-  });
-}
-
-// \u2500\u2500 2. LangSelect IIFE \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-//
-// Wrapped in build-time markers. Apps that host the {{lang-select:html}}
-// markup get this IIFE via loadClient(). Apps/modules that don't need
-// the UI (common/lock and common/markdown-editor \u2014 their pages have no
-// \`<select id="lang-select">\`) call loadEngineOnly() instead, which
-// strips this section out at build time so it doesn't appear in their
-// bundled IIFEs.
-
-// LANG-SELECT-IIFE:START
-(function(){
-  // Lazy lookup at init() time \u2014 robust to the IIFE running before the
-  // <select> exists in the DOM (rare but possible if the host script
-  // runs from <head> or with \`async\`/\`defer\`).
-  window.LangSelect = {
-    init: function(currentLang, onChange) {
-      var sel = document.getElementById('lang-select');
-      if (!sel) return;
-      sel.value = currentLang;
-      sel.addEventListener('change', function() {
-        onChange(this.value);
-      });
-    },
-  };
-})();
-// LANG-SELECT-IIFE:END
-
-
+<!-- CDN-served browser modules from ccs@<SHA pinned by build.mjs>. Order
+     matters: i18n-engine first (exposes detectLang/applyI18nAttrs/window.LangSelect
+     used by everything below); action before overlay (overlay's modal
+     sugar wrappers reference window.Action); footer-brand self-init.
+     {{CDN_HOST}} is replaced per-request by the worker via
+     selectJsdelivrCdnHost() \u2014 CN gets jsd.onmicrosoft.cn, everywhere
+     else gets cdn.jsdelivr.net. -->
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/i18n-engine/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/footer-brand/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/action/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/overlay/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/popover/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/toast/client.min.js"></script>
+<script>
 (() => {
-  // src/views/i18n.mjs
+  // apps/mixssl/src/views/i18n.mjs
   var I18N = {
     en: {
       app_name: "MixSSL",
@@ -4689,165 +4546,36 @@ function applyI18nAttrs(t, root) {
     }
   };
 
-  // src/views/client.mjs
+  // apps/mixssl/src/views/client.mjs
   var $ = (s, el = document) => el.querySelector(s);
   var $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
   function esc(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   }
-  function openConfirm(message, opts) {
-    const o = opts || {};
-    const okText = o.okText !== void 0 ? o.okText : tr("btn_ok");
-    const cancelText = o.cancelText !== void 0 ? o.cancelText : tr("btn_cancel");
-    const danger = o.danger || false;
-    const doAction = o.doAction || null;
-    const pendingText = o.pendingText !== void 0 ? o.pendingText : tr("setting");
-    return new Promise((resolve) => {
-      const ov = document.createElement("div");
-      ov.className = "overlay open";
-      const box = document.createElement("div");
-      box.className = "confirm-box";
-      const msg = document.createElement("div");
-      msg.className = "confirm-msg";
-      msg.textContent = message;
-      const status = document.createElement("div");
-      status.className = "confirm-status";
-      status.style.display = "none";
-      const actions = document.createElement("div");
-      actions.className = "confirm-actions";
-      const cancelBtn = cancelText ? document.createElement("button") : null;
-      if (cancelBtn) {
-        cancelBtn.className = "btn btn-sm";
-        cancelBtn.textContent = cancelText;
-        actions.appendChild(cancelBtn);
-      }
-      const okBtn = document.createElement("button");
-      okBtn.className = "btn btn-sm " + (danger ? "btn-danger" : "btn-primary");
-      okBtn.textContent = okText;
-      actions.appendChild(okBtn);
-      box.appendChild(msg);
-      box.appendChild(status);
-      box.appendChild(actions);
-      document.body.appendChild(ov);
-      document.body.appendChild(box);
-      let pending = false;
-      const onKey = (e) => {
-        if (pending) return;
-        if (e.key === "Escape") close(false);
-        else if (e.key === "Enter") onOk();
-      };
-      const close = (v) => {
-        document.removeEventListener("keydown", onKey);
-        ov.remove();
-        box.remove();
-        resolve(v);
-      };
-      const setPending = (p) => {
-        pending = p;
-        okBtn.disabled = p;
-        if (cancelBtn) cancelBtn.disabled = p;
-      };
-      const onOk = async () => {
-        if (pending) return;
-        if (!doAction) {
-          close(true);
-          return;
-        }
-        setPending(true);
-        status.style.display = "block";
-        status.style.color = "var(--muted)";
-        status.textContent = pendingText;
-        try {
-          await doAction();
-          close(true);
-        } catch (e) {
-          setPending(false);
-          status.style.color = "var(--err)";
-          status.textContent = tr("failed_prefix") + ": " + (e.message || String(e));
-          okBtn.textContent = tr("btn_retry");
-        }
-      };
-      okBtn.addEventListener("click", onOk);
-      if (cancelBtn) cancelBtn.addEventListener("click", () => {
-        if (!pending) close(false);
-      });
-      ov.addEventListener("click", () => {
-        if (!pending) close(false);
-      });
-      document.addEventListener("keydown", onKey);
-      setTimeout(() => okBtn.focus(), 0);
-    });
-  }
-  function openAlert(message) {
-    return openConfirm(message, { okText: tr("btn_ok"), cancelText: null });
-  }
+  var openConfirm = window.Modal.confirm;
+  var openAlert = window.Modal.alert;
+  var openInputModal = window.Modal.input;
+  var openSelectPicker = window.Modal.select;
   function openPolicyPicker(current, doAction) {
-    return new Promise((resolve) => {
-      const ov = document.createElement("div");
-      ov.className = "overlay open";
-      const box = document.createElement("div");
-      box.className = "confirm-box";
-      box.innerHTML = '<div class="confirm-msg">' + esc(tr("policy_title")) + '</div><select id="pickerSel" style="width:100%;font:inherit;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:.88rem"><option value="days:30">' + esc(tr("policy_days_30")) + '</option><option value="days:15">' + esc(tr("policy_days_15")) + '</option><option value="days:7">' + esc(tr("policy_days_7")) + '</option><option value="days:3">' + esc(tr("policy_days_3")) + '</option><option value="last_of_prev_month">' + esc(tr("policy_last_prev")) + '</option><option value="first_of_month">' + esc(tr("policy_first_month")) + '</option><option value="sunday_of_week">' + esc(tr("policy_sunday")) + '</option><option value="monday_of_week">' + esc(tr("policy_monday")) + '</option></select><div id="pickerHint" style="font-size:.78rem;color:var(--muted);margin-top:4px;display:none">' + esc(tr("policy_hint")) + '</div><div class="confirm-status" id="pickerStatus" style="display:none"></div><div class="confirm-actions" style="margin-top:14px"><button class="btn btn-sm" data-role="cancel">' + esc(tr("btn_cancel")) + '</button><button class="btn btn-sm btn-primary" data-role="ok">' + esc(tr("btn_ok")) + "</button></div>";
-      const sel = box.querySelector("#pickerSel");
-      const okBtn = box.querySelector("[data-role=ok]");
-      const cancelBtn = box.querySelector("[data-role=cancel]");
-      const status = box.querySelector("#pickerStatus");
-      if (current && current !== "manual") sel.value = current;
-      const hint = box.querySelector("#pickerHint");
-      const updateHint = () => {
+    const policyOptions = [
+      { value: "days:30", label: tr("policy_days_30") },
+      { value: "days:15", label: tr("policy_days_15") },
+      { value: "days:7", label: tr("policy_days_7") },
+      { value: "days:3", label: tr("policy_days_3") },
+      { value: "last_of_prev_month", label: tr("policy_last_prev") },
+      { value: "first_of_month", label: tr("policy_first_month") },
+      { value: "sunday_of_week", label: tr("policy_sunday") },
+      { value: "monday_of_week", label: tr("policy_monday") }
+    ];
+    const initial = current && current !== "manual" ? current : null;
+    return openSelectPicker(tr("policy_title"), policyOptions, initial, {
+      doAction,
+      hint: (value) => {
         const assumedExpiry = Math.floor(Date.now() / 1e3) + 90 * 86400;
-        const r = renewTriggerTsClient(assumedExpiry, sel.value);
-        hint.style.display = r && r.clamped ? "block" : "none";
-      };
-      sel.addEventListener("change", updateHint);
-      updateHint();
-      document.body.appendChild(ov);
-      document.body.appendChild(box);
-      let pending = false;
-      const onKey = (e) => {
-        if (!pending && e.key === "Escape") close(null);
-      };
-      const close = (v) => {
-        document.removeEventListener("keydown", onKey);
-        ov.remove();
-        box.remove();
-        resolve(v);
-      };
-      const setPending = (p) => {
-        pending = p;
-        okBtn.disabled = p;
-        cancelBtn.disabled = p;
-        sel.disabled = p;
-      };
-      const onOk = async () => {
-        if (pending) return;
-        if (!doAction) {
-          close(sel.value);
-          return;
-        }
-        setPending(true);
-        status.style.display = "block";
-        status.style.color = "var(--muted)";
-        status.textContent = tr("setting");
-        try {
-          await doAction(sel.value);
-          close(sel.value);
-        } catch (e) {
-          setPending(false);
-          status.style.color = "var(--err)";
-          status.textContent = tr("failed_prefix") + ": " + (e.message || String(e));
-          okBtn.textContent = tr("btn_retry");
-        }
-      };
-      okBtn.addEventListener("click", onOk);
-      cancelBtn.addEventListener("click", () => {
-        if (!pending) close(null);
-      });
-      ov.addEventListener("click", () => {
-        if (!pending) close(null);
-      });
-      document.addEventListener("keydown", onKey);
-      setTimeout(() => sel.focus(), 0);
+        const r = renewTriggerTsClient(assumedExpiry, value);
+        return r && r.clamped ? tr("policy_hint") : null;
+      },
+      noChangeBehavior: "ok"
     });
   }
   async function toggleAutoRenew(id, currentlyOn) {
@@ -4867,14 +4595,7 @@ function applyI18nAttrs(t, root) {
       });
     }
   }
-  function toast(msg, kind) {
-    const t = document.createElement("div");
-    t.className = "toast " + (kind || "ok");
-    t.textContent = msg;
-    $("#toasts").appendChild(t);
-    const ttl = kind === "err" ? 4600 : 2e3;
-    setTimeout(() => t.remove(), ttl);
-  }
+  var toast = (msg, kind) => window.Toast.show(msg, kind);
   function daysUntil(ts) {
     return Math.round((ts * 1e3 - Date.now()) / 864e5);
   }
@@ -4983,159 +4704,6 @@ function applyI18nAttrs(t, root) {
       }
     });
   }
-  function openInputModal(title, initial, opts) {
-    const { placeholder = "", validate = (() => true), doAction = null, maxLength = null } = opts || {};
-    return new Promise((resolve) => {
-      const ov = document.createElement("div");
-      ov.className = "overlay open";
-      const box = document.createElement("div");
-      box.className = "confirm-box";
-      box.innerHTML = '<div class="confirm-msg">' + esc(title) + '</div><input id="imInp" type="text" style="width:100%;font:inherit;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:.88rem"' + (maxLength ? ' maxlength="' + maxLength + '"' : "") + ' placeholder="' + esc(placeholder) + '"><div class="confirm-status" id="imStatus" style="display:none"></div><div class="confirm-actions" style="margin-top:14px"><button class="btn btn-sm" data-role="cancel">' + esc(tr("btn_cancel")) + '</button><button class="btn btn-sm btn-primary" data-role="ok">' + esc(tr("btn_ok")) + "</button></div>";
-      const inp = box.querySelector("#imInp");
-      const okBtn = box.querySelector("[data-role=ok]");
-      const cancelBtn = box.querySelector("[data-role=cancel]");
-      const status = box.querySelector("#imStatus");
-      inp.value = initial || "";
-      document.body.appendChild(ov);
-      document.body.appendChild(box);
-      let pending = false;
-      const showErr = (msg) => {
-        status.style.display = "block";
-        status.style.color = "var(--err)";
-        status.textContent = msg;
-      };
-      const onKey = (e) => {
-        if (pending) return;
-        if (e.key === "Escape") close(null);
-        else if (e.key === "Enter" && e.target === inp) {
-          e.preventDefault();
-          onOk();
-        }
-      };
-      const close = (v) => {
-        document.removeEventListener("keydown", onKey);
-        ov.remove();
-        box.remove();
-        resolve(v);
-      };
-      const setPending = (p) => {
-        pending = p;
-        okBtn.disabled = p;
-        cancelBtn.disabled = p;
-        inp.disabled = p;
-      };
-      const onOk = async () => {
-        if (pending) return;
-        const v = inp.value.trim();
-        const r = validate(v);
-        const okV = r === true || r == null;
-        if (!okV) {
-          inp.style.borderColor = "var(--err)";
-          inp.focus();
-          showErr(typeof r === "string" ? r : tr("err_invalid_input"));
-          return;
-        }
-        if (!doAction) {
-          close(v);
-          return;
-        }
-        setPending(true);
-        status.style.display = "block";
-        status.style.color = "var(--muted)";
-        status.textContent = tr("saving");
-        try {
-          await doAction(v);
-          close(v);
-        } catch (e) {
-          setPending(false);
-          status.style.color = "var(--err)";
-          status.textContent = tr("failed_prefix") + ": " + (e.message || String(e));
-          okBtn.textContent = tr("btn_retry");
-        }
-      };
-      inp.addEventListener("input", () => {
-        inp.style.borderColor = "";
-        status.style.display = "none";
-      });
-      okBtn.addEventListener("click", onOk);
-      cancelBtn.addEventListener("click", () => {
-        if (!pending) close(null);
-      });
-      ov.addEventListener("click", () => {
-        if (!pending) close(null);
-      });
-      document.addEventListener("keydown", onKey);
-      setTimeout(() => {
-        inp.focus();
-        inp.select();
-      }, 0);
-    });
-  }
-  function openSelectPicker(title, options, currentVal, doAction) {
-    return new Promise((resolve) => {
-      const ov = document.createElement("div");
-      ov.className = "overlay open";
-      const box = document.createElement("div");
-      box.className = "confirm-box";
-      box.innerHTML = '<div class="confirm-msg">' + esc(title) + '</div><select id="spkSel" style="width:100%;font:inherit;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:.88rem">' + options.map((o) => '<option value="' + esc(String(o.value)) + '">' + esc(o.label) + "</option>").join("") + '</select><div class="confirm-status" id="spkStatus" style="display:none"></div><div class="confirm-actions" style="margin-top:14px"><button class="btn btn-sm" data-role="cancel">' + esc(tr("btn_cancel")) + '</button><button class="btn btn-sm btn-primary" data-role="ok">' + esc(tr("btn_ok")) + "</button></div>";
-      const sel = box.querySelector("#spkSel");
-      const okBtn = box.querySelector("[data-role=ok]");
-      const cancelBtn = box.querySelector("[data-role=cancel]");
-      const status = box.querySelector("#spkStatus");
-      if (currentVal != null && options.some((o) => String(o.value) === String(currentVal))) sel.value = String(currentVal);
-      document.body.appendChild(ov);
-      document.body.appendChild(box);
-      let pending = false;
-      const onKey = (e) => {
-        if (!pending && e.key === "Escape") close(null);
-      };
-      const close = (v) => {
-        document.removeEventListener("keydown", onKey);
-        ov.remove();
-        box.remove();
-        resolve(v);
-      };
-      const setPending = (p) => {
-        pending = p;
-        okBtn.disabled = p;
-        cancelBtn.disabled = p;
-        sel.disabled = p;
-      };
-      const onOk = async () => {
-        if (pending) return;
-        if (!doAction) {
-          close(sel.value);
-          return;
-        }
-        if (String(sel.value) === String(currentVal)) {
-          close(null);
-          return;
-        }
-        setPending(true);
-        status.style.display = "block";
-        status.style.color = "var(--muted)";
-        status.textContent = tr("saving");
-        try {
-          await doAction(sel.value);
-          close(sel.value);
-        } catch (e) {
-          setPending(false);
-          status.style.color = "var(--err)";
-          status.textContent = tr("failed_prefix") + ": " + (e.message || String(e));
-          okBtn.textContent = tr("btn_retry");
-        }
-      };
-      okBtn.addEventListener("click", onOk);
-      cancelBtn.addEventListener("click", () => {
-        if (!pending) close(null);
-      });
-      ov.addEventListener("click", () => {
-        if (!pending) close(null);
-      });
-      document.addEventListener("keydown", onKey);
-      setTimeout(() => sel.focus(), 0);
-    });
-  }
   function confById(id) {
     return cachedConfs.find((x) => x.id === id);
   }
@@ -5165,9 +4733,11 @@ function applyI18nAttrs(t, root) {
         openAlert(tr("err_no_ca"));
         return;
       }
-      openSelectPicker(tr("title_change_ca"), options, conf.primary_acme_directory_name, async (v) => {
-        await patchConf(confId, { primary_acme_directory_name: v });
-        await refreshStatus();
+      openSelectPicker(tr("title_change_ca"), options, conf.primary_acme_directory_name, {
+        doAction: async (v) => {
+          await patchConf(confId, { primary_acme_directory_name: v });
+          await refreshStatus();
+        }
       });
     };
     const cached = build();
@@ -5193,9 +4763,11 @@ function applyI18nAttrs(t, root) {
       return;
     }
     const options = VALID_KEY_TYPES_CLIENT.map((k) => ({ value: k, label: keyTypeLabel(k) }));
-    openSelectPicker(tr("title_change_kt"), options, conf.key_type, async (v) => {
-      await patchConf(confId, { key_type: v });
-      await refreshStatus();
+    openSelectPicker(tr("title_change_kt"), options, conf.key_type, {
+      doAction: async (v) => {
+        await patchConf(confId, { key_type: v });
+        await refreshStatus();
+      }
     });
   }
   function parseDomainToRow(d, zones) {
@@ -5237,16 +4809,15 @@ function applyI18nAttrs(t, root) {
       }
       const othersSet = new Set(others.map(normalizeDomainClient));
       const initNorm = initial ? normalizeDomainClient(initial) : null;
-      const ov = document.createElement("div");
-      ov.className = "overlay open";
-      const box = document.createElement("div");
-      box.className = "confirm-box";
-      box.style.maxWidth = "520px";
-      box.style.width = "95%";
-      box.innerHTML = '<div class="confirm-msg">' + esc(title) + '</div><div id="dlgRow" style="padding:8px 0"></div><div class="confirm-status" id="dlgStatus" style="display:none"></div><div class="confirm-actions" style="margin-top:14px"><button class="btn btn-sm" data-role="cancel">' + esc(tr("btn_cancel")) + '</button><button class="btn btn-sm btn-primary" data-role="ok">' + esc(tr("btn_ok")) + "</button></div>";
-      document.body.appendChild(ov);
-      document.body.appendChild(box);
-      const rowDiv = box.querySelector("#dlgRow");
+      const h = window.Overlay.show({
+        scope: "page",
+        variant: "box",
+        title,
+        hasStatus: true,
+        body: '<div id="dlgRow" style="padding:8px 0"></div>',
+        onClose: resolve
+      });
+      const rowDiv = h.body.querySelector("#dlgRow");
       rowDiv.innerHTML = domainRowHtml(zones, initZone, initWildcard);
       const row = rowDiv.firstChild;
       const cBtn = row.querySelector(".confirm");
@@ -5255,75 +4826,51 @@ function applyI18nAttrs(t, root) {
       if (rBtn) rBtn.style.display = "none";
       row.querySelector(".add-seg").onclick = () => addSubSegment(row);
       for (let i = initSegs.length - 1; i >= 0; i--) addSubSegment(row, initSegs[i]);
-      const okBtn = box.querySelector("[data-role=ok]");
-      const cancelBtn = box.querySelector("[data-role=cancel]");
-      const status = box.querySelector("#dlgStatus");
-      let pending = false;
-      const showErr = (msg) => {
-        status.style.display = "block";
-        status.style.color = "var(--err)";
-        status.textContent = msg;
-      };
-      const onKey = (e) => {
-        if (!pending && e.key === "Escape") close(null);
-      };
-      const close = (v) => {
-        document.removeEventListener("keydown", onKey);
-        ov.remove();
-        box.remove();
-        resolve(v);
-      };
-      const setPending = (p) => {
-        pending = p;
-        okBtn.disabled = p;
-        cancelBtn.disabled = p;
-      };
-      const onOk = async () => {
-        if (pending) return;
-        if (!rowIsValid(row)) {
-          showErr(tr("err_invalid_seg"));
-          return;
+      const cancelBtn = window.Action.create({
+        text: tr("btn_cancel"),
+        className: "cmn-modal-btn",
+        onClick: () => {
+          if (!h.isBusy()) h.close(null);
         }
-        const list = computeRowDomains(row);
-        if (!list.length) {
-          showErr(tr("err_cant_compute"));
-          return;
-        }
-        const v = normalizeDomainClient(list[0]);
-        if (!v) {
-          showErr(tr("err_invalid_dom"));
-          return;
-        }
-        if (initNorm && v === initNorm) {
-          close(null);
-          return;
-        }
-        if (othersSet.has(v)) {
-          showErr(tr("err_dup_dom"));
-          return;
-        }
-        setPending(true);
-        status.style.display = "block";
-        status.style.color = "var(--muted)";
-        status.textContent = tr("saving");
-        try {
-          await doAction(v);
-          close(v);
-        } catch (e) {
-          setPending(false);
-          status.style.color = "var(--err)";
-          status.textContent = tr("failed_prefix") + ": " + (e.message || String(e));
-          okBtn.textContent = tr("btn_retry");
-        }
-      };
-      okBtn.addEventListener("click", onOk);
-      cancelBtn.addEventListener("click", () => {
-        if (!pending) close(null);
       });
-      ov.addEventListener("click", () => {
-        if (!pending) close(null);
+      h.actions.appendChild(cancelBtn);
+      h.trackAction(cancelBtn._ctl);
+      const okBtn = window.Action.create({
+        text: tr("btn_ok"),
+        className: "cmn-modal-btn primary",
+        pendingText: tr("saving"),
+        retryText: tr("btn_retry"),
+        asyncFn: doAction,
+        validate: () => {
+          if (!rowIsValid(row)) return tr("err_invalid_seg");
+          const list = computeRowDomains(row);
+          if (!list.length) return tr("err_cant_compute");
+          const v = normalizeDomainClient(list[0]);
+          if (!v) return tr("err_invalid_dom");
+          if (initNorm && v === initNorm) return { abort: true, close: true };
+          if (othersSet.has(v)) return tr("err_dup_dom");
+          return true;
+        },
+        getValue: () => normalizeDomainClient(computeRowDomains(row)[0]),
+        onValidateFail: (r) => {
+          if (r && typeof r === "object" && r.close) {
+            h.close(null);
+            return;
+          }
+          if (typeof r === "string") h.setStatus(r, "err");
+        },
+        onPending: () => {
+          cancelBtn._ctl.setEnabled(false);
+          h.setStatus(tr("saving"), "info");
+        },
+        onSuccess: (v) => h.close(v),
+        onError: (e) => {
+          cancelBtn._ctl.setEnabled(true);
+          h.setStatus(tr("failed_prefix") + ": " + (e && e.message || String(e)), "err");
+        }
       });
-      document.addEventListener("keydown", onKey);
+      h.actions.appendChild(okBtn);
+      h.trackAction(okBtn._ctl);
       setTimeout(() => (row.querySelector(".seg-input") || row.querySelector(".zone-sel"))?.focus(), 0);
     });
   }
@@ -5657,7 +5204,7 @@ function applyI18nAttrs(t, root) {
       const finalMoreBtn = '<button class="btn btn-sm" onclick="openConfMenu(event,' + s.id + "," + (canRenew ? 1 : 0) + "," + (active ? 1 : 0) + "," + viewCertId + ')" aria-label="' + esc(tr("aria_more")) + '">\\u22EF</button>';
       const domsCls = "doms" + (domsEdited ? " doms-edited" : "");
       const domsTitle = domsEdited ? ' title="' + esc(tr("ttl_doms_edited")) + '"' : "";
-      const busyOverlay = busy ? '<div class="conf-card-overlay"><div class="conf-card-overlay-inner"><div class="conf-card-overlay-text">' + esc(primaryIsIssue ? tr("busy_issuing") : tr("busy_renewing")) + "</div>" + (realJob ? '<button class="btn btn-sm btn-primary" onclick="openJobModal(' + realJob.id + ')">' + esc(tr("btn_check_progress")) + "</button>" : '<button class="btn btn-sm btn-primary" disabled>' + esc(tr("busy_starting")) + "</button>") + "</div></div>" : "";
+      const busyOverlay = busy ? '<div class="cmn-overlay variant-loading"><div class="cmn-overlay-content"><div class="cmn-overlay-text">' + esc(primaryIsIssue ? tr("busy_issuing") : tr("busy_renewing")) + "</div>" + (realJob ? '<button class="btn btn-sm btn-primary" onclick="openJobModal(' + realJob.id + ')">' + esc(tr("btn_check_progress")) + "</button>" : '<button class="btn btn-sm btn-primary" disabled>' + esc(tr("busy_starting")) + "</button>") + "</div></div>" : "";
       const hasBottomRow = !!(metaDiv || autoRow);
       const metaSlot = metaDiv || "<div></div>";
       const autoSlot = autoRow || "<div></div>";
@@ -5680,76 +5227,73 @@ function applyI18nAttrs(t, root) {
       if (cachedConfs.length) rerenderConfs();
     }
   }
-  var jobModalId = null;
-  var jobPollGen = 0;
+  var currentJobModal = null;
   function openJobModal(jobId) {
-    jobModalId = jobId;
-    const myGen = ++jobPollGen;
-    $("#jobModal").classList.add("open");
-    $("#jobOverlay").classList.add("open");
-    $("#jobState").innerHTML = '<span class="job-state-pill running">queued</span> <span style="color:var(--muted);font-size:.85rem">job #' + jobId + "</span>";
-    $("#jobLogs").textContent = "";
-    (async function pollLoop() {
-      while (myGen === jobPollGen && jobModalId === jobId) {
-        if (document.visibilityState !== "hidden") {
-          const terminal = await pollJobOnce();
-          if (terminal) return;
-        }
-        await new Promise((r) => setTimeout(r, 3e3));
+    if (currentJobModal && !currentJobModal.isClosed()) {
+      return currentJobModal.done;
+    }
+    const h = window.Overlay.show({
+      scope: "page",
+      variant: "box",
+      title: tr("modal_job") + " #" + jobId,
+      closable: { escape: true, clickOutside: true, closeButton: true },
+      body: '<div id="jobState" style="margin-bottom:10px"></div><div id="jobLogs" class="job-logs"></div>',
+      onClose: () => {
+        currentJobModal = null;
+        refreshStatus();
       }
-    })();
+    });
+    currentJobModal = h;
+    const stateEl = h.body.querySelector("#jobState");
+    if (stateEl) stateEl.innerHTML = '<span class="job-state-pill running">queued</span> <span style="color:var(--muted);font-size:.85rem">job #' + jobId + "</span>";
+    pollJobLoop(jobId, h);
+    return h.done;
   }
-  function closeJobModal() {
-    $("#jobModal").classList.remove("open");
-    $("#jobOverlay").classList.remove("open");
-    jobPollGen++;
-    jobModalId = null;
-    refreshStatus();
-  }
-  async function pollJobOnce() {
-    if (!jobModalId) return true;
-    try {
-      await api("/api/jobs/" + jobModalId + "/tick", { method: "POST" }).catch(() => {
-      });
-      const r = await api("/api/jobs/" + jobModalId + "/log");
-      const terminal = r.job.state === "done" || r.job.state === "failed";
-      const cls = r.job.state === "done" ? "done" : r.job.state === "failed" ? "failed" : "running";
-      $("#jobState").innerHTML = '<span class="job-state-pill ' + cls + '">' + esc(r.job.state) + '</span> <span style="color:var(--muted);font-size:.85rem">job #' + jobModalId + (r.job.attempt ? " \\xB7 " + r.job.attempt + " ticks" : "") + "</span>";
-      const logs = (r.logs || []).slice().reverse();
-      $("#jobLogs").innerHTML = logs.map((l) => {
-        let cls2 = l.level === "error" ? "err" : l.level === "warn" ? "warn" : "";
-        if (/certificate issued/i.test(l.message)) cls2 = "success";
-        else if (/issuance aborted/i.test(l.message)) cls2 = "failed";
-        return '<div class="' + cls2 + '">[' + new Date(l.ts * 1e3).toLocaleTimeString() + "] " + esc(l.message) + "</div>";
-      }).join("");
-      $("#jobLogs").scrollTop = $("#jobLogs").scrollHeight;
-      if (terminal) refreshStatus();
-      return terminal;
-    } catch (e) {
-      return false;
+  async function pollJobLoop(jobId, h) {
+    while (!h.isClosed()) {
+      if (document.visibilityState !== "hidden") {
+        try {
+          await api("/api/jobs/" + jobId + "/tick", { method: "POST" }).catch(() => {
+          });
+          const r = await api("/api/jobs/" + jobId + "/log");
+          if (h.isClosed()) return;
+          const terminal = r.job.state === "done" || r.job.state === "failed";
+          const cls = r.job.state === "done" ? "done" : r.job.state === "failed" ? "failed" : "running";
+          const stateEl = h.body.querySelector("#jobState");
+          if (stateEl) stateEl.innerHTML = '<span class="job-state-pill ' + cls + '">' + esc(r.job.state) + '</span> <span style="color:var(--muted);font-size:.85rem">job #' + jobId + (r.job.attempt ? " \\xB7 " + r.job.attempt + " ticks" : "") + "</span>";
+          const logs = (r.logs || []).slice().reverse();
+          const logsEl = h.body.querySelector("#jobLogs");
+          if (logsEl) {
+            logsEl.innerHTML = logs.map((l) => {
+              let lc = l.level === "error" ? "err" : l.level === "warn" ? "warn" : "";
+              if (/certificate issued/i.test(l.message)) lc = "success";
+              else if (/issuance aborted/i.test(l.message)) lc = "failed";
+              return '<div class="' + lc + '">[' + new Date(l.ts * 1e3).toLocaleTimeString() + "] " + esc(l.message) + "</div>";
+            }).join("");
+            logsEl.scrollTop = logsEl.scrollHeight;
+          }
+          if (terminal) {
+            return;
+          }
+        } catch (_e) {
+        }
+      }
+      await new Promise((r) => setTimeout(r, 3e3));
     }
   }
-  document.getElementById("closeJobBtn").addEventListener("click", closeJobModal);
-  document.getElementById("jobOverlay").addEventListener("click", closeJobModal);
   function downloadCert(id, fmt) {
     window.location = "/api/certs/" + id + "/download" + (fmt === "tar.gz" ? "?fmt=tar.gz" : "");
   }
   function viewCert(id, label, showInfo) {
-    const ov = document.createElement("div");
-    ov.className = "overlay open";
-    const box = document.createElement("div");
-    box.className = "cert-view-box";
-    box.innerHTML = '<div class="cv-head"><h2>' + esc(tr("cv_title")) + ": " + esc(label || "") + '</h2><button class="btn btn-sm" data-role="x">\\u2715</button></div><div class="cv-body"><div class="modal-loading" data-role="loading"><div class="spinner"></div><span>Loading\\u2026</span></div><div class="cv-error" data-role="error" style="display:none;text-align:center;color:var(--err);padding:30px 0;font-size:.88rem"></div><div class="cv-content" data-role="content" style="display:none;flex-direction:column;gap:14px"><div class="cv-section" data-role="info-section"><div class="cv-info-line" data-role="ca-line"></div><div class="cv-label" style="margin-top:4px">' + esc(tr("cv_domains_included")) + '</div><div class="cv-domains" data-role="domains"></div></div><div class="cv-mode-row"><label><input type="radio" name="cvMode" value="full" checked> ' + esc(tr("cv_full_chain")) + '</label><label><input type="radio" name="cvMode" value="split"> ' + esc(tr("cv_split_intermediate")) + '</label></div><div class="cv-section" data-view="full"><div class="cv-head-row"><span class="cv-label">' + esc(tr("cv_full_cert_label")) + '</span><button class="btn btn-sm cv-copy" data-copy="full">' + esc(tr("btn_copy")) + '</button></div><textarea readonly class="cv-area" data-area="full"></textarea></div><div class="cv-section" data-view="split" style="display:none"><div class="cv-head-row"><span class="cv-label">' + esc(tr("cv_leaf")) + '</span><button class="btn btn-sm cv-copy" data-copy="cert">' + esc(tr("btn_copy")) + '</button></div><textarea readonly class="cv-area" data-area="cert"></textarea></div><div class="cv-section" data-view="split" style="display:none"><div class="cv-head-row"><span class="cv-label">' + esc(tr("cv_intermediates")) + '</span><button class="btn btn-sm cv-copy" data-copy="chain">' + esc(tr("btn_copy")) + '</button></div><textarea readonly class="cv-area" data-area="chain"></textarea></div><div class="cv-section"><div class="cv-head-row"><span class="cv-label">' + esc(tr("cv_privkey")) + '</span><button class="btn btn-sm cv-copy" data-copy="key">' + esc(tr("btn_copy")) + '</button></div><textarea readonly class="cv-area" data-area="key"></textarea></div></div></div><div class="cv-foot"><button class="btn btn-sm" data-role="close">' + esc(tr("btn_close")) + '</button><button class="btn btn-sm btn-primary" data-role="download" disabled>' + esc(tr("btn_download")) + '</button><div class="cv-fmt-row" style="display:flex;gap:10px;align-items:center;font-size:.82rem"><label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="cvFmt" value="zip" checked> .zip</label><label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="cvFmt" value="tar.gz"> .tar.gz</label></div></div>';
-    document.body.appendChild(ov);
-    document.body.appendChild(box);
-    const close = () => {
-      document.removeEventListener("keydown", onKey);
-      ov.remove();
-      box.remove();
-    };
-    const onKey = (e) => {
-      if (e.key === "Escape") close();
-    };
+    const h = window.Overlay.show({
+      variant: "box",
+      title: tr("cv_title") + ": " + (label || ""),
+      className: "cert-view-modal",
+      closable: { closeButton: true, escape: true, clickOutside: true }
+    });
+    h.body.innerHTML = '<div class="cv-body"><div class="modal-loading" data-role="loading"><div class="spinner"></div><span>' + esc(tr("loading")) + '</span></div><div class="cv-error" data-role="error" style="display:none;text-align:center;color:var(--err);padding:30px 0;font-size:.88rem"></div><div class="cv-content" data-role="content" style="display:none;flex-direction:column;gap:14px"><div class="cv-section" data-role="info-section"><div class="cv-info-line" data-role="ca-line"></div><div class="cv-label" style="margin-top:4px">' + esc(tr("cv_domains_included")) + '</div><div class="cv-domains" data-role="domains"></div></div><div class="cv-mode-row"><label><input type="radio" name="cvMode" value="full" checked> ' + esc(tr("cv_full_chain")) + '</label><label><input type="radio" name="cvMode" value="split"> ' + esc(tr("cv_split_intermediate")) + '</label></div><div class="cv-section" data-view="full"><div class="cv-head-row"><span class="cv-label">' + esc(tr("cv_full_cert_label")) + '</span><button class="btn btn-sm cv-copy" data-copy="full">' + esc(tr("btn_copy")) + '</button></div><textarea readonly class="cv-area" data-area="full"></textarea></div><div class="cv-section" data-view="split" style="display:none"><div class="cv-head-row"><span class="cv-label">' + esc(tr("cv_leaf")) + '</span><button class="btn btn-sm cv-copy" data-copy="cert">' + esc(tr("btn_copy")) + '</button></div><textarea readonly class="cv-area" data-area="cert"></textarea></div><div class="cv-section" data-view="split" style="display:none"><div class="cv-head-row"><span class="cv-label">' + esc(tr("cv_intermediates")) + '</span><button class="btn btn-sm cv-copy" data-copy="chain">' + esc(tr("btn_copy")) + '</button></div><textarea readonly class="cv-area" data-area="chain"></textarea></div><div class="cv-section"><div class="cv-head-row"><span class="cv-label">' + esc(tr("cv_privkey")) + '</span><button class="btn btn-sm cv-copy" data-copy="key">' + esc(tr("btn_copy")) + '</button></div><textarea readonly class="cv-area" data-area="key"></textarea></div></div></div>';
+    h.actions.innerHTML = '<button class="btn btn-sm cmn-modal-btn" data-role="close">' + esc(tr("btn_close")) + '</button><button class="btn btn-sm btn-primary cmn-modal-btn primary" data-role="download" disabled>' + esc(tr("btn_download")) + '</button><div class="cv-fmt-row"><label><input type="radio" name="cvFmt" value="zip" checked> .zip</label><label><input type="radio" name="cvFmt" value="tar.gz"> .tar.gz</label></div>';
+    const box = h.box;
     const loadingEl = box.querySelector("[data-role=loading]");
     const errorEl = box.querySelector("[data-role=error]");
     const contentEl = box.querySelector("[data-role=content]");
@@ -5784,20 +5328,19 @@ function applyI18nAttrs(t, root) {
         contentEl.style.display = "flex";
         dlBtn.disabled = false;
       } catch (e) {
+        console.error("viewCert load failed:", e && e.message || e);
         loadingEl.style.display = "none";
         errorEl.style.display = "block";
         errorEl.textContent = tr("failed_prefix") + ": " + (e.message || String(e));
         const retry = document.createElement("button");
-        retry.className = "btn btn-sm";
+        retry.className = "btn btn-sm cmn-modal-btn";
         retry.textContent = tr("btn_retry");
         retry.dataset.role = "retry";
         retry.addEventListener("click", loadData);
-        box.querySelector(".cv-foot").insertBefore(retry, dlBtn);
+        h.actions.insertBefore(retry, dlBtn);
       }
     };
-    box.querySelector("[data-role=x]").addEventListener("click", close);
-    box.querySelector("[data-role=close]").addEventListener("click", close);
-    ov.addEventListener("click", close);
+    box.querySelector("[data-role=close]").addEventListener("click", () => h.close());
     dlBtn.addEventListener("click", () => downloadCert(id, box.querySelector("input[name=cvFmt]:checked").value));
     box.querySelectorAll("input[name=cvMode]").forEach((r) => r.addEventListener("change", () => {
       const mode = box.querySelector("input[name=cvMode]:checked").value;
@@ -5823,7 +5366,6 @@ function applyI18nAttrs(t, root) {
         }, 1200);
       });
     });
-    document.addEventListener("keydown", onKey);
     loadData();
   }
   async function deleteConf(id) {
@@ -5850,16 +5392,9 @@ function applyI18nAttrs(t, root) {
       }
     });
   }
-  var openMenuEl = null;
+  var openMenuHandle = null;
   function closeConfMenu() {
-    if (openMenuEl) {
-      openMenuEl.remove();
-      openMenuEl = null;
-      document.removeEventListener("click", onMenuOutside, true);
-    }
-  }
-  function onMenuOutside(e) {
-    if (openMenuEl && !openMenuEl.contains(e.target)) closeConfMenu();
+    if (openMenuHandle) openMenuHandle.close();
   }
   function openConfMenu(ev, id, canRenew, hasActive, viewCertId) {
     ev.stopPropagation();
@@ -5873,8 +5408,13 @@ function applyI18nAttrs(t, root) {
     const nameJson = conf ? esc(JSON.stringify(conf.name)) : '""';
     menu.innerHTML = (canRenew ? '<button onclick="issueConf(' + id + ')">' + esc(tr("menu_renew")) + "</button>" : "") + (viewCertId ? '<button onclick="viewCert(' + viewCertId + "," + nameJson + ',1)">' + esc(tr("menu_view")) + "</button>" : "") + (hasActive ? '<button onclick="revokeConf(' + id + ')">' + esc(tr("menu_revoke")) + "</button>" : "") + '<button class="danger" onclick="deleteConf(' + id + ')">' + esc(tr("menu_delete")) + "</button>";
     document.body.appendChild(menu);
-    openMenuEl = menu;
-    setTimeout(() => document.addEventListener("click", onMenuOutside, true), 0);
+    openMenuHandle = window.Popover.show({
+      el: menu,
+      onClose: () => {
+        menu.remove();
+        openMenuHandle = null;
+      }
+    });
   }
   async function refreshDrawer() {
     const [dns, dirs, acme] = await Promise.all([
@@ -5937,6 +5477,10 @@ function applyI18nAttrs(t, root) {
     { kind: "zsl", title: "ZeroSSL", guide: { url: "https://zerossl.com/documentation/acme/", text_key: "guide_zsl" } },
     { kind: "gts", title: "Google Trust Services", guide: { url: "https://cloud.google.com/certificate-manager/docs/public-ca-tutorial", text_key: "guide_gts" } }
   ];
+  function directoryNameForKind(kind) {
+    const d = cachedDirectories.find((x) => caKindFromName(x.name) === kind);
+    return d ? d.name : null;
+  }
   function renderAcmeSections() {
     const byKind = { zsl: [], gts: [] };
     for (const a of cachedAcmeAccounts) {
@@ -5957,6 +5501,7 @@ function applyI18nAttrs(t, root) {
       }
       return '<div class="ca-section"><div class="ca-section-head"><span>' + esc(s.title) + '</span></div><div class="ca-section-body">' + renderCaForm(s) + "</div></div>";
     }).join("");
+    $$("#acmeSections form.ca-form").forEach(wrapCaForm);
     recentlyAddedAcmeId = null;
   }
   function renderCaForm(s) {
@@ -5967,35 +5512,76 @@ function applyI18nAttrs(t, root) {
       fields = "<div><label>" + esc(tr("lbl_gcp_sa")) + '</label><textarea class="ca-sa-json" rows="5" placeholder="{&quot;type&quot;:&quot;service_account&quot;, ...}"></textarea></div>';
     }
     const guide = s.guide ? '<div class="hint">\\u{1F4D6} <a href="' + s.guide.url + '" target="_blank" style="color:var(--accent)">' + esc(tr(s.guide.text_key)) + "</a></div>" : "";
-    return \`<form class="ca-form" onsubmit="return submitCaForm(event,'\` + s.kind + \`')">\` + fields + guide + '<div class="ca-form-actions"><span class="ca-status"></span><button type="submit" class="btn btn-primary btn-sm ca-save">' + esc(tr("btn_register")) + "</button></div></form>";
+    return '<form class="ca-form" data-kind="' + s.kind + '">' + fields + guide + '<div class="ca-form-actions"><span class="ca-status"></span><button type="submit" class="btn btn-primary btn-sm ca-save">' + esc(tr("btn_register")) + "</button></div></form>";
+  }
+  function wrapCaForm(form) {
+    const kind = form.dataset.kind;
+    const btn = form.querySelector(".ca-save");
+    const status = form.querySelector(".ca-status");
+    window.Action.wrap(btn, {
+      pendingText: tr("ca_registering"),
+      retryText: tr("btn_retry"),
+      validate: () => {
+        const dirName = directoryNameForKind(kind);
+        if (!dirName) return tr("err_ca_not_found");
+        if (kind === "zsl") {
+          const kid = form.querySelector(".ca-eab-kid").value.trim();
+          const hmac = form.querySelector(".ca-eab-hmac").value.trim();
+          if (!kid || !hmac) return tr("err_eab_required");
+        } else if (kind === "gts") {
+          const sa = form.querySelector(".ca-sa-json").value.trim();
+          if (!sa) return tr("err_sa_required");
+        }
+        return true;
+      },
+      onValidateFail: (msg) => {
+        status.style.color = "var(--err)";
+        status.textContent = typeof msg === "string" ? msg : tr("err_invalid_input");
+      },
+      asyncFn: async () => {
+        const dirName = directoryNameForKind(kind);
+        const body = { directory_name: dirName };
+        if (kind === "zsl") {
+          body.eab_kid = form.querySelector(".ca-eab-kid").value.trim();
+          body.eab_hmac = form.querySelector(".ca-eab-hmac").value.trim();
+        } else if (kind === "gts") {
+          body.gcp_sa_json = form.querySelector(".ca-sa-json").value.trim();
+        }
+        return await api("/api/acme-accounts", { method: "POST", body: JSON.stringify(body) });
+      },
+      onPending: () => {
+        status.style.color = "var(--muted)";
+        status.textContent = "";
+      },
+      onSuccess: async (r) => {
+        recentlyAddedAcmeId = r.id;
+        cachedAcmeAccounts = await api("/api/acme-accounts");
+        renderAcmeSections();
+        renderCertSelects();
+      },
+      onError: (err) => {
+        console.error("submitCaForm failed:", err && err.message || err);
+        status.style.color = "var(--err)";
+        status.textContent = err.message || String(err);
+      }
+    });
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      btn._ctl.trigger();
+    });
   }
   async function runPurge(scope) {
-    const ov = document.createElement("div");
-    ov.className = "overlay open";
-    const box = document.createElement("div");
-    box.className = "confirm-box";
-    const msg = document.createElement("div");
-    msg.className = "confirm-msg";
-    msg.style.display = "flex";
-    msg.style.alignItems = "center";
-    msg.style.gap = "12px";
-    const spinner = document.createElement("div");
-    spinner.className = "spinner";
-    const msgTxt = document.createElement("span");
-    msgTxt.textContent = tr("purging");
-    msg.appendChild(spinner);
-    msg.appendChild(msgTxt);
-    const actions = document.createElement("div");
-    actions.className = "confirm-actions";
-    actions.style.display = "none";
-    box.appendChild(msg);
-    box.appendChild(actions);
-    document.body.appendChild(ov);
-    document.body.appendChild(box);
+    const h = window.Overlay.show({
+      variant: "box",
+      closable: { escape: false, clickOutside: false, closeButton: false },
+      body: '<div class="cmn-modal-msg" style="display:flex;align-items:center;gap:12px"><div class="spinner" data-role="spinner"></div><span data-role="msg">' + esc(tr("purging")) + "</span></div>"
+    });
+    const msgEl = h.body.querySelector("[data-role=msg]");
+    const spinner = h.body.querySelector("[data-role=spinner]");
     try {
       await api("/api/_admin/purge/" + scope, { method: "POST" });
       if (scope === "all") {
-        msgTxt.textContent = tr("toast_purged");
+        msgEl.textContent = tr("toast_purged");
         try {
           await fetch("/logout", { method: "POST" });
         } catch {
@@ -6003,33 +5589,25 @@ function applyI18nAttrs(t, root) {
         setTimeout(() => location.reload(), 500);
         return;
       }
-      ov.remove();
-      box.remove();
+      h.close();
       await refreshDrawer();
       await refreshStatus();
       toast(tr("toast_purged"));
     } catch (e) {
+      console.error("runPurge failed:", e && e.message || e);
       spinner.remove();
-      msg.style.color = "var(--err)";
-      msgTxt.textContent = tr("err_purge_fail") + ": " + (e.message || String(e));
-      const closeBtn = document.createElement("button");
-      closeBtn.className = "btn btn-sm";
-      closeBtn.textContent = tr("btn_close");
-      closeBtn.addEventListener("click", () => {
-        ov.remove();
-        box.remove();
-        refreshDrawer().catch(() => {
-        });
-        refreshStatus().catch(() => {
-        });
-      });
-      const reloadBtn = document.createElement("button");
-      reloadBtn.className = "btn btn-sm btn-primary";
-      reloadBtn.textContent = tr("btn_reload");
-      reloadBtn.addEventListener("click", () => location.reload());
-      actions.appendChild(closeBtn);
-      actions.appendChild(reloadBtn);
-      actions.style.display = "flex";
+      h.body.style.color = "var(--err)";
+      msgEl.textContent = tr("err_purge_fail") + ": " + (e.message || String(e));
+      h.setButtons([
+        { text: tr("btn_close"), onClick: () => {
+          h.close();
+          refreshDrawer().catch(() => {
+          });
+          refreshStatus().catch(() => {
+          });
+        } },
+        { text: tr("btn_reload"), kind: "primary", onClick: () => location.reload() }
+      ]);
     }
   }
   function refreshPurgeBtnState() {
@@ -6112,31 +5690,41 @@ function applyI18nAttrs(t, root) {
       }
     });
   }
-  $("#dnsForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const f = new FormData(e.target);
-    const type = f.get("type");
-    const credentials = type === "cloudflare" ? { api_token: (f.get("api_token") || "").trim() } : { secret_id: (f.get("secret_id") || "").trim(), secret_key: (f.get("secret_key") || "").trim() };
-    const status = $("#dnsFormStatus");
-    const btn = e.target.querySelector("button[type=submit]");
-    btn.disabled = true;
-    status.style.color = "var(--muted)";
-    status.textContent = tr("adding");
-    try {
-      const r = await api("/api/dns-accounts", { method: "POST", body: JSON.stringify({ type, credentials }) });
+  var dnsFormStatus = $("#dnsFormStatus");
+  var dnsSubmitBtn = $("#dnsForm button[type=submit]");
+  var dnsActionOpts = {
+    pendingText: tr("adding"),
+    retryText: tr("btn_retry"),
+    asyncFn: async () => {
+      const f = new FormData($("#dnsForm"));
+      const type = f.get("type");
+      const credentials = type === "cloudflare" ? { api_token: (f.get("api_token") || "").trim() } : { secret_id: (f.get("secret_id") || "").trim(), secret_key: (f.get("secret_key") || "").trim() };
+      return await api("/api/dns-accounts", { method: "POST", body: JSON.stringify({ type, credentials }) });
+    },
+    onPending: () => {
+      dnsFormStatus.style.color = "var(--muted)";
+      dnsFormStatus.textContent = "";
+    },
+    onSuccess: async (r) => {
       recentlyAddedDnsId = r.id;
       cachedDnsAccounts = await api("/api/dns-accounts");
       renderDnsList();
-      e.target.reset();
-      e.target.querySelector("select[name=type]").dispatchEvent(new Event("change"));
-      status.textContent = "";
+      $("#dnsForm").reset();
+      $("#dnsForm select[name=type]").dispatchEvent(new Event("change"));
+      dnsFormStatus.textContent = "";
       toast(tr("toast_dns_added"));
-    } catch (err) {
-      status.style.color = "var(--err)";
-      status.textContent = err.message;
-    } finally {
-      btn.disabled = false;
+      dnsSubmitBtn._ctl.reset();
+    },
+    onError: (err) => {
+      console.error("dnsForm submit failed:", err && err.message || err);
+      dnsFormStatus.style.color = "var(--err)";
+      dnsFormStatus.textContent = err.message || String(err);
     }
+  };
+  window.Action.wrap(dnsSubmitBtn, dnsActionOpts);
+  $("#dnsForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    dnsSubmitBtn._ctl.trigger();
   });
   $("#dnsForm select[name=type]").addEventListener("change", (e) => {
     $("#dnsCfFields").style.display = e.target.value === "cloudflare" ? "block" : "none";
@@ -6307,11 +5895,29 @@ function applyI18nAttrs(t, root) {
     }
     return { cleaned, removed };
   }
+  var certModalHostEl = $("#certModalHost");
+  var certLoadingEl = $("#certLoading");
+  var certFormEl = $("#certForm");
+  var certModalHandle = null;
   function openCertModal() {
-    $("#certModal").classList.add("open");
-    $("#modalOverlay").classList.add("open");
-    $("#certLoading").style.display = "flex";
-    $("#certForm").style.display = "none";
+    if (certModalHandle) return;
+    certModalHandle = window.Overlay.show({
+      variant: "box",
+      titleI18n: "modal_new_cert",
+      title: tr("modal_new_cert"),
+      className: "new-cert-modal",
+      closable: { closeButton: true, escape: true, clickOutside: true },
+      onClose: () => {
+        certModalHostEl.appendChild(certLoadingEl);
+        certModalHostEl.appendChild(certFormEl);
+        certModalHandle = null;
+      }
+    });
+    certModalHandle.body.appendChild(certLoadingEl);
+    certModalHandle.body.appendChild(certFormEl);
+    applyI18nAttrs(I18N[currentLang] || I18N.en, certModalHandle.box);
+    certLoadingEl.style.display = "flex";
+    certFormEl.style.display = "none";
     $("#domainRows").innerHTML = "";
     $("#advancedPane").style.display = "none";
     $("#structuredPane").style.display = "block";
@@ -6319,18 +5925,18 @@ function applyI18nAttrs(t, root) {
     $("#advancedText").value = "";
     $("#advError").style.display = "none";
     advancedMode = false;
-    $("#certForm").reset();
+    certFormEl.reset();
     refreshDrawer().then(() => {
       if (enabledAuthoritativeZones().length > 0) addDomainRow();
-      $("#certLoading").style.display = "none";
-      $("#certForm").style.display = "grid";
-    }).catch(() => {
-      $("#certLoading").innerHTML = '<span style="color:var(--err)">' + esc(tr("err_load_close")) + "</span>";
+      certLoadingEl.style.display = "none";
+      certFormEl.style.display = "grid";
+    }).catch((err) => {
+      console.error("refreshDrawer (cert modal) failed:", err && err.message || err);
+      certLoadingEl.innerHTML = '<span style="color:var(--err)">' + esc(tr("err_load_close")) + "</span>";
     });
   }
   function closeCertModal() {
-    $("#certModal").classList.remove("open");
-    $("#modalOverlay").classList.remove("open");
+    if (certModalHandle) certModalHandle.close();
   }
   $("#newCertBtn").addEventListener("click", openCertModal);
   $("#filterStatus").addEventListener("change", (e) => {
@@ -6349,12 +5955,23 @@ function applyI18nAttrs(t, root) {
     filterSearch = e.target.value;
     rerenderConfs();
   });
+  var filterZonesHandle = null;
   $("#filterZonesBtn").addEventListener("click", (e) => {
     e.stopPropagation();
+    if (filterZonesHandle) {
+      filterZonesHandle.close();
+      return;
+    }
     const pop = $("#filterZonesPop");
-    pop.style.display = pop.style.display === "none" ? "" : "none";
+    pop.style.display = "";
+    filterZonesHandle = window.Popover.show({
+      el: pop,
+      onClose: () => {
+        pop.style.display = "none";
+        filterZonesHandle = null;
+      }
+    });
   });
-  $("#filterZonesPop").addEventListener("click", (e) => e.stopPropagation());
   $("#filterZonesPop").addEventListener("change", (e) => {
     if (e.target.matches("input[type=checkbox]")) {
       const z = e.target.value;
@@ -6363,9 +5980,6 @@ function applyI18nAttrs(t, root) {
       $("#filterZonesBtn").textContent = filterZones.size === 0 ? tr("filter_by_zone") : tr("filter_by_zone") + " (" + filterZones.size + ")";
       rerenderConfs();
     }
-  });
-  document.addEventListener("click", () => {
-    $("#filterZonesPop").style.display = "none";
   });
   document.querySelectorAll('input[name="purgeScope"]').forEach((r) => r.addEventListener("change", refreshPurgeBtnState));
   $("#purgeConfirm").addEventListener("input", refreshPurgeBtnState);
@@ -6377,9 +5991,7 @@ function applyI18nAttrs(t, root) {
     refreshPurgeBtnState();
     await runPurge(scope.value);
   });
-  $("#closeModalBtn").addEventListener("click", closeCertModal);
   $("#cancelModalBtn").addEventListener("click", closeCertModal);
-  $("#modalOverlay").addEventListener("click", closeCertModal);
   $("#addDomainBtn").addEventListener("click", () => addDomainRow());
   var advancedMode = false;
   $("#toggleAdvBtn").addEventListener("click", () => {
@@ -6434,28 +6046,43 @@ function applyI18nAttrs(t, root) {
       openAlert(err.message);
     }
   });
+  var drawerHostEl = $("#drawerHost");
+  var drawerTabsEl = $("#drawerTabsHost");
+  var drawerLoadEl = $("#drawerLoading");
+  var drawerBodyEl = $("#drawerBody");
+  var drawerHandle = null;
   function openDrawer() {
-    $("#drawer").classList.add("open");
-    $("#overlay").classList.add("open");
-    $("#drawerLoading").style.display = "flex";
-    $("#drawerBody").style.display = "none";
+    if (drawerHandle) return;
+    drawerHandle = window.Overlay.show({
+      scope: "page",
+      variant: "edge-right",
+      onClose: () => {
+        drawerHostEl.appendChild(drawerTabsEl);
+        drawerHostEl.appendChild(drawerLoadEl);
+        drawerHostEl.appendChild(drawerBodyEl);
+        drawerHandle = null;
+      }
+    });
+    drawerHandle.box.insertBefore(drawerTabsEl, drawerHandle.body);
+    drawerHandle.box.insertBefore(drawerLoadEl, drawerHandle.body);
+    const ovBody = drawerHandle.body;
+    ovBody.parentNode.replaceChild(drawerBodyEl, ovBody);
+    drawerHandle.body = drawerBodyEl;
+    applyI18nAttrs(I18N[currentLang] || I18N.en, drawerHandle.box);
+    drawerLoadEl.style.display = "flex";
+    drawerBodyEl.style.display = "none";
     refreshDrawer().then(() => {
-      $("#drawerLoading").style.display = "none";
-      $("#drawerBody").style.display = "block";
-    }).catch(() => {
-      $("#drawerLoading").innerHTML = '<span style="color:var(--err)">Failed to load.</span>';
+      drawerLoadEl.style.display = "none";
+      drawerBodyEl.style.display = "block";
+    }).catch((err) => {
+      console.error("refreshDrawer failed:", err && err.message || err);
+      drawerLoadEl.innerHTML = '<span style="color:var(--err)">' + esc(tr("err_load_close")) + "</span>";
     });
   }
-  function closeDrawer() {
-    $("#drawer").classList.remove("open");
-    $("#overlay").classList.remove("open");
-  }
   $("#openDrawerBtn").addEventListener("click", openDrawer);
-  $("#closeDrawerBtn").addEventListener("click", closeDrawer);
-  $("#overlay").addEventListener("click", closeDrawer);
-  $$(".drawer .tabs button").forEach((b) => b.addEventListener("click", () => {
-    $$(".drawer .tabs button").forEach((x) => x.classList.toggle("active", x === b));
-    $$(".drawer .body section").forEach((s) => s.classList.toggle("active", s.id === "tab-" + b.dataset.tab));
+  $$("#drawerTabsHost button").forEach((b) => b.addEventListener("click", () => {
+    $$("#drawerTabsHost button").forEach((x) => x.classList.toggle("active", x === b));
+    $$("#drawerBody section").forEach((s) => s.classList.toggle("active", s.id === "tab-" + b.dataset.tab));
   }));
   $$('input[name="accountsSub"]').forEach((r) => r.addEventListener("change", () => {
     const v = $('input[name="accountsSub"]:checked').value;
@@ -6469,6 +6096,7 @@ function applyI18nAttrs(t, root) {
   function tr(k) {
     return I18N[currentLang] && I18N[currentLang][k] || I18N.en && I18N.en[k] || k;
   }
+  window.tr = tr;
   function applyI18n() {
     applyLocaleAttrs(currentLang);
     const t = Object.assign({}, I18N.en || {}, I18N[currentLang] || {});
@@ -9003,7 +8631,9 @@ var index_default = {
       return json({ error: "Schema init failed: " + (e.message || String(e)) }, 500);
     }
     if (method === "GET" && path === "/") {
-      return new Response(main_default, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+      const cdnHost = selectJsdelivrCdnHost(request);
+      const body = main_default.replace(/\{\{CDN_HOST\}\}/g, cdnHost);
+      return new Response(body, { headers: { "Content-Type": "text/html; charset=utf-8" } });
     }
     if (method === "GET" && path === "/api/_debug/csr") {
       const domains = (url.searchParams.get("domains") || "example.com").split(",");

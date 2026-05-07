@@ -48,6 +48,7 @@ var main_default = `<!DOCTYPE html>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://{{CDN_HOST}}/npm/markdown-it@14/dist/markdown-it.min.js"></script>
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/overlay/style.min.css">
 <style>:root{--bg:#f4f6f9;--surface:#fff;--surface2:#f8fafc;--surface3:#edf2f7;--border:#cbd5e1;--border-hi:#94a3b8;--accent:#2563eb;--accent-hi:#1d4ed8;--accent-glow:rgba(37,99,235,.12);--accent2:#06b6d4;--text:#1e293b;--text-muted:#64748b;--text-dim:#94a3b8;--success-bg:#ecfdf5;--success-fg:#059669;--success-bd:#10b981;--error-bg:#fef2f2;--error-fg:#dc2626;--error-bd:#ef4444;--chip-bg:#eff6ff;--chip-fg:#3b82f6;--chip-bd:#bfdbfe;--font:"Inter","Segoe UI",system-ui,sans-serif;--mono:"JetBrains Mono","Fira Code","Cascadia Code",Consolas,monospace;--radius:8px;--radius-sm:5px;--transition:.18s cubic-bezier(.4,0,.2,1);--footer-color:var(--text-muted);--footer-border:var(--border)}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--font);background:var(--bg);background:linear-gradient(135deg,#e0e7ff 0%,#f4f6f9 40%,#ecfeff 100%);min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;color:var(--text)}
@@ -112,22 +113,16 @@ input.tag-text{border:none;outline:none;font-family:var(--font);font-size:.88rem
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--border-hi)}
-.drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .25s ease;z-index:1000}
-.drawer-overlay.open{opacity:1;pointer-events:auto}
-.drawer{position:fixed;top:0;right:0;bottom:0;width:380px;max-width:90vw;background:var(--surface);box-shadow:-4px 0 24px rgba(0,0,0,.1);transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:1001;display:flex;flex-direction:column}
-.drawer.open{transform:translateX(0)}
-.drawer-header{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--border)}
-.drawer-title{font-size:1rem;font-weight:600;flex:1}
-.drawer-close,.drawer-back{font-family:var(--font);font-size:1.1rem;background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px 8px;border-radius:var(--radius-sm);transition:all var(--transition)}
-.drawer-close:hover,.drawer-back:hover{background:var(--surface3);color:var(--text)}
-.drawer-body{flex:1;overflow-y:auto;padding:12px 20px}
+/* overlay CSS now loaded via <link> from ccs CDN \u2014 see main.html head. */
+/* App-local drawer width override (common default is 420px) */
+.drawer{width:380px;max-width:90vw}
+.drawer-body{padding:12px 20px}
 .sent-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--surface3);cursor:pointer;transition:background var(--transition)}
 .sent-item:hover{background:var(--surface2)}
 .sent-item input[type="checkbox"]{margin-top:4px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
 .sent-item-content{flex:1;min-width:0}
 .sent-item-subject{font-size:.88rem;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sent-item-meta{font-size:.74rem;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.drawer-footer{padding:12px 20px;border-top:1px solid var(--border);display:none}
 .drawer-footer button{font-family:var(--font);font-size:.82rem;font-weight:500;padding:7px 16px;border:1px solid var(--error-bd);border-radius:var(--radius);background:var(--error-bg);color:var(--error-fg);cursor:pointer;transition:all var(--transition);width:100%}
 .drawer-footer button:hover{background:var(--error-fg);color:#fff}
 .detail-meta{font-size:.8rem;color:var(--text-muted);margin-bottom:16px;line-height:1.8}
@@ -145,8 +140,6 @@ input.tag-text{border:none;outline:none;font-family:var(--font);font-size:.88rem
 [dir="rtl"] .card{direction:rtl}
 [dir="rtl"] .input-group .suffix{border-left:none;border-right:1px solid var(--border)}
 [dir="rtl"] .detail-body blockquote{border-left:none;border-right:3px solid var(--accent);padding-left:0;padding-right:.8em}
-[dir="rtl"] .drawer{right:auto;left:0;transform:translateX(-100%);direction:rtl}
-[dir="rtl"] .drawer.open{transform:translateX(0)}
 .theme-toggle{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:0 8px;height:28px;font-size:.78rem;cursor:pointer;transition:var(--transition);display:inline-flex;align-items:center}
 .theme-toggle:hover{border-color:var(--accent);background:var(--accent-glow)}
 [data-theme="dark"]{
@@ -491,18 +484,16 @@ input.tag-text{border:none;outline:none;font-family:var(--font);font-size:.88rem
 
 </div>
 
-<div class="drawer-overlay" id="drawerOverlay"></div>
-<div class="drawer" id="sentDrawer">
-  <div class="drawer-header">
-    <button class="drawer-back" id="drawerBack" style="display:none">&larr;</button>
-    <span class="drawer-title" id="drawerTitle" data-i18n="drawer_sent">Sent</span>
-    <button class="drawer-close" id="drawerClose">&times;</button>
-  </div>
-  <div class="drawer-body" id="drawerList"></div>
-  <div class="drawer-body" id="drawerDetail" style="display:none"></div>
-  <div class="drawer-footer" id="drawerFooter" style="display:none">
-    <button id="batchDeleteBtn" data-i18n="btn_delete">Delete selected</button>
-  </div>
+<!-- Drawer content host: hidden until openDrawer() moves children into the
+     Overlay-owned .drawer shell. Move-on-open / move-back-on-close preserves
+     event listeners attached at module init. Footer button stays in
+     drawerFooterHost, slid into the shell by setFooter() when needed. -->
+<div id="drawerHost" hidden>
+  <div id="drawerList"></div>
+  <div id="drawerDetail" style="display:none"></div>
+</div>
+<div id="drawerFooterHost" hidden>
+  <button id="batchDeleteBtn" data-i18n="btn_delete">Delete selected</button>
 </div>
 
 <script>
@@ -526,136 +517,6 @@ input.tag-text{border:none;outline:none;font-family:var(--font);font-size:.88rem
 // and leave the real placeholder below unfilled. (See CLAUDE.md \xA77.)
 var KV_BOUND_RAW = "{{KV_BOUND}}";
 var LOCKED_RAW = "{{LOCKED}}";
-//
-// Browser-side footer brand controller. Sets the current year on init
-// and exposes window.FooterBrand.applyLang(code) for the host page to
-// call from its applyI18n() on locale change.
-//
-// The brand text is intentionally inline (\`\u9AD8\u535A\u7684\u4E16\u754C\` / \`ONE.GB.NET\`) \u2014
-// not in lang/*.mjs \u2014 because it's a personal-brand signature, not a
-// per-locale UI string. Today it switches on Chinese vs everything-else;
-// future variants (buy-me-a-coffee link, sponsor logo, etc.) get added
-// here once and propagate to all consuming apps without per-app code.
-
-(function(){
-  var brandEl = document.getElementById('footerBrand');
-  var prodEl  = document.getElementById('footerProd');
-  var yearEl  = document.getElementById('footerYear');
-  if (yearEl) yearEl.textContent = new Date().getFullYear();
-
-  function applyLang(code) {
-    var isChinese = (code === 'zh-cn' || code === 'zh-tw');
-    if (brandEl) brandEl.textContent = isChinese ? '\u9AD8\u535A\u7684\u4E16\u754C' : 'ONE.GB.NET';
-    if (prodEl)  prodEl.textContent  = isChinese ? '\u51FA\u54C1' : '';
-  }
-
-  window.FooterBrand = { applyLang: applyLang };
-})();
-
-//
-// Browser-side i18n module \u2014 single source of truth across mg / shurl /
-// common/lock / common/markdown-editor. Plain JS source (no imports);
-// apps inject this into their inline <script> at build time via the
-// {{i18n-engine:client-js}} placeholder.
-//
-// Two halves in one file:
-//
-//   1. ENGINE \u2014 top-level functions/constants usable from anywhere
-//      else in the app's inline script:
-//
-//      SUPPORTED_LANGS / RTL_LANGS  constants
-//      detectLang(supported?)       walks navigator.languages, falls
-//                                   through zh-{hant,tw,hk,mo} \u2192 zh-tw,
-//                                   zh* \u2192 zh-cn, prefix match
-//      isRTL(code)                  boolean
-//      applyLocaleAttrs(code)       sets <html lang> + <html dir>
-//      applyI18nAttrs(t, root?)     scans [data-i18n] /
-//                                   [data-i18n-ph] / [data-i18n-title]
-//                                   and writes textContent / placeholder
-//                                   / title from t[key]
-//
-//   2. UI \u2014 IIFE that wires the user-facing language switcher (markup
-//      lives in view.html, hosted by app via {{lang-select:html}}):
-//
-//      window.LangSelect.init(currentLang, onChange)
-//                                   set the <select>'s initial value
-//                                   and bind change \u2192 onChange(newLang)
-//
-// Apps own the app-specific tail of applyI18n (mode-conditional labels,
-// brand-signature swap, mde-applyLang delegate). Only the generic
-// machinery and the basic switcher binding live here.
-
-// \u2500\u2500 1. Engine \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-
-var SUPPORTED_LANGS = ['en','eo','fr','de','es','it','nl','da','zh-cn','zh-tw','ja','ko','ms','vi','th','ta','my','uk','he','ar'];
-var RTL_LANGS = { he: true, ar: true };
-
-function detectLang(supported) {
-  supported = supported || SUPPORTED_LANGS;
-  var c = navigator.languages || [navigator.language || 'en'];
-  for (var i = 0; i < c.length; i++) {
-    var l = c[i].toLowerCase();
-    if (supported.indexOf(l) !== -1) return l;
-    if (/^zh-(hant|tw|hk|mo)/.test(l) && supported.indexOf('zh-tw') !== -1) return 'zh-tw';
-    if (/^zh/.test(l) && supported.indexOf('zh-cn') !== -1) return 'zh-cn';
-    var p = l.split('-')[0];
-    if (supported.indexOf(p) !== -1) return p;
-  }
-  return 'en';
-}
-
-function isRTL(code) {
-  return !!RTL_LANGS[code];
-}
-
-function applyLocaleAttrs(code) {
-  document.documentElement.lang = code;
-  document.documentElement.dir = isRTL(code) ? 'rtl' : 'ltr';
-}
-
-function applyI18nAttrs(t, root) {
-  root = root || document;
-  root.querySelectorAll('[data-i18n]').forEach(function(el){
-    var k = el.getAttribute('data-i18n');
-    if (t[k]) el.textContent = t[k];
-  });
-  root.querySelectorAll('[data-i18n-ph]').forEach(function(el){
-    var k = el.getAttribute('data-i18n-ph');
-    if (t[k]) el.placeholder = t[k];
-  });
-  root.querySelectorAll('[data-i18n-title]').forEach(function(el){
-    var k = el.getAttribute('data-i18n-title');
-    if (t[k]) el.title = t[k];
-  });
-}
-
-// \u2500\u2500 2. LangSelect IIFE \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-//
-// Wrapped in build-time markers. Apps that host the {{lang-select:html}}
-// markup get this IIFE via loadClient(). Apps/modules that don't need
-// the UI (common/lock and common/markdown-editor \u2014 their pages have no
-// \`<select id="lang-select">\`) call loadEngineOnly() instead, which
-// strips this section out at build time so it doesn't appear in their
-// bundled IIFEs.
-
-// LANG-SELECT-IIFE:START
-(function(){
-  // Lazy lookup at init() time \u2014 robust to the IIFE running before the
-  // <select> exists in the DOM (rare but possible if the host script
-  // runs from <head> or with \`async\`/\`defer\`).
-  window.LangSelect = {
-    init: function(currentLang, onChange) {
-      var sel = document.getElementById('lang-select');
-      if (!sel) return;
-      sel.value = currentLang;
-      sel.addEventListener('change', function() {
-        onChange(this.value);
-      });
-    },
-  };
-})();
-// LANG-SELECT-IIFE:END
-
 //
 // Browser-side theme toggle. Reads/writes \`theme\` localStorage key,
 // applies \`<html data-theme="dark|light">\` attribute, and flips the
@@ -688,6 +549,22 @@ function applyI18nAttrs(t, root) {
   });
 })();
 
+</script>
+
+<!-- CDN-served browser modules \u2014 order: i18n-engine first (globals used
+     downstream); action before overlay (overlay's modal sugar refs
+     window.Action); footer-brand self-init. {{CDN_HOST}} swapped per-
+     request by handleGet(). Parser-blocking <script> with src guarantees
+     in-order execution before subsequent inline <script>.
+     theme stays inline ABOVE: it touches localStorage('theme'), and Edge's
+     Tracking Prevention warns/blocks storage access from cross-origin
+     script origins (cdn.jsdelivr.net). Same-origin inline keeps it clean. -->
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/i18n-engine/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/footer-brand/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/action/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/overlay/client.min.js"></script>
+
+<script>
 //
 // Client-side JavaScript for the markdown editor. This runs in the browser
 // as inline <script> injected by the app's build. Path B design:
@@ -981,7 +858,7 @@ var UploadKV = (() => {
   };
   var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-  // dev/common/upload2kv/client.mjs
+  // ../ccs/upload2kv/client.mjs
   var client_exports = {};
   __export(client_exports, {
     uploadFiles: () => uploadFiles
@@ -1093,7 +970,7 @@ var UploadKV = (() => {
 })();
 
 (() => {
-  // dev/apps/mailgunfire/src/views/i18n.mjs
+  // apps/mailgunfire/src/views/i18n.mjs
   var I18N = {
     en: { app_name: "Mailgun Fire", label_from: "FROM", label_display: "DISPLAY NAME", label_to: "TO", label_cc: "CC", label_bcc: "BCC", label_subject: "SUBJECT", label_body: "BODY", ph_display: "Display name", ph_email: "email@example.com", ph_subject: "Email subject", ph_body: "Compose your email...", ph_body_md: "Write markdown here...", hint_email: "Press Enter, Tab, or comma to add", btn_send: "Send", save_sent: "Save to sent", sent_history: "View sent", drawer_sent: "Sent", no_records: "No sent emails yet", btn_delete: "Delete selected", btn_delete_one: "Delete", err_no_to: "At least one recipient is required", err_network: "Network error", sending: "Sending...", hdr_sub: "Fire Your Mailgun", btn_logout: "Logout", label_attachments: "ATTACHMENTS", btn_add_file: "Add files", att_used: "{used} / 20 MB used", err_att_too_large: "Total attachments exceed 20 MB limit", loading: "Loading...", err_load: "Failed to load" },
     eo: { app_name: "Mailgun Fire", label_from: "DE", label_display: "MONTRA NOMO", label_to: "AL", label_cc: "CC", label_bcc: "BCC", label_subject: "TEMO", label_body: "TEKSTO", ph_display: "Montra nomo", ph_email: "email@example.com", ph_subject: "Temo de retpo\\u015Dto", ph_body: "Verku vian retpo\\u015Dton...", ph_body_md: "Skribu markdown \\u0109i tie...", hint_email: "Premu Enter, Tab a\\u016D komon por aldoni", btn_send: "Sendi", save_sent: "Konservi en senditaj", sent_history: "Vidi senditajn", drawer_sent: "Senditaj", no_records: "Ankora\\u016D neniuj senditaj retpo\\u015Dtoj", btn_delete: "Forigi elektitajn", btn_delete_one: "Forigi", err_no_to: "Almena\\u016D unu ricevanto estas bezonata", err_network: "Reta eraro", sending: "Sendante...", hdr_sub: "Ekpafu vian Mailgun", btn_logout: "Elsaluti", label_attachments: "KUNSENDA\\u0134OJ", btn_add_file: "Aldoni dosierojn", att_used: "{used} / 20 MB uzite", err_att_too_large: "Kunsenda\\u0135oj superas 20 MB limon", loading: "\\u015Car\\u011Das...", err_load: "\\u015Car\\u011Do malsukcesis" },
@@ -1117,8 +994,10 @@ var UploadKV = (() => {
     ar: { app_name: "Mailgun Fire", label_from: "\\u0645\\u0646", label_display: "\\u0627\\u0633\\u0645 \\u0627\\u0644\\u0639\\u0631\\u0636", label_to: "\\u0625\\u0644\\u0649", label_cc: "\\u0646\\u0633\\u062E\\u0629", label_bcc: "\\u0646\\u0633\\u062E\\u0629 \\u0645\\u062E\\u0641\\u064A\\u0629", label_subject: "\\u0627\\u0644\\u0645\\u0648\\u0636\\u0648\\u0639", label_body: "\\u0627\\u0644\\u0646\\u0635", ph_display: "\\u0627\\u0633\\u0645 \\u0627\\u0644\\u0639\\u0631\\u0636", ph_email: "email@example.com", ph_subject: "\\u0645\\u0648\\u0636\\u0648\\u0639 \\u0627\\u0644\\u0628\\u0631\\u064A\\u062F", ph_body: "\\u0627\\u0643\\u062A\\u0628 \\u0628\\u0631\\u064A\\u062F\\u0643...", ph_body_md: "\\u0627\\u0643\\u062A\\u0628 Markdown \\u0647\\u0646\\u0627...", hint_email: "\\u0627\\u0636\\u063A\\u0637 Enter \\u0623\\u0648 Tab \\u0623\\u0648 \\u0641\\u0627\\u0635\\u0644\\u0629 \\u0644\\u0644\\u0625\\u0636\\u0627\\u0641\\u0629", btn_send: "\\u0625\\u0631\\u0633\\u0627\\u0644", save_sent: "\\u062D\\u0641\\u0638 \\u0641\\u064A \\u0627\\u0644\\u0645\\u0631\\u0633\\u0644", sent_history: "\\u0627\\u0644\\u0645\\u0631\\u0633\\u0644", drawer_sent: "\\u0627\\u0644\\u0645\\u0631\\u0633\\u0644", no_records: "\\u0644\\u0627 \\u062A\\u0648\\u062C\\u062F \\u0631\\u0633\\u0627\\u0626\\u0644 \\u0645\\u0631\\u0633\\u0644\\u0629", btn_delete: "\\u062D\\u0630\\u0641 \\u0627\\u0644\\u0645\\u062D\\u062F\\u062F", btn_delete_one: "\\u062D\\u0630\\u0641", err_no_to: "\\u0645\\u0637\\u0644\\u0648\\u0628 \\u0645\\u0633\\u062A\\u0644\\u0645 \\u0648\\u0627\\u062D\\u062F \\u0639\\u0644\\u0649 \\u0627\\u0644\\u0623\\u0642\\u0644", err_network: "\\u062E\\u0637\\u0623 \\u0641\\u064A \\u0627\\u0644\\u0634\\u0628\\u0643\\u0629", sending: "\\u062C\\u0627\\u0631\\u064D \\u0627\\u0644\\u0625\\u0631\\u0633\\u0627\\u0644...", hdr_sub: "\\u0627\\u0636\\u063A\\u0637 \\u0639\\u0644\\u0649 \\u0632\\u0646\\u0627\\u062F Mailgun", btn_logout: "\\u062A\\u0633\\u062C\\u064A\\u0644 \\u062E\\u0631\\u0648\\u062C", label_attachments: "\\u0627\\u0644\\u0645\\u0631\\u0641\\u0642\\u0627\\u062A", btn_add_file: "\\u0625\\u0636\\u0627\\u0641\\u0629 \\u0645\\u0644\\u0641\\u0627\\u062A", att_used: "\\u062A\\u0645 \\u0627\\u0633\\u062A\\u062E\\u062F\\u0627\\u0645 {used} / 20 MB", err_att_too_large: "\\u062A\\u062C\\u0627\\u0648\\u0632\\u062A \\u0627\\u0644\\u0645\\u0631\\u0641\\u0642\\u0627\\u062A \\u062D\\u062F 20 MB", loading: "\\u062C\\u0627\\u0631\\u064D \\u0627\\u0644\\u062A\\u062D\\u0645\\u064A\\u0644...", err_load: "\\u0641\\u0634\\u0644 \\u0627\\u0644\\u062A\\u062D\\u0645\\u064A\\u0644" }
   };
 
-  // dev/apps/mailgunfire/src/views/client.mjs
+  // apps/mailgunfire/src/views/client.mjs
   var currentLang = "en";
+  var sendActionOpts = null;
+  var sendCtl = null;
   function applyI18n() {
     var t = I18N[currentLang] || I18N["en"];
     applyLocaleAttrs(currentLang);
@@ -1131,6 +1010,8 @@ var UploadKV = (() => {
     if (window.FooterBrand && window.FooterBrand.applyLang) {
       window.FooterBrand.applyLang(currentLang);
     }
+    if (sendActionOpts) sendActionOpts.pendingText = t.sending;
+    if (sendCtl) sendCtl.setOrigText(t.btn_send);
   }
   currentLang = detectLang();
   applyI18n();
@@ -1299,53 +1180,56 @@ var UploadKV = (() => {
       el.style.display = "none";
     }, 5e3);
   }
-  document.getElementById("mailForm").addEventListener("submit", function(e) {
-    e.preventDefault();
-    var t = I18N[currentLang] || I18N["en"];
-    if (toInput.input.value.trim()) toInput.addTag(toInput.input.value);
-    if (ccInput.input.value.trim()) ccInput.addTag(ccInput.input.value);
-    if (bccInput.input.value.trim()) bccInput.addTag(bccInput.input.value);
-    if (toInput.tags.length === 0) {
-      showStatus(false, t.err_no_to);
-      return;
-    }
-    if (attTotal() > ATT_MAX_BYTES) {
-      showStatus(false, t.err_att_too_large || "Attachments too large");
-      return;
-    }
-    var bodyMd = MarkdownEditor.getMarkdownContent();
-    var bodyHtml = MarkdownEditor.renderMarkdownToHtml(bodyMd);
-    var reserveBody = {
-      sender: document.getElementById("sender").value,
-      display: document.getElementById("display").value,
-      to: toInput.tags.join(", "),
-      cc: ccInput.tags.join(", "),
-      bcc: bccInput.tags.join(", "),
-      subject: document.getElementById("subject").value,
-      body: bodyMd,
-      html: bodyHtml,
-      save_sent: KV_BOUND && document.getElementById("saveSent").checked
-    };
-    var btn = document.getElementById("sendBtn");
-    var btnLabel = btn.querySelector("[data-i18n]");
-    btn.disabled = true;
-    btnLabel.textContent = t.sending;
-    showStatus(false, "");
-    document.getElementById("status").style.display = "none";
-    UploadKV.uploadFiles({
-      reserveUrl: "/send/reserve",
-      chunkUrlBase: "/send/chunk/",
-      commitUrlBase: "/send/commit/",
-      reserveBody,
-      files: attachedFiles,
-      onProgress: function(uploaded, total) {
-        if (total > 0 && uploaded < total) {
-          btnLabel.textContent = t.sending + " " + Math.floor(uploaded / total * 100) + "%";
+  var sendBtn = document.getElementById("sendBtn");
+  var sendBtnLabel = sendBtn.querySelector("[data-i18n]");
+  sendActionOpts = {
+    labelEl: sendBtnLabel,
+    pendingText: (I18N[currentLang] || I18N.en).sending,
+    validate: function() {
+      var t = I18N[currentLang] || I18N.en;
+      if (toInput.input.value.trim()) toInput.addTag(toInput.input.value);
+      if (ccInput.input.value.trim()) ccInput.addTag(ccInput.input.value);
+      if (bccInput.input.value.trim()) bccInput.addTag(bccInput.input.value);
+      if (toInput.tags.length === 0) return t.err_no_to;
+      if (attTotal() > ATT_MAX_BYTES) return t.err_att_too_large || "Attachments too large";
+      return true;
+    },
+    onValidateFail: function(reason) {
+      showStatus(false, typeof reason === "string" ? reason : "Invalid input");
+    },
+    onPending: function() {
+      showStatus(false, "");
+      document.getElementById("status").style.display = "none";
+    },
+    asyncFn: function() {
+      var bodyMd = MarkdownEditor.getMarkdownContent();
+      var bodyHtml = MarkdownEditor.renderMarkdownToHtml(bodyMd);
+      var reserveBody = {
+        sender: document.getElementById("sender").value,
+        display: document.getElementById("display").value,
+        to: toInput.tags.join(", "),
+        cc: ccInput.tags.join(", "),
+        bcc: bccInput.tags.join(", "),
+        subject: document.getElementById("subject").value,
+        body: bodyMd,
+        html: bodyHtml,
+        save_sent: KV_BOUND && document.getElementById("saveSent").checked
+      };
+      return UploadKV.uploadFiles({
+        reserveUrl: "/send/reserve",
+        chunkUrlBase: "/send/chunk/",
+        commitUrlBase: "/send/commit/",
+        reserveBody,
+        files: attachedFiles,
+        onProgress: function(uploaded, total) {
+          if (total > 0 && uploaded < total) {
+            var t = I18N[currentLang] || I18N.en;
+            sendCtl.setText(t.sending + " " + Math.floor(uploaded / total * 100) + "%");
+          }
         }
-      }
-    }).then(function(result) {
-      btn.disabled = false;
-      btnLabel.textContent = t.btn_send;
+      });
+    },
+    onSuccess: function(result) {
       var data = result.commit;
       if (data && data.success) {
         showStatus(true, data.message || "Sent!");
@@ -1365,57 +1249,72 @@ var UploadKV = (() => {
       } else {
         showStatus(false, data && data.error || "Error");
       }
-    }).catch(function(err) {
+      sendCtl.reset();
+    },
+    onError: function(err) {
       console.error("mailForm submit failed:", err && err.message || err);
-      btn.disabled = false;
-      btnLabel.textContent = t.btn_send;
+      var t = I18N[currentLang] || I18N.en;
       var msg = err.data && err.data.error || err.message || String(err);
       showStatus(false, t.err_network + ": " + msg);
-    });
+      sendCtl.reset();
+    }
+  };
+  sendCtl = window.Action.wrap(sendBtn, sendActionOpts);
+  sendCtl.setOrigText((I18N[currentLang] || I18N.en).btn_send);
+  document.getElementById("mailForm").addEventListener("submit", function(e) {
+    e.preventDefault();
+    sendCtl.trigger();
   });
-  var drawerOverlay = document.getElementById("drawerOverlay");
-  var sentDrawer = document.getElementById("sentDrawer");
+  var drawerHost = document.getElementById("drawerHost");
+  var drawerFootHost = document.getElementById("drawerFooterHost");
   var drawerList = document.getElementById("drawerList");
   var drawerDetail = document.getElementById("drawerDetail");
-  var drawerFooter = document.getElementById("drawerFooter");
-  var drawerBack = document.getElementById("drawerBack");
-  var drawerTitle = document.getElementById("drawerTitle");
+  var batchDeleteBtn = document.getElementById("batchDeleteBtn");
+  var drawerHandle = null;
   function openDrawer() {
-    drawerOverlay.classList.add("open");
-    sentDrawer.classList.add("open");
+    if (drawerHandle) return;
+    drawerHandle = window.Overlay.show({
+      scope: "page",
+      variant: "edge-right",
+      titleI18n: "drawer_sent",
+      title: (I18N[currentLang] || I18N.en).drawer_sent || "Sent",
+      showBack: true,
+      onClose: function() {
+        drawerHost.appendChild(drawerList);
+        drawerHost.appendChild(drawerDetail);
+        drawerFootHost.appendChild(batchDeleteBtn);
+        drawerHandle = null;
+      }
+    });
+    drawerHandle.body.appendChild(drawerList);
+    drawerHandle.body.appendChild(drawerDetail);
+    drawerHandle.setFooter(batchDeleteBtn);
+    applyI18nAttrs(I18N[currentLang] || I18N.en, drawerHandle.box);
+    drawerHandle.backBtn.addEventListener("click", function() {
+      showListView();
+      loadSentList();
+    });
     showListView();
     loadSentList();
-  }
-  function closeDrawer() {
-    drawerOverlay.classList.remove("open");
-    sentDrawer.classList.remove("open");
   }
   function showListView() {
     drawerList.style.display = "";
     drawerDetail.style.display = "none";
-    drawerBack.style.display = "none";
-    drawerFooter.style.display = "none";
-    var t = I18N[currentLang] || I18N["en"];
-    drawerTitle.textContent = t.drawer_sent || "Sent";
+    if (drawerHandle) {
+      drawerHandle.showBack(false);
+      drawerHandle.showFooter(false);
+    }
   }
   function showDetailView() {
     drawerList.style.display = "none";
     drawerDetail.style.display = "";
-    drawerBack.style.display = "";
-    drawerFooter.style.display = "none";
+    if (drawerHandle) {
+      drawerHandle.showBack(true);
+      drawerHandle.showFooter(false);
+    }
   }
   document.getElementById("sentOpenBtn").addEventListener("click", function() {
     openDrawer();
-  });
-  document.getElementById("drawerClose").addEventListener("click", function() {
-    closeDrawer();
-  });
-  drawerOverlay.addEventListener("click", function() {
-    closeDrawer();
-  });
-  drawerBack.addEventListener("click", function() {
-    showListView();
-    loadSentList();
   });
   function loadSentList() {
     var t = I18N[currentLang] || I18N["en"];
@@ -1463,8 +1362,9 @@ var UploadKV = (() => {
     });
   }
   function toggleFooter() {
+    if (!drawerHandle) return;
     var checked = drawerList.querySelectorAll("input[type=checkbox]:checked");
-    drawerFooter.style.display = checked.length > 0 ? "block" : "none";
+    drawerHandle.showFooter(checked.length > 0);
   }
   function escHtml(s) {
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -1482,7 +1382,7 @@ var UploadKV = (() => {
       return r.json();
     }).then(function() {
       loadSentList();
-      drawerFooter.style.display = "none";
+      if (drawerHandle) drawerHandle.showFooter(false);
     });
   });
   function loadDetail(id) {
