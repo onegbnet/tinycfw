@@ -135,9 +135,9 @@ var main_default = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MixSSL \u2014 Certificates with domains from mixed DNS accounts under same or different registrars</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2.5' stroke-linecap='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2'/%3E%3Cpath d='M7 11V7a5 5 0 0110 0v4'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/overlay/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/toast/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/spinner/style.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/npm/@pckgs/ccs@1.0.1/overlay/style.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/npm/@pckgs/ccs@1.0.1/toast/style.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/npm/@pckgs/ccs@1.0.1/spinner/style.min.css">
 <style>:root{--bg:#f4f6f9;--surface:#fff;--text:#1e293b;--muted:#64748b;--text-muted:var(--muted);--border:#e2e8f0;--accent:#2563eb;--ok:#16a34a;--warn:#f59e0b;--err:#dc2626;--font:system-ui,-apple-system,Segoe UI,sans-serif;--radius:10px;--shadow:0 1px 3px rgba(0,0,0,.08);--transition:.2s;--footer-color:var(--muted);--footer-border:var(--border)}
 /* overlay/toast/spinner CSS now loaded via <link> from ccs CDN \u2014 see main.html head. */
 *{box-sizing:border-box;margin:0;padding:0}
@@ -634,12 +634,12 @@ foo.bar.example.com"></textarea>
      {{CDN_HOST}} is replaced per-request by the worker via
      selectJsdelivrCdnHost() \u2014 CN gets jsd.onmicrosoft.cn, everywhere
      else gets cdn.jsdelivr.net. -->
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/i18n-engine/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/footer-brand/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/action/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/overlay/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/popover/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/toast/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/npm/@pckgs/ccs@1.0.1/i18n-engine/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/npm/@pckgs/ccs@1.0.1/footer-brand/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/npm/@pckgs/ccs@1.0.1/action/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/npm/@pckgs/ccs@1.0.1/overlay/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/npm/@pckgs/ccs@1.0.1/popover/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/npm/@pckgs/ccs@1.0.1/toast/client.min.js"></script>
 <script>
 (() => {
   // apps/mixssl/src/views/i18n.mjs

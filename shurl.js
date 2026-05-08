@@ -150,7 +150,7 @@ var landing_default = `<!DOCTYPE html>
 <title>Shurl</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71'/%3E%3C/svg%3E">
 <script src="https://{{CDN_HOST}}/npm/markdown-it@14/dist/markdown-it.min.js"></script>
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/overlay/style.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/npm/@pckgs/ccs@1.0.1/overlay/style.min.css">
 <style>:root{
   --s-bg:#0f172a;--s-surface:#1e293b;--s-surface2:#0f172a;
   --s-border:#334155;--s-border-hi:#475569;
@@ -689,10 +689,10 @@ const I18N={{i18n-json}};
      handleGet(). theme stays inline ABOVE: it touches localStorage('theme'),
      and Edge's Tracking Prevention warns/blocks storage access from
      cross-origin script origins (cdn.jsdelivr.net). -->
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/i18n-engine/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/footer-brand/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/action/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/overlay/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/npm/@pckgs/ccs@1.0.1/i18n-engine/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/npm/@pckgs/ccs@1.0.1/footer-brand/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/npm/@pckgs/ccs@1.0.1/action/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/npm/@pckgs/ccs@1.0.1/overlay/client.min.js"></script>
 
 <script>
 //

@@ -48,7 +48,7 @@ var main_default = `<!DOCTYPE html>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://{{CDN_HOST}}/npm/markdown-it@14/dist/markdown-it.min.js"></script>
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/overlay/style.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/npm/@pckgs/ccs@1.0.1/overlay/style.min.css">
 <style>:root{--bg:#f4f6f9;--surface:#fff;--surface2:#f8fafc;--surface3:#edf2f7;--border:#cbd5e1;--border-hi:#94a3b8;--accent:#2563eb;--accent-hi:#1d4ed8;--accent-glow:rgba(37,99,235,.12);--accent2:#06b6d4;--text:#1e293b;--text-muted:#64748b;--text-dim:#94a3b8;--success-bg:#ecfdf5;--success-fg:#059669;--success-bd:#10b981;--error-bg:#fef2f2;--error-fg:#dc2626;--error-bd:#ef4444;--chip-bg:#eff6ff;--chip-fg:#3b82f6;--chip-bd:#bfdbfe;--font:"Inter","Segoe UI",system-ui,sans-serif;--mono:"JetBrains Mono","Fira Code","Cascadia Code",Consolas,monospace;--radius:8px;--radius-sm:5px;--transition:.18s cubic-bezier(.4,0,.2,1);--footer-color:var(--text-muted);--footer-border:var(--border)}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--font);background:var(--bg);background:linear-gradient(135deg,#e0e7ff 0%,#f4f6f9 40%,#ecfeff 100%);min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;color:var(--text)}
@@ -559,10 +559,10 @@ var LOCKED_RAW = "{{LOCKED}}";
      theme stays inline ABOVE: it touches localStorage('theme'), and Edge's
      Tracking Prevention warns/blocks storage access from cross-origin
      script origins (cdn.jsdelivr.net). Same-origin inline keeps it clean. -->
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/i18n-engine/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/footer-brand/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/action/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@fd3c0a6c88cc24bece7eb5b62f45f70034511f0c/overlay/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/npm/@pckgs/ccs@1.0.1/i18n-engine/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/npm/@pckgs/ccs@1.0.1/footer-brand/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/npm/@pckgs/ccs@1.0.1/action/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/npm/@pckgs/ccs@1.0.1/overlay/client.min.js"></script>
 
 <script>
 //
