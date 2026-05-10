@@ -177,7 +177,7 @@ var landing_default = `<!DOCTYPE html>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71'/%3E%3C/svg%3E">
 <script src="https://{{CDN_HOST}}/npm/markdown-it@14/dist/markdown-it.min.js"></script>
 <link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/overlay/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@4adbd0b090db5384e84e801f87aa9dc4a91bc496/shurl/view.min.css"></head><body><div style="width:100%;max-width:480px"><div class="c">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@58bf0e6ce9b9ed299c979c43967bbfe9b19728ca/shurl/view.min.css"></head><body><div style="width:100%;max-width:480px"><div class="c">
 <div class="header">
   <div class="header-left">
     <div class="logo-icon">
@@ -433,8 +433,8 @@ var IS_ADMIN_RAW = "{{IS_ADMIN}}";
 <!-- shurl's own bulk: i18n.min.js (sets window.I18N) loads BEFORE
      client.min.js so the IIFE sees I18N as a free var. Both shipped via
      jsDelivr (1 year cache, repeat-page revisits skip the download). -->
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@4adbd0b090db5384e84e801f87aa9dc4a91bc496/shurl/i18n.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@4adbd0b090db5384e84e801f87aa9dc4a91bc496/shurl/client.min.js"></script></body></html>`;
+<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@58bf0e6ce9b9ed299c979c43967bbfe9b19728ca/shurl/i18n.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@58bf0e6ce9b9ed299c979c43967bbfe9b19728ca/shurl/client.min.js"></script></body></html>`;
 
 var SLUG_CHARS = "abcdefghijkmnpqrstuvwxyz23456789";
 var SLUG_MIN = 3;
@@ -1102,7 +1102,7 @@ var lockModule = makeLockModule({
   lockPageHtml: LOCK_PAGE_HTML
 });
 
-var APP_BULK_URL = "gh/onegbnet/tinycfw@4adbd0b090db5384e84e801f87aa9dc4a91bc496/shurl";
+var APP_BULK_URL = "gh/onegbnet/tinycfw@58bf0e6ce9b9ed299c979c43967bbfe9b19728ca/shurl";
 function redirectPage(entry, acceptLang, cdnHost, slug, showError, authed) {
   const isFile = entry.type === "files";
   const files = entry.files || [];

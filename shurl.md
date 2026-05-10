@@ -9,16 +9,16 @@ Most URL shorteners force you to sign up before you can create a link, or give y
 ### For end users (clicking short links)
 
 - **Instant redirect** — 301/302 with zero delay by default
-- **Branded interstitial pages** — when the creator chooses manual or countdown redirect, visitors see a polished page with custom title, rich-text body (WYSIWYG / Markdown), configurable delay (0–60s), and a themed button — not a generic "click here to continue"
+- **Branded interstitial pages** — when the creator chooses manual or countdown redirect, visitors see a polished page with custom title, Markdown body, configurable delay (0–60s), and a themed button — not a generic "click here to continue"
 - **Access-protected links** — creators can set an `accessPassword`; visitors must enter it before proceeding, useful for sharing sensitive content with a select audience. After unlock, auth is held in an HttpOnly cookie — the password never appears in any URL
 - **File downloads** — a slug can hold one or more attached files instead of a redirect URL; visitors get a download page (or direct file stream for single-file links)
-- **11 languages, dark / light mode** — the interstitial page auto-adapts to the visitor's browser language and theme preference
+- **20 languages, dark / light mode** — the interstitial page auto-adapts to the visitor's browser language and theme preference; theme preference is persisted via cookie (works in 100% of browsers including Strict Tracking Prevention modes)
 
 ### For anonymous link creators (web UI, no account)
 
 - **Create without signup** — open the page, paste a URL, get a short link. No email, no OAuth, no tracking cookies
 - **One-time modification password** — shown once at creation. Save it and you can view, edit, or delete your link anytime — you own your link without needing an account
-- **Rich redirect page editor** — toggle between WYSIWYG and Markdown to craft a branded interstitial with custom title, button text, dark/light background, and centered layout
+- **Markdown redirect page editor** — toolbar (bold / italic / lists / code / quote / hr / link) + live preview to craft a branded interstitial with custom title, button text, dark/light background, and centered layout
 - **File uploads up to 128 MiB per slug** — drag-and-drop one or more files; the browser chunks them client-side and streams them to KV in 10 MiB pieces, with resumable per-chunk retries
 - **One-time links** — check a box and the link self-destructs after the first successful redirect; deletion happens only when the visitor actually navigates, not when the page is merely viewed
 - **Rate-limited, not blocked** — a passive fingerprint (IP + UA + TLS, no client storage) enforces a fair daily quota (`LIMIT`, default 10) instead of requiring login
@@ -26,7 +26,7 @@ Most URL shorteners force you to sign up before you can create a link, or give y
 ### For automation & API users
 
 - **RESTful CRUD** — standard `POST` / `PUT` / `DELETE` / `HEAD` on `/:slug`, easy to integrate into CI/CD or scripts
-- **Flexible auth** — per-link password via `X-Password`, or global admin key via `X-API-Key` / `Bearer`; private deploys can skip key auth entirely
+- **Flexible auth** — per-link password via `X-Password`, or global admin key via `X-Admin-Key` / `Bearer`; private deploys can skip key auth entirely
 - **Custom or random slugs** — pick your own (3–10 chars) or let the system generate one
 - **Per-link TTL** — set expiration on any link independently
 - **Chunked file upload API** — three-phase reserve / chunk / commit protocol over the same KV; supports atomic modify (add / remove files, rotate password) without breaking concurrent downloads
@@ -54,6 +54,9 @@ Most URL shorteners force you to sign up before you can create a link, or give y
 | `PUT`    | `/_u/chunk/:slug?c=<idx>`     | Upload one chunk (raw bytes) of an active upload session                    |
 | `POST`   | `/_u/commit/:slug`            | Finalize an active upload session                                           |
 | `POST`   | `/_a/:slug`                   | Browser-only: submit `accessPassword` form, set unlock cookie, 303 to slug  |
+| `POST`   | `/_admin/auth`                | Browser-only: exchange admin key for HttpOnly `shul_admin` cookie           |
+| `POST`   | `/_admin/logout`              | Browser-only: clear `shul_admin` cookie                                     |
+| `POST`   | `/api/prefs`                  | Browser-only: persist UI preferences (e.g. `theme`) via cookie              |
 | `PUT`    | `/:slug`                      | Update existing short link                                                  |
 | `DELETE` | `/:slug`                      | Delete short link                                                           |
 
@@ -69,7 +72,7 @@ Most URL shorteners force you to sign up before you can create a link, or give y
    | `BASE`    | Text   | Short link base URL, e.g. `https://s.mydomain.tld`; omit to use request origin             |
    | `TTL`     | Text   | Default link expiration in seconds (integer >= 60); omit for permanent                     |
    | `DEFAULT` | Text   | Fallback redirect URL when slug not found; omit to redirect to home page                    |
-   | `LOCK`    | Secret | Front-end lock screen password (3–16 printable chars, no spaces); does not affect API; omit for open access         |
+   | `LOCK`    | Secret | Front-end lock screen password (3–64 printable chars, no spaces); does not affect API; omit for open access         |
    | `LIMIT`   | Text   | Public rate limit per 24 hours (default: 10, create + modify combined)                       |
 
 4. Click the **Deploy** button in the Worker dashboard to complete deployment
@@ -83,7 +86,7 @@ Pure RESTful API — no `/api/` prefix. All endpoints accept and return JSON.
 **Admin Key** (required only when `KEY` environment variable is configured):
 
 ```
-X-API-Key: your-admin-key
+X-Admin-Key: your-admin-key
 ```
 or
 ```
@@ -97,6 +100,8 @@ X-Password: slug-password
 ```
 
 Password is always sent via the `X-Password` header, never in the request body.
+
+**Browser admin path.** The web UI doesn't keep the admin key in JS storage — instead it exchanges the key for an HttpOnly `shul_admin` cookie via `POST /_admin/auth`. Subsequent admin actions ride on that cookie. API clients (machine-to-machine) keep using `X-Admin-Key` / `Bearer` headers as documented above; the cookie path is browser-only and complementary.
 
 ### Error Responses
 
@@ -148,7 +153,7 @@ Check whether a slug exists and the password is correct, without returning any d
 | Header       | Required | Description                          |
 |--------------|----------|--------------------------------------|
 | `X-Password` | Yes      | Slug password                        |
-| `X-API-Key`  | If KEY set | Admin key                          |
+| `X-Admin-Key`  | If KEY set | Admin key                          |
 
 **Response:** No body.
 
@@ -167,7 +172,7 @@ Create a new short link. Optionally specify a custom slug via `POST /:slug` or i
 | Header       | Required   | Description                          |
 |--------------|------------|--------------------------------------|
 | `X-Password` | No         | If slug exists, verifies ownership and returns entry data |
-| `X-API-Key`  | If KEY set | Admin key                            |
+| `X-Admin-Key`  | If KEY set | Admin key                            |
 
 **Request Body:**
 
@@ -182,7 +187,7 @@ Create a new short link. Optionally specify a custom slug via `POST /:slug` or i
 | `redirectPageContent`| string  | No       | Redirect page content (Markdown); max 2000 chars   |
 | `manualBtnTitle`     | string  | No       | Custom redirect button text; max 128 chars         |
 | `oneTime`            | boolean | No       | Link self-destructs after first redirect; default `false`  |
-| `accessPassword`     | string  | No       | Visitor password for manual-redirect links (3–16 printable non-space chars); ignored if invalid or mode is `instant` |
+| `accessPassword`     | string  | No       | Visitor password for manual-redirect links (3–64 printable non-space chars); ignored if invalid or mode is `instant` |
 | `lightPage`          | boolean | No       | Light background for redirect page; default `true` |
 | `ttl`                | integer | No       | Expiration in seconds (60–31536000); 0 = permanent |
 
@@ -216,7 +221,7 @@ Create multiple short links in one request by sending a JSON array instead of a 
 
 | Header       | Required | Description                          |
 |--------------|----------|--------------------------------------|
-| `X-API-Key`  | Yes      | Admin key                            |
+| `X-Admin-Key`  | Yes      | Admin key                            |
 
 **Request Body:** JSON array of create objects (same fields as single create).
 
@@ -237,7 +242,7 @@ Retrieve full details of an existing slug by verifying with password.
 | Header       | Required   | Description   |
 |--------------|------------|---------------|
 | `X-Password` | Yes        | Slug password |
-| `X-API-Key`  | If KEY set | Admin key     |
+| `X-Admin-Key`  | If KEY set | Admin key     |
 
 **Response (200):**
 
@@ -269,7 +274,7 @@ Update an existing short link.
 | Header       | Required   | Description   |
 |--------------|------------|---------------|
 | `X-Password` | Yes        | Slug password |
-| `X-API-Key`  | If KEY set | Admin key     |
+| `X-Admin-Key`  | If KEY set | Admin key     |
 
 **Request Body:** Same fields as create, plus:
 
@@ -288,9 +293,9 @@ Returns updated entry data. If `resetPassword` is `true`, a new `password` field
 | Header       | Required   | Description   |
 |--------------|------------|---------------|
 | `X-Password` | Yes        | Slug password |
-| `X-API-Key`  | If KEY set | Admin key     |
+| `X-Admin-Key`  | If KEY set | Admin key     |
 
-Note: admins with `X-API-Key` can delete any slug without knowing its modification password.
+Note: admins with `X-Admin-Key` can delete any slug without knowing its modification password.
 
 **Response (200):**
 
@@ -308,7 +313,7 @@ Delete **all** short links in the KV namespace. Requires admin key. Use with cau
 
 | Header       | Required | Description                          |
 |--------------|----------|--------------------------------------|
-| `X-API-Key`  | Yes      | Admin key                            |
+| `X-Admin-Key`  | Yes      | Admin key                            |
 
 **Response (200):**
 
@@ -320,7 +325,7 @@ Delete **all** short links in the KV namespace. Requires admin key. Use with cau
 
 ### Admin-only capabilities
 
-The following operations are exclusive to holders of the admin key (`X-API-Key`):
+The following operations are exclusive to holders of the admin key (`X-Admin-Key`):
 
 | Capability              | Description                                                        |
 |-------------------------|--------------------------------------------------------------------|
@@ -362,7 +367,7 @@ Reserves a slug and plans a new upload session. Used for both **create** (no `sl
 | Header       | Required        | Description                                         |
 |--------------|-----------------|-----------------------------------------------------|
 | `X-Password` | Modify flow     | Slug password (existing file slug)                  |
-| `X-API-Key`  | If `KEY` set    | Admin key (skips `X-Password` and rate limit)       |
+| `X-Admin-Key`  | If `KEY` set    | Admin key (skips `X-Password` and rate limit)       |
 
 **Request Body:**
 
@@ -483,16 +488,16 @@ For **file slugs**, this endpoint serves the file-list / download page instead o
 ### 最终用户（点击短链接的人）
 
 - **即时跳转** — 默认 301/302 零延迟直跳
-- **品牌化中间页** — 创建者选择手动或倒计时跳转时，访客看到的是精心设计的页面：自定义标题、富文本正文（所见即所得 / Markdown）、可配置延迟（0–60 秒）、主题化按钮 — 而非千篇一律的"点击此处继续"
+- **品牌化中间页** — 创建者选择手动或倒计时跳转时，访客看到的是精心设计的页面：自定义标题、Markdown 正文、可配置延迟（0–60 秒）、主题化按钮 — 而非千篇一律的"点击此处继续"
 - **访问密码保护** — 创建者可设置 `accessPassword`，访客必须输入密码才能继续跳转，适合向特定人群分享敏感内容。解锁后认证由 HttpOnly cookie 承载 —— 密码不会出现在任何 URL 中
 - **文件下载** — 短码可承载一到多个附件（替代跳转 URL）；访客看到下载页面（单文件链接直接流式下载文件）
-- **11 种语言 + 亮色/暗色模式** — 中间页自动适配访客的浏览器语言和主题偏好
+- **20 种语言 + 亮色/暗色模式** — 中间页自动适配访客的浏览器语言和主题偏好；主题偏好通过 cookie 持久化（在严格跟踪防护模式的浏览器下也工作）
 
 ### 匿名链接创建者（Web 界面，无需账号）
 
 - **无需注册即可创建** — 打开页面、粘贴 URL、获得短链接。不要邮箱、不要 OAuth、不设追踪 Cookie
 - **一次性修改密码** — 创建时显示一次，保存好它就能随时查看、编辑或删除你的链接 — 不用注册账号也能拥有链接的完整控制权
-- **富文本跳转页编辑器** — 在所见即所得和 Markdown 之间自由切换，打造品牌化中间页，自定义标题、按钮文案、亮色/暗色背景、内容居中
+- **Markdown 跳转页编辑器** — 工具栏（粗体 / 斜体 / 列表 / 代码 / 引用 / 分隔线 / 链接）+ 实时预览，打造品牌化中间页，自定义标题、按钮文案、亮色/暗色背景、内容居中
 - **每短码最多 128 MiB 文件上传** — 拖拽一到多个文件，浏览器端切成 10 MiB 分片流式写入 KV，每分片独立重试可断点续传
 - **一次性链接** — 勾选即可创建跳转后自动销毁的链接；仅在访客真正完成跳转时才删除，而非仅展示页面时
 - **限频而非封锁** — 基于被动指纹（IP + UA + TLS，无客户端存储）实施合理的每日配额（`LIMIT`，默认 10 次），代替强制登录
@@ -500,7 +505,7 @@ For **file slugs**, this endpoint serves the file-list / download page instead o
 ### 自动化与 API 用户
 
 - **RESTful CRUD** — 标准 `POST` / `PUT` / `DELETE` / `HEAD` 操作 `/:slug`，轻松集成到 CI/CD 或脚本
-- **灵活认证** — 逐链接密码（`X-Password`）或全局管理员密钥（`X-API-Key` / `Bearer`）；私有部署可完全跳过密钥认证
+- **灵活认证** — 逐链接密码（`X-Password`）或全局管理员密钥（`X-Admin-Key` / `Bearer`）；私有部署可完全跳过密钥认证
 - **自定义或随机短码** — 自选（3–10 位）或系统生成
 - **逐链接 TTL** — 每条链接可独立设置过期时间
 - **分片文件上传 API** — 三阶段 reserve / chunk / commit 协议，与短链共用同一个 KV；支持原子修改（增删文件、轮换密码），不打断并发下载
@@ -528,6 +533,9 @@ For **file slugs**, this endpoint serves the file-list / download page instead o
 | `PUT`    | `/_u/chunk/:slug?c=<idx>`     | 上传一个分片（原始字节）至活跃的上传会话                                      |
 | `POST`   | `/_u/commit/:slug`            | 提交并最终化上传会话                                                          |
 | `POST`   | `/_a/:slug`                   | 仅浏览器：提交 `accessPassword` 表单，设置解锁 cookie，303 跳回短码           |
+| `POST`   | `/_admin/auth`                | 仅浏览器：用管理员密钥换取 HttpOnly `shul_admin` cookie                       |
+| `POST`   | `/_admin/logout`              | 仅浏览器：清除 `shul_admin` cookie                                            |
+| `POST`   | `/api/prefs`                  | 仅浏览器：通过 cookie 持久化 UI 偏好（例如 `theme`）                          |
 | `PUT`    | `/:slug`                      | 更新短链接                                                                    |
 | `DELETE` | `/:slug`                      | 删除短链接                                                                    |
 
@@ -543,7 +551,7 @@ For **file slugs**, this endpoint serves the file-list / download page instead o
    | `BASE`    | Text   | 短链接基础 URL，如 `https://s.mydomain.tld`；不设则使用请求来源               |
    | `TTL`     | Text   | 默认链接过期时间（秒，整数 >= 60）；不设则永久                                |
    | `DEFAULT` | Text   | slug 不存在时的跳转 URL；不设或非法则回到首页                                 |
-   | `LOCK`    | Secret | 前端锁屏密码（3–16 位可打印字符，不含空格）；不影响 API；不设则开放访问                         |
+   | `LOCK`    | Secret | 前端锁屏密码（3–64 位可打印字符，不含空格）；不影响 API；不设则开放访问                         |
    | `LIMIT`   | Text   | 公开实例每 24 小时操作限额（默认 10，创建 + 修改合计）                         |
 
 4. 点击 Worker 界面的**部署**按钮完成部署
@@ -557,7 +565,7 @@ For **file slugs**, this endpoint serves the file-list / download page instead o
 **管理员密钥**（仅在配置了 `KEY` 环境变量时需要）：
 
 ```
-X-API-Key: your-admin-key
+X-Admin-Key: your-admin-key
 ```
 或
 ```
@@ -571,6 +579,8 @@ X-Password: slug-password
 ```
 
 密码始终通过 `X-Password` 请求头发送，不再放在请求体中。
+
+**浏览器管理员路径**：Web 界面不在 JS storage 里保留管理员密钥，而是通过 `POST /_admin/auth` 把密钥换成 HttpOnly `shul_admin` cookie，后续管理操作均凭该 cookie。API 客户端（机器到机器）仍使用 `X-Admin-Key` / `Bearer` 请求头；cookie 路径仅服务于浏览器，二者互补。
 
 ### 错误响应
 
@@ -622,7 +632,7 @@ X-Password: slug-password
 | 请求头       | 必填       | 说明       |
 |--------------|------------|------------|
 | `X-Password` | 是         | 短码密码   |
-| `X-API-Key`  | 配置时必填 | 管理员密钥 |
+| `X-Admin-Key`  | 配置时必填 | 管理员密钥 |
 
 **响应：** 无响应体。
 
@@ -641,7 +651,7 @@ X-Password: slug-password
 | 请求头       | 必填       | 说明                                     |
 |--------------|------------|------------------------------------------|
 | `X-Password` | 否         | 若短码已存在，验证所有权并返回条目数据   |
-| `X-API-Key`  | 配置时必填 | 管理员密钥                               |
+| `X-Admin-Key`  | 配置时必填 | 管理员密钥                               |
 
 **请求体：**
 
@@ -656,7 +666,7 @@ X-Password: slug-password
 | `redirectPageContent`| string  | 否   | 跳转页面内容（Markdown）；最长 2000 字符     |
 | `manualBtnTitle`     | string  | 否   | 自定义跳转按钮文案；最长 128 字符            |
 | `oneTime`            | boolean | 否   | 跳转后即失效，首次跳转后自动删除；默认 `false`               |
-| `accessPassword`     | string  | 否   | 访客密码，仅手动跳转模式有效（3–16 位可打印非空格字符）；无效则忽略 |
+| `accessPassword`     | string  | 否   | 访客密码，仅手动跳转模式有效（3–64 位可打印非空格字符）；无效则忽略 |
 | `lightPage`          | boolean | 否   | 跳转页面使用亮色背景；默认 `true`            |
 | `ttl`                | integer | 否   | 过期时间（60–31536000 秒）；0 = 永久         |
 
@@ -690,7 +700,7 @@ X-Password: slug-password
 
 | 请求头       | 必填 | 说明       |
 |--------------|------|------------|
-| `X-API-Key`  | 是   | 管理员密钥 |
+| `X-Admin-Key`  | 是   | 管理员密钥 |
 
 **请求体：** 与单条创建相同字段的 JSON 数组。
 
@@ -711,7 +721,7 @@ X-Password: slug-password
 | 请求头       | 必填       | 说明     |
 |--------------|------------|----------|
 | `X-Password` | 是         | 短码密码 |
-| `X-API-Key`  | 配置时必填 | 管理员密钥 |
+| `X-Admin-Key`  | 配置时必填 | 管理员密钥 |
 
 **响应（200）：**
 
@@ -743,7 +753,7 @@ X-Password: slug-password
 | 请求头       | 必填       | 说明     |
 |--------------|------------|----------|
 | `X-Password` | 是         | 短码密码 |
-| `X-API-Key`  | 配置时必填 | 管理员密钥 |
+| `X-Admin-Key`  | 配置时必填 | 管理员密钥 |
 
 **请求体：** 与创建相同的字段，另加：
 
@@ -762,9 +772,9 @@ X-Password: slug-password
 | 请求头       | 必填       | 说明     |
 |--------------|------------|----------|
 | `X-Password` | 是         | 短码密码   |
-| `X-API-Key`  | 配置时必填 | 管理员密钥 |
+| `X-Admin-Key`  | 配置时必填 | 管理员密钥 |
 
-注：持有 `X-API-Key` 的管理员可删除任意短码，无需其修改密码。
+注：持有 `X-Admin-Key` 的管理员可删除任意短码，无需其修改密码。
 
 **响应（200）：**
 
@@ -782,7 +792,7 @@ X-Password: slug-password
 
 | 请求头       | 必填 | 说明       |
 |--------------|------|------------|
-| `X-API-Key`  | 是   | 管理员密钥 |
+| `X-Admin-Key`  | 是   | 管理员密钥 |
 
 **响应（200）：**
 
@@ -794,7 +804,7 @@ X-Password: slug-password
 
 ### 管理员专属功能
 
-以下操作仅限持有管理员密钥（`X-API-Key`）的用户：
+以下操作仅限持有管理员密钥（`X-Admin-Key`）的用户：
 
 | 功能           | 说明                                                      |
 |----------------|-----------------------------------------------------------|
@@ -836,7 +846,7 @@ X-Password: slug-password
 | 请求头       | 必填         | 说明                                                |
 |--------------|--------------|-----------------------------------------------------|
 | `X-Password` | 修改流程     | 短码密码（针对已有文件短码）                        |
-| `X-API-Key`  | 配置时必填   | 管理员密钥（可绕过 `X-Password` 与频率限制）        |
+| `X-Admin-Key`  | 配置时必填   | 管理员密钥（可绕过 `X-Password` 与频率限制）        |
 
 **请求体：**
 
@@ -957,16 +967,16 @@ X-Password: slug-password
 ### 最終使用者（點擊短連結的人）
 
 - **即時跳轉** — 預設 301/302 零延遲直跳
-- **品牌化中間頁** — 建立者選擇手動或倒數跳轉時，訪客看到的是精心設計的頁面：自訂標題、富文字正文（所見即所得 / Markdown）、可配置延遲（0–60 秒）、主題化按鈕 — 而非千篇一律的「點擊此處繼續」
+- **品牌化中間頁** — 建立者選擇手動或倒數跳轉時，訪客看到的是精心設計的頁面：自訂標題、Markdown 正文、可配置延遲（0–60 秒）、主題化按鈕 — 而非千篇一律的「點擊此處繼續」
 - **存取密碼保護** — 建立者可設定 `accessPassword`，訪客必須輸入密碼才能繼續跳轉，適合向特定人群分享敏感內容。解鎖後認證由 HttpOnly cookie 承載 —— 密碼不會出現在任何 URL 中
 - **檔案下載** — 短碼可承載一到多個附件（替代跳轉 URL）；訪客看到下載頁面（單檔連結直接串流下載檔案）
-- **11 種語言 + 亮色/暗色模式** — 中間頁自動適配訪客的瀏覽器語言和主題偏好
+- **20 種語言 + 亮色/暗色模式** — 中間頁自動適配訪客的瀏覽器語言和主題偏好；主題偏好透過 cookie 持久化（在嚴格追蹤防護模式的瀏覽器下也工作）
 
 ### 匿名連結建立者（Web 介面，無需帳號）
 
 - **無需註冊即可建立** — 開啟頁面、貼上 URL、取得短連結。不要信箱、不要 OAuth、不設追蹤 Cookie
 - **一次性修改密碼** — 建立時顯示一次，保存好它就能隨時檢視、編輯或刪除你的連結 — 不用註冊帳號也能擁有連結的完整控制權
-- **富文字跳轉頁編輯器** — 在所見即所得和 Markdown 之間自由切換，打造品牌化中間頁，自訂標題、按鈕文案、亮色/暗色背景、內容置中
+- **Markdown 跳轉頁編輯器** — 工具列（粗體 / 斜體 / 清單 / 程式碼 / 引用 / 分隔線 / 連結）+ 即時預覽，打造品牌化中間頁，自訂標題、按鈕文案、亮色/暗色背景、內容置中
 - **每短碼最多 128 MiB 檔案上傳** — 拖曳一到多個檔案，瀏覽器端切成 10 MiB 分片串流寫入 KV，每分片獨立重試可斷點續傳
 - **一次性連結** — 勾選即可建立跳轉後自動銷毀的連結；僅在訪客真正完成跳轉時才刪除，而非僅展示頁面時
 - **限頻而非封鎖** — 基於被動指紋（IP + UA + TLS，無用戶端儲存）實施合理的每日配額（`LIMIT`，預設 10 次），代替強制登入
@@ -974,7 +984,7 @@ X-Password: slug-password
 ### 自動化與 API 使用者
 
 - **RESTful CRUD** — 標準 `POST` / `PUT` / `DELETE` / `HEAD` 操作 `/:slug`，輕鬆整合到 CI/CD 或指令碼
-- **靈活認證** — 逐連結密碼（`X-Password`）或全域管理員金鑰（`X-API-Key` / `Bearer`）；私有部署可完全跳過金鑰認證
+- **靈活認證** — 逐連結密碼（`X-Password`）或全域管理員金鑰（`X-Admin-Key` / `Bearer`）；私有部署可完全跳過金鑰認證
 - **自訂或隨機短碼** — 自選（3–10 位）或系統產生
 - **逐連結 TTL** — 每條連結可獨立設定過期時間
 - **分片檔案上傳 API** — 三階段 reserve / chunk / commit 協定，與短連結共用同一個 KV；支援原子修改（增刪檔案、輪換密碼），不打斷並行下載
@@ -1002,6 +1012,9 @@ X-Password: slug-password
 | `PUT`    | `/_u/chunk/:slug?c=<idx>`     | 上傳一個分片（原始位元組）至作用中的上傳工作階段                              |
 | `POST`   | `/_u/commit/:slug`            | 提交並最終化上傳工作階段                                                      |
 | `POST`   | `/_a/:slug`                   | 僅瀏覽器：提交 `accessPassword` 表單，設定解鎖 cookie，303 跳回短碼           |
+| `POST`   | `/_admin/auth`                | 僅瀏覽器：以管理員金鑰換取 HttpOnly `shul_admin` cookie                       |
+| `POST`   | `/_admin/logout`              | 僅瀏覽器：清除 `shul_admin` cookie                                            |
+| `POST`   | `/api/prefs`                  | 僅瀏覽器：透過 cookie 持久化 UI 偏好（例如 `theme`）                          |
 | `PUT`    | `/:slug`                      | 更新短連結                                                                    |
 | `DELETE` | `/:slug`                      | 刪除短連結                                                                    |
 
@@ -1017,7 +1030,7 @@ X-Password: slug-password
    | `BASE`    | Text   | 短連結基礎 URL，如 `https://s.mydomain.tld`；不設則使用請求來源               |
    | `TTL`     | Text   | 預設連結過期時間（秒，整數 >= 60）；不設則永久                                |
    | `DEFAULT` | Text   | slug 不存在時的跳轉 URL；不設或非法則回到首頁                                 |
-   | `LOCK`    | Secret | 前端鎖屏密碼（3–16 位可列印字元，不含空格）；不影響 API；不設則開放存取                         |
+   | `LOCK`    | Secret | 前端鎖屏密碼（3–64 位可列印字元，不含空格）；不影響 API；不設則開放存取                         |
    | `LIMIT`   | Text   | 公開實例每 24 小時操作限額（預設 10，建立 + 修改合計）                         |
 
 4. 點擊 Worker 介面的**部署**按鈕完成部署
@@ -1031,7 +1044,7 @@ X-Password: slug-password
 **管理員金鑰**（僅在設定了 `KEY` 環境變數時需要）：
 
 ```
-X-API-Key: your-admin-key
+X-Admin-Key: your-admin-key
 ```
 或
 ```
@@ -1045,6 +1058,8 @@ X-Password: slug-password
 ```
 
 密碼一律透過 `X-Password` 請求標頭發送，不再放在請求體中。
+
+**瀏覽器管理員路徑**：Web 介面不在 JS storage 中保留管理員金鑰，而是透過 `POST /_admin/auth` 將金鑰換成 HttpOnly `shul_admin` cookie，後續管理操作均憑該 cookie。API 客戶端（機器對機器）仍使用 `X-Admin-Key` / `Bearer` 請求標頭；cookie 路徑僅服務於瀏覽器，兩者互補。
 
 ### 錯誤回應
 
@@ -1096,7 +1111,7 @@ X-Password: slug-password
 | 請求標頭     | 必填       | 說明       |
 |--------------|------------|------------|
 | `X-Password` | 是         | 短碼密碼   |
-| `X-API-Key`  | 設定時必填 | 管理員金鑰 |
+| `X-Admin-Key`  | 設定時必填 | 管理員金鑰 |
 
 **回應：** 無回應體。
 
@@ -1115,7 +1130,7 @@ X-Password: slug-password
 | 請求標頭     | 必填       | 說明                                     |
 |--------------|------------|------------------------------------------|
 | `X-Password` | 否         | 若短碼已存在，驗證所有權並回傳條目資料   |
-| `X-API-Key`  | 設定時必填 | 管理員金鑰                               |
+| `X-Admin-Key`  | 設定時必填 | 管理員金鑰                               |
 
 **請求體：**
 
@@ -1130,7 +1145,7 @@ X-Password: slug-password
 | `redirectPageContent`| string  | 否   | 跳轉頁面內容（Markdown）；最長 2000 字元     |
 | `manualBtnTitle`     | string  | 否   | 自訂跳轉按鈕文案；最長 128 字元              |
 | `oneTime`            | boolean | 否   | 跳轉後即失效，首次跳轉後自動刪除；預設 `false`               |
-| `accessPassword`     | string  | 否   | 訪客密碼，僅手動跳轉模式有效（3–16 位可列印非空格字元）；無效則忽略 |
+| `accessPassword`     | string  | 否   | 訪客密碼，僅手動跳轉模式有效（3–64 位可列印非空格字元）；無效則忽略 |
 | `lightPage`          | boolean | 否   | 跳轉頁面使用亮色背景；預設 `true`            |
 | `ttl`                | integer | 否   | 過期時間（60–31536000 秒）；0 = 永久         |
 
@@ -1164,7 +1179,7 @@ X-Password: slug-password
 
 | 請求標頭     | 必填 | 說明       |
 |--------------|------|------------|
-| `X-API-Key`  | 是   | 管理員金鑰 |
+| `X-Admin-Key`  | 是   | 管理員金鑰 |
 
 **請求體：** 與單條建立相同欄位的 JSON 陣列。
 
@@ -1185,7 +1200,7 @@ X-Password: slug-password
 | 請求標頭     | 必填       | 說明     |
 |--------------|------------|----------|
 | `X-Password` | 是         | 短碼密碼 |
-| `X-API-Key`  | 設定時必填 | 管理員金鑰 |
+| `X-Admin-Key`  | 設定時必填 | 管理員金鑰 |
 
 **回應（200）：**
 
@@ -1217,7 +1232,7 @@ X-Password: slug-password
 | 請求標頭     | 必填       | 說明     |
 |--------------|------------|----------|
 | `X-Password` | 是         | 短碼密碼 |
-| `X-API-Key`  | 設定時必填 | 管理員金鑰 |
+| `X-Admin-Key`  | 設定時必填 | 管理員金鑰 |
 
 **請求體：** 與建立相同的欄位，另加：
 
@@ -1236,9 +1251,9 @@ X-Password: slug-password
 | 請求標頭     | 必填       | 說明     |
 |--------------|------------|----------|
 | `X-Password` | 是         | 短碼密碼   |
-| `X-API-Key`  | 設定時必填 | 管理員金鑰 |
+| `X-Admin-Key`  | 設定時必填 | 管理員金鑰 |
 
-注：持有 `X-API-Key` 的管理員可刪除任意短碼，無需其修改密碼。
+注：持有 `X-Admin-Key` 的管理員可刪除任意短碼，無需其修改密碼。
 
 **回應（200）：**
 
@@ -1256,7 +1271,7 @@ X-Password: slug-password
 
 | 請求標頭     | 必填 | 說明       |
 |--------------|------|------------|
-| `X-API-Key`  | 是   | 管理員金鑰 |
+| `X-Admin-Key`  | 是   | 管理員金鑰 |
 
 **回應（200）：**
 
@@ -1268,7 +1283,7 @@ X-Password: slug-password
 
 ### 管理員專屬功能
 
-以下操作僅限持有管理員金鑰（`X-API-Key`）的使用者：
+以下操作僅限持有管理員金鑰（`X-Admin-Key`）的使用者：
 
 | 功能             | 說明                                                      |
 |------------------|-----------------------------------------------------------|
@@ -1310,7 +1325,7 @@ X-Password: slug-password
 | 請求標頭     | 必填         | 說明                                                |
 |--------------|--------------|-----------------------------------------------------|
 | `X-Password` | 修改流程     | 短碼密碼（針對既有檔案短碼）                        |
-| `X-API-Key`  | 設定時必填   | 管理員金鑰（可繞過 `X-Password` 與頻率限制）        |
+| `X-Admin-Key`  | 設定時必填   | 管理員金鑰（可繞過 `X-Password` 與頻率限制）        |
 
 **請求體：**
 

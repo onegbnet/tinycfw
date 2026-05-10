@@ -200,7 +200,7 @@ var main_default = `<!DOCTYPE html>
 <link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/overlay/style.min.css">
 <link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/toast/style.min.css">
 <link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/spinner/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@4adbd0b090db5384e84e801f87aa9dc4a91bc496/mixssl/view.min.css"></head>
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@58bf0e6ce9b9ed299c979c43967bbfe9b19728ca/mixssl/view.min.css"></head>
 <body>
 <header>
   <div class="brand">
@@ -401,10 +401,13 @@ var INITIAL_LANG = "{{LANG}}";
 <script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/toast/client.min.js"></script>
 <script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/theme/client.min.js"></script>
 
-<!-- mixssl's own bulk: dist/client.min.js shipped via jsDelivr (replaces
-     old inline app-script block). Reads outer-script free var
-     INITIAL_LANG + window globals from CDN modules above. -->
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@4adbd0b090db5384e84e801f87aa9dc4a91bc496/mixssl/client.min.js"></script>
+<!-- mixssl's own bulk: i18n.min.js (sets \`var I18N=\u2026\`) loads BEFORE
+     client.min.js so the IIFE sees I18N as a free var. Both shipped via
+     jsDelivr (1 year cache, repeat-page revisits skip the download).
+     client.min.js reads outer-script free var INITIAL_LANG + window
+     globals from CDN modules above. -->
+<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@58bf0e6ce9b9ed299c979c43967bbfe9b19728ca/mixssl/i18n.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@58bf0e6ce9b9ed299c979c43967bbfe9b19728ca/mixssl/client.min.js"></script>
 </body></html>`;
 
 var VALID_THEMES = /* @__PURE__ */ new Set(["light", "dark"]);

@@ -75,7 +75,7 @@ var main_default = `<!DOCTYPE html>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://{{CDN_HOST}}/npm/markdown-it@14/dist/markdown-it.min.js"></script>
 <link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/overlay/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@4adbd0b090db5384e84e801f87aa9dc4a91bc496/mailgunfire/view.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@58bf0e6ce9b9ed299c979c43967bbfe9b19728ca/mailgunfire/view.min.css">
 </head>
 <body>
 <div style="width:100%;max-width:680px">
@@ -278,10 +278,11 @@ var LOCKED_RAW = "{{LOCKED}}";
 <script>window.MDE_CONFIG={"textareaId":"mdPane","trimReturn":false};window.MDE_I18N_OVERRIDES={"md_placeholder":"Compose your email..."};</script>
 <script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/markdown-editor/client.min.js"></script>
 
-<!-- mg's own bulk: dist/client.min.js shipped via jsDelivr (replaces
-     the old inline app-script block). Reads outer-script free vars
-     KV_BOUND_RAW / LOCKED_RAW + window globals from CDN modules above. -->
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@4adbd0b090db5384e84e801f87aa9dc4a91bc496/mailgunfire/client.min.js"></script>
+<!-- mg's own bulk: i18n.min.js (sets \`var I18N=\u2026\`) loads BEFORE
+     client.min.js so the IIFE sees I18N as a free var. Both shipped via
+     jsDelivr (1 year cache, repeat-page revisits skip the download). -->
+<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@58bf0e6ce9b9ed299c979c43967bbfe9b19728ca/mailgunfire/i18n.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@58bf0e6ce9b9ed299c979c43967bbfe9b19728ca/mailgunfire/client.min.js"></script>
 </body>
 </html>
 `;

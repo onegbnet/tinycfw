@@ -8,7 +8,7 @@ The lifeline CA is **ZeroSSL** (Let's Encrypt is not used because Cloudflare Wor
 
 - **Mix accounts and registrars in one cert** — the unique differentiator: a single certificate can cover zones managed by multiple accounts of the same DNS registrar (e.g. two Cloudflare accounts) *and* multiple registrars at once. Each zone's DNS-01 challenge is signed by the correct account automatically. Currently supported DNS registrars: **Cloudflare (international)** and **DNSPod.cn (mainland China)**.
 - **Multi-CA, chosen per config** — ZeroSSL (auto-bootstrapped lifeline via EAB), Google Trust Services (GCP Service Account auto-mints EAB). Each cert-config picks its primary CA and optional fallback chain. Let's Encrypt is **not available** in this build due to the CF ↔ LE HTTP 525 issue.
-- **12 languages, dark / light mode** — auto-detected from browser, with full RTL support; theme toggle persisted to localStorage
+- **20 languages, dark / light mode** — auto-detected from browser, with full RTL support; theme + language preferences persisted via cookie (works in 100% of browsers including Strict Tracking Prevention modes)
 - **Auto-renewal** — per-config policies: `days:N` before expiry, first-of-month, day-of-week, last-of-prev-month, or manual
 - **Five key types** — EC P-256, EC P-384, RSA 2048, RSA 3072, RSA 4096
 - **Encryption at rest** — account JWKs and DNS registrar credentials AES-GCM-256 encrypted with your `MASTER` secret
@@ -44,7 +44,7 @@ The lifeline CA is **ZeroSSL** (Let's Encrypt is not used because Cloudflare Wor
 
 - **一证多账号、多管理机构混合** — 产品的核心差异化：一张证书可以同时覆盖同一个 DNS 管理机构下多个账号的 zone（例如两个 Cloudflare 账号），也可以同时覆盖多个管理机构。每个 zone 的 DNS-01 challenge 会自动用对应的账号去签。当前支持的 DNS 管理机构：**Cloudflare（国际）** 与 **DNSPod.cn（中国大陆）**。
 - **多 CA，按配置选择** — ZeroSSL（通过 EAB 自动引导的生命线 CA）、Google Trust Services（GCP Service Account 自动铸造 EAB）。每个证书配置单独选定主 CA 与可选的回退链。本版本**不提供** Let's Encrypt，因为存在 CF ↔ LE 的 HTTP 525 问题。
-- **12 种语言 + 亮色/暗色模式** — 根据浏览器自动匹配语言，完整 RTL 支持；主题切换保存在 localStorage
+- **20 种语言 + 亮色/暗色模式** — 根据浏览器自动匹配语言，完整 RTL 支持；主题与语言偏好通过 cookie 持久化（在严格跟踪防护模式的浏览器下也工作）
 - **自动续签** — 每个配置可独立策略：到期前 N 天、每月 1 日、到期周的指定星期、到期前一月末日，或手动
 - **五种密钥类型** — EC P-256、EC P-384、RSA 2048、RSA 3072、RSA 4096
 - **静态加密** — 账号 JWK 和 DNS 管理机构凭证用 `MASTER` 密钥做 AES-GCM-256 加密
@@ -80,7 +80,7 @@ The lifeline CA is **ZeroSSL** (Let's Encrypt is not used because Cloudflare Wor
 
 - **一證多帳號、多管理機構混合** — 產品的核心差異化：一張憑證可同時涵蓋同一家 DNS 管理機構下多個帳號的 zone（例如兩個 Cloudflare 帳號），也可同時涵蓋多家管理機構。每個 zone 的 DNS-01 challenge 會自動用對應帳號簽署。目前支援的 DNS 管理機構：**Cloudflare（國際）** 與 **DNSPod.cn（中國大陸）**。
 - **多 CA，依設定選擇** — ZeroSSL（透過 EAB 自動引導的生命線 CA）、Google Trust Services（GCP Service Account 自動鑄造 EAB）。每個憑證設定單獨選定主 CA 與可選的回退鏈。本版本**不提供** Let's Encrypt，因為存在 CF ↔ LE 的 HTTP 525 問題。
-- **12 種語言 + 亮色/暗色模式** — 根據瀏覽器自動匹配語言，完整 RTL 支援；主題切換儲存在 localStorage
+- **20 種語言 + 亮色/暗色模式** — 根據瀏覽器自動匹配語言，完整 RTL 支援；主題與語言偏好透過 cookie 持久化（在嚴格追蹤防護模式的瀏覽器下也工作）
 - **自動續簽** — 每個設定可獨立策略：到期前 N 天、每月 1 日、到期週的指定星期、到期前一月末日，或手動
 - **五種金鑰類型** — EC P-256、EC P-384、RSA 2048、RSA 3072、RSA 4096
 - **靜態加密** — 帳號 JWK 和 DNS 管理機構憑據用 `MASTER` 金鑰做 AES-GCM-256 加密
