@@ -197,10 +197,10 @@ var main_default = `<!DOCTYPE html>
 <html lang="{{LANG}}" data-theme="{{THEME}}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MixSSL \u2014 Certificates with domains from mixed DNS accounts under same or different registrars</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2.5' stroke-linecap='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2'/%3E%3Cpath d='M7 11V7a5 5 0 0110 0v4'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/overlay/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/toast/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/spinner/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@da8ca36975f6f1474eec2993422f4c9defeff1e6/mixssl/view.min.css"></head>
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/overlay/style.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/toast/style.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/spinner/style.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@4adbd0b090db5384e84e801f87aa9dc4a91bc496/mixssl/view.min.css"></head>
 <body>
 <header>
   <div class="brand">
@@ -260,7 +260,7 @@ var main_default = `<!DOCTYPE html>
   <h2 id="certsTitle" data-i18n="h_certs" style="margin:16px 0 10px 0;display:none">Certificates</h2>
   <div id="confList"><div class="modal-loading"><div class="spinner"></div><span data-i18n="loading">Loading\u2026</span></div></div>
 </main>
-<footer style="text-align:center;padding:1rem 0;font-size:.75rem;color:var(--footer-color,inherit)">\xA9 <span id="footerYear"></span> <a href="https://go.gb.net/gaobo" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)"><img src="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/gaobo.png" alt="" style="height:20px;vertical-align:middle;margin:0 2px;"><span id="footerBrand"></span></a> <span id="footerProd"></span> <a href="https://github.com/onegbnet/tinyutils/blob/master/LICENSE" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)">MIT License</a></footer>
+<footer style="text-align:center;padding:1rem 0;font-size:.75rem;color:var(--footer-color,inherit)">\xA9 <span id="footerYear"></span> <a href="https://go.gb.net/gaobo" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)"><img src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/gaobo.png" alt="" style="height:20px;vertical-align:middle;margin:0 2px;"><span id="footerBrand"></span></a> <span id="footerProd"></span> <a href="https://github.com/onegbnet/tinyutils/blob/master/LICENSE" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)">MIT License</a></footer>
 
 
 <div id="toasts"></div>
@@ -392,19 +392,19 @@ var INITIAL_LANG = "{{LANG}}";
      (overlay's modal sugar refs window.Action); theme self-contained
      (storage-free, reads <html data-theme>). {{CDN_HOST}} swapped per-
      request by handleGet(). -->
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/i18n-engine/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/footer-brand/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/action/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/field/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/overlay/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/popover/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/toast/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/theme/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/i18n-engine/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/footer-brand/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/action/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/field/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/overlay/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/popover/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/toast/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/theme/client.min.js"></script>
 
 <!-- mixssl's own bulk: dist/client.min.js shipped via jsDelivr (replaces
      old inline app-script block). Reads outer-script free var
      INITIAL_LANG + window globals from CDN modules above. -->
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@da8ca36975f6f1474eec2993422f4c9defeff1e6/mixssl/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@4adbd0b090db5384e84e801f87aa9dc4a91bc496/mixssl/client.min.js"></script>
 </body></html>`;
 
 var VALID_THEMES = /* @__PURE__ */ new Set(["light", "dark"]);
@@ -2720,7 +2720,7 @@ body {
   </form>
 </div>
 <script>
-<script>window.LOCK_CONFIG={"unlockPath":"/unlock","appNameI18n":{"en":"MixSSL","eo":"MixSSL","fr":"MixSSL","de":"MixSSL","es":"MixSSL","it":"MixSSL","nl":"MixSSL","da":"MixSSL","zh-cn":"\u6DF7\u642D\u8BC1\u4E66","zh-tw":"\u6DF7\u642D\u6191\u8B49","ja":"MixSSL","ko":"MixSSL","ms":"MixSSL","vi":"MixSSL","th":"MixSSL","ta":"MixSSL","my":"MixSSL","uk":"MixSSL","he":"MixSSL","ar":"MixSSL"}};</script><script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/lock/client.min.js"></script>
+<script>window.LOCK_CONFIG={"unlockPath":"/unlock","appNameI18n":{"en":"MixSSL","eo":"MixSSL","fr":"MixSSL","de":"MixSSL","es":"MixSSL","it":"MixSSL","nl":"MixSSL","da":"MixSSL","zh-cn":"\u6DF7\u642D\u8BC1\u4E66","zh-tw":"\u6DF7\u642D\u6191\u8B49","ja":"MixSSL","ko":"MixSSL","ms":"MixSSL","vi":"MixSSL","th":"MixSSL","ta":"MixSSL","my":"MixSSL","uk":"MixSSL","he":"MixSSL","ar":"MixSSL"}};</script><script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/lock/client.min.js"></script>
 </script>
 </body></html>
 `

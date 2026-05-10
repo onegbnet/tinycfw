@@ -74,8 +74,8 @@ var main_default = `<!DOCTYPE html>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://{{CDN_HOST}}/npm/markdown-it@14/dist/markdown-it.min.js"></script>
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/overlay/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@da8ca36975f6f1474eec2993422f4c9defeff1e6/mailgunfire/view.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/overlay/style.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@4adbd0b090db5384e84e801f87aa9dc4a91bc496/mailgunfire/view.min.css">
 </head>
 <body>
 <div style="width:100%;max-width:680px">
@@ -233,7 +233,7 @@ var main_default = `<!DOCTYPE html>
     </div>
   </form>
 </div>
-<footer style="text-align:center;padding:1rem 0;font-size:.75rem;color:var(--footer-color,inherit)">\xA9 <span id="footerYear"></span> <a href="https://go.gb.net/gaobo" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)"><img src="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/gaobo.png" alt="" style="height:20px;vertical-align:middle;margin:0 2px;"><span id="footerBrand"></span></a> <span id="footerProd"></span> <a href="https://github.com/onegbnet/tinyutils/blob/master/LICENSE" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)">MIT License</a></footer>
+<footer style="text-align:center;padding:1rem 0;font-size:.75rem;color:var(--footer-color,inherit)">\xA9 <span id="footerYear"></span> <a href="https://go.gb.net/gaobo" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)"><img src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/gaobo.png" alt="" style="height:20px;vertical-align:middle;margin:0 2px;"><span id="footerBrand"></span></a> <span id="footerProd"></span> <a href="https://github.com/onegbnet/tinyutils/blob/master/LICENSE" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)">MIT License</a></footer>
 
 </div>
 
@@ -264,24 +264,24 @@ var LOCKED_RAW = "{{LOCKED}}";
      (overlay's modal sugar refs window.Action); field separately; theme
      self-contained (storage-free now \u2014 reads <html data-theme>). All
      parser-blocking, executed in source order. -->
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/i18n-engine/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/footer-brand/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/action/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/field/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/overlay/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/theme/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/upload2kv/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/i18n-engine/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/footer-brand/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/action/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/field/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/overlay/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/theme/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/upload2kv/client.min.js"></script>
 
 <!-- markdown-editor (Phase 5b-B): per-app config via inline shim BEFORE
      the CDN <script src> so window.MDE_CONFIG / window.MDE_I18N_OVERRIDES
      are set when the IIFE executes. -->
 <script>window.MDE_CONFIG={"textareaId":"mdPane","trimReturn":false};window.MDE_I18N_OVERRIDES={"md_placeholder":"Compose your email..."};</script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/markdown-editor/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/markdown-editor/client.min.js"></script>
 
 <!-- mg's own bulk: dist/client.min.js shipped via jsDelivr (replaces
      the old inline app-script block). Reads outer-script free vars
      KV_BOUND_RAW / LOCKED_RAW + window globals from CDN modules above. -->
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@da8ca36975f6f1474eec2993422f4c9defeff1e6/mailgunfire/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@4adbd0b090db5384e84e801f87aa9dc4a91bc496/mailgunfire/client.min.js"></script>
 </body>
 </html>
 `;
@@ -1026,7 +1026,7 @@ body {
   </form>
 </div>
 <script>
-<script>window.LOCK_CONFIG={"unlockPath":"/unlock","appNameI18n":{"en":"Mailgun Fire","eo":"Mailgun Fire","fr":"Mailgun Fire","de":"Mailgun Fire","es":"Mailgun Fire","it":"Mailgun Fire","nl":"Mailgun Fire","da":"Mailgun Fire","zh-cn":"\u5F00\u706B\u90AE\u4EF6","zh-tw":"\u958B\u706B\u90F5\u4EF6","ja":"Mailgun Fire","ko":"Mailgun Fire","ms":"Mailgun Fire","vi":"Mailgun Fire","th":"Mailgun Fire","ta":"Mailgun Fire","my":"Mailgun Fire","uk":"Mailgun Fire","he":"Mailgun Fire","ar":"Mailgun Fire"}};</script><script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@e85267e266e6879e5a869fdb4027c6769a1a88fb/lock/client.min.js"></script>
+<script>window.LOCK_CONFIG={"unlockPath":"/unlock","appNameI18n":{"en":"Mailgun Fire","eo":"Mailgun Fire","fr":"Mailgun Fire","de":"Mailgun Fire","es":"Mailgun Fire","it":"Mailgun Fire","nl":"Mailgun Fire","da":"Mailgun Fire","zh-cn":"\u5F00\u706B\u90AE\u4EF6","zh-tw":"\u958B\u706B\u90F5\u4EF6","ja":"Mailgun Fire","ko":"Mailgun Fire","ms":"Mailgun Fire","vi":"Mailgun Fire","th":"Mailgun Fire","ta":"Mailgun Fire","my":"Mailgun Fire","uk":"Mailgun Fire","he":"Mailgun Fire","ar":"Mailgun Fire"}};</script><script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/lock/client.min.js"></script>
 </script>
 </body></html>
 `;
