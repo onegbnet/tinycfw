@@ -75,7 +75,7 @@ var main_default = `<!DOCTYPE html>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://{{CDN_HOST}}/npm/markdown-it@14/dist/markdown-it.min.js"></script>
 <link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/overlay/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@58bf0e6ce9b9ed299c979c43967bbfe9b19728ca/mailgunfire/view.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c2edd27efa7fac4045a25f099140c16655198933/mailgunfire/view.min.css">
 </head>
 <body>
 <div style="width:100%;max-width:680px">
@@ -278,11 +278,11 @@ var LOCKED_RAW = "{{LOCKED}}";
 <script>window.MDE_CONFIG={"textareaId":"mdPane","trimReturn":false};window.MDE_I18N_OVERRIDES={"md_placeholder":"Compose your email..."};</script>
 <script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/markdown-editor/client.min.js"></script>
 
-<!-- mg's own bulk: i18n.min.js (sets \`var I18N=\u2026\`) loads BEFORE
+<!-- mg's own assets: i18n.min.js (sets \`var I18N=\u2026\`) loads BEFORE
      client.min.js so the IIFE sees I18N as a free var. Both shipped via
      jsDelivr (1 year cache, repeat-page revisits skip the download). -->
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@58bf0e6ce9b9ed299c979c43967bbfe9b19728ca/mailgunfire/i18n.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@58bf0e6ce9b9ed299c979c43967bbfe9b19728ca/mailgunfire/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c2edd27efa7fac4045a25f099140c16655198933/mailgunfire/i18n.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c2edd27efa7fac4045a25f099140c16655198933/mailgunfire/client.min.js"></script>
 </body>
 </html>
 `;
@@ -1026,9 +1026,7 @@ body {
     <div class="lock-err" id="lockErr"></div>
   </form>
 </div>
-<script>
 <script>window.LOCK_CONFIG={"unlockPath":"/unlock","appNameI18n":{"en":"Mailgun Fire","eo":"Mailgun Fire","fr":"Mailgun Fire","de":"Mailgun Fire","es":"Mailgun Fire","it":"Mailgun Fire","nl":"Mailgun Fire","da":"Mailgun Fire","zh-cn":"\u5F00\u706B\u90AE\u4EF6","zh-tw":"\u958B\u706B\u90F5\u4EF6","ja":"Mailgun Fire","ko":"Mailgun Fire","ms":"Mailgun Fire","vi":"Mailgun Fire","th":"Mailgun Fire","ta":"Mailgun Fire","my":"Mailgun Fire","uk":"Mailgun Fire","he":"Mailgun Fire","ar":"Mailgun Fire"}};</script><script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/lock/client.min.js"></script>
-</script>
 </body></html>
 `;
 var lock = makeLockModule({

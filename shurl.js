@@ -177,7 +177,7 @@ var landing_default = `<!DOCTYPE html>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71'/%3E%3C/svg%3E">
 <script src="https://{{CDN_HOST}}/npm/markdown-it@14/dist/markdown-it.min.js"></script>
 <link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/overlay/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@58bf0e6ce9b9ed299c979c43967bbfe9b19728ca/shurl/view.min.css"></head><body><div style="width:100%;max-width:480px"><div class="c">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c2edd27efa7fac4045a25f099140c16655198933/shurl/view.min.css"></head><body><div style="width:100%;max-width:480px"><div class="c">
 <div class="header">
   <div class="header-left">
     <div class="logo-icon">
@@ -408,7 +408,7 @@ var landing_default = `<!DOCTYPE html>
 // flash of wrong UI after JS loads.
 //
 // I18N table is no longer inline \u2014 it's loaded from dist/i18n.min.js
-// (Phase 5b-A self bulk) via the <script src> below. jsDelivr 1y cache.
+// (Phase 5b-A self assets) via the <script src> below. jsDelivr 1y cache.
 var KEY_REQUIRED_RAW = "{{KEY_REQUIRED}}";
 var IS_ADMIN_RAW = "{{IS_ADMIN}}";
 </script>
@@ -430,11 +430,11 @@ var IS_ADMIN_RAW = "{{IS_ADMIN}}";
 <script>window.MDE_CONFIG={"textareaId":"mdPane","trimReturn":true};</script>
 <script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/markdown-editor/client.min.js"></script>
 
-<!-- shurl's own bulk: i18n.min.js (sets window.I18N) loads BEFORE
+<!-- shurl's own assets: i18n.min.js (sets window.I18N) loads BEFORE
      client.min.js so the IIFE sees I18N as a free var. Both shipped via
      jsDelivr (1 year cache, repeat-page revisits skip the download). -->
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@58bf0e6ce9b9ed299c979c43967bbfe9b19728ca/shurl/i18n.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@58bf0e6ce9b9ed299c979c43967bbfe9b19728ca/shurl/client.min.js"></script></body></html>`;
+<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c2edd27efa7fac4045a25f099140c16655198933/shurl/i18n.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c2edd27efa7fac4045a25f099140c16655198933/shurl/client.min.js"></script></body></html>`;
 
 var SLUG_CHARS = "abcdefghijkmnpqrstuvwxyz23456789";
 var SLUG_MIN = 3;
@@ -1084,9 +1084,7 @@ body {
     <div class="lock-err" id="lockErr"></div>
   </form>
 </div>
-<script>
 <script>window.LOCK_CONFIG={"unlockPath":"/_unlock","appNameI18n":{"en":"Shurl","eo":"Shurl","fr":"Shurl","de":"Shurl","es":"Shurl","it":"Shurl","nl":"Shurl","da":"Shurl","zh-cn":"\u901F\u81F3\u77ED\u94FE","zh-tw":"\u901F\u81F3\u77ED\u93C8","ja":"Shurl","ko":"Shurl","ms":"Shurl","vi":"Shurl","th":"Shurl","ta":"Shurl","my":"Shurl","uk":"Shurl","he":"Shurl","ar":"Shurl"}};</script><script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/lock/client.min.js"></script>
-</script>
 </body></html>
 `;
 function hasApiHeader(request) {
@@ -1102,7 +1100,7 @@ var lockModule = makeLockModule({
   lockPageHtml: LOCK_PAGE_HTML
 });
 
-var APP_BULK_URL = "gh/onegbnet/tinycfw@58bf0e6ce9b9ed299c979c43967bbfe9b19728ca/shurl";
+var APP_ASSETS_URL = "gh/onegbnet/tinycfw@c2edd27efa7fac4045a25f099140c16655198933/shurl";
 function redirectPage(entry, acceptLang, cdnHost, slug, showError, authed) {
   const isFile = entry.type === "files";
   const files = entry.files || [];
@@ -1163,7 +1161,7 @@ body{font-family:system-ui,sans-serif;background:${bg};color:${fg};min-height:10
 ${needsPw ? `${showError ? '<p class="pw-err" id="pw-err"></p>' : ""}<form id="pw-form" method="POST" action="/_a/${esc(slug)}"><div class="pw-area"><input type="password" name="_pw" id="pw-input" autofocus required></div><div class="skip"><button type="submit" id="pw-btn" style="display:inline-block;padding:12px 32px;background:#3b82f6;color:#fff;border-radius:8px;font-size:1rem;font-weight:600;border:none;cursor:pointer"></button></div></form>` : filesMany ? `<div class="files-heading" id="files-heading"></div><div id="file-list"></div>` : `<div class="countdown" id="count">${seconds}</div>
 <div class="bar-track"><div class="bar-fill" id="bar" style="width:100%"></div></div>
 <div class="skip"><a id="go-link" href="${esc(target)}" onclick="consumeAndGo();return false"></a></div>`}
-</div><script src="https://${cdnHost}/${APP_BULK_URL}/i18n.min.js"></script><script>
+</div><script src="https://${cdnHost}/${APP_ASSETS_URL}/i18n.min.js"></script><script>
 const currentLang=${JSON.stringify(currentLang)};
 const t=I18N[currentLang]||I18N.en;
 const target=${JSON.stringify(target)};
