@@ -33,6 +33,42 @@ function buildSetCookie(name, value, opts = {}) {
   return parts.join("; ");
 }
 
+var SUPPORTED_LANGS_DEFAULT = [
+  "en",
+  "eo",
+  "fr",
+  "de",
+  "es",
+  "it",
+  "nl",
+  "da",
+  "zh-cn",
+  "zh-tw",
+  "ja",
+  "ko",
+  "ms",
+  "vi",
+  "th",
+  "ta",
+  "my",
+  "uk",
+  "he",
+  "ar"
+];
+function detectLangFromAcceptLanguage(headerString, supported) {
+  supported = supported || SUPPORTED_LANGS_DEFAULT;
+  if (!headerString) return "en";
+  const candidates = headerString.split(",").map((s) => s.split(";")[0].trim().toLowerCase()).filter(Boolean);
+  for (const l of candidates) {
+    if (supported.indexOf(l) !== -1) return l;
+    if (/^zh-(hant|tw|hk|mo)/.test(l) && supported.indexOf("zh-tw") !== -1) return "zh-tw";
+    if (/^zh/.test(l) && supported.indexOf("zh-cn") !== -1) return "zh-cn";
+    const p = l.split("-")[0];
+    if (supported.indexOf(p) !== -1) return p;
+  }
+  return "en";
+}
+
 function makeResponseHelpers({
   cors = null,
   prettyJson = false,
@@ -74,8 +110,8 @@ var main_default = `<!DOCTYPE html>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://{{CDN_HOST}}/npm/markdown-it@14/dist/markdown-it.min.js"></script>
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/overlay/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c2edd27efa7fac4045a25f099140c16655198933/mailgunfire/view.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/overlay/style.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c9c1c41035ef315ce5bae624b9c8db163ae1b988/mailgunfire/view.min.css">
 </head>
 <body>
 <div style="width:100%;max-width:680px">
@@ -233,7 +269,7 @@ var main_default = `<!DOCTYPE html>
     </div>
   </form>
 </div>
-<footer style="text-align:center;padding:1rem 0;font-size:.75rem;color:var(--footer-color,inherit)">\xA9 <span id="footerYear"></span> <a href="https://go.gb.net/gaobo" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)"><img src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/gaobo.png" alt="" style="height:20px;vertical-align:middle;margin:0 2px;"><span id="footerBrand"></span></a> <span id="footerProd"></span> <a href="https://github.com/onegbnet/tinyutils/blob/master/LICENSE" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)">MIT License</a></footer>
+<footer style="text-align:center;padding:1rem 0;font-size:.75rem;color:var(--footer-color,inherit)">\xA9 <span id="footerYear"></span> <a href="https://go.gb.net/gaobo" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)"><img src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/gaobo.png" alt="" style="height:20px;vertical-align:middle;margin:0 2px;"><span id="footerBrand"></span></a> <span id="footerProd"></span> <a href="https://github.com/onegbnet/tinyutils/blob/master/LICENSE" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)">MIT License</a></footer>
 
 </div>
 
@@ -257,6 +293,10 @@ var main_default = `<!DOCTYPE html>
 // \`=== "true"\` checks.
 var KV_BOUND_RAW = "{{KV_BOUND}}";
 var LOCKED_RAW = "{{LOCKED}}";
+// Server-injected lang (cookie OR Accept-Language fallback). Bootstrap
+// reads this via initialFromGlobal:'INITIAL_LANG' so reload preserves
+// the user's last LangSelect choice (persisted via POST /api/prefs).
+var INITIAL_LANG = "{{LANG}}";
 </script>
 
 <!-- CDN-served browser modules \u2014 load order matters: i18n-engine first
@@ -264,25 +304,28 @@ var LOCKED_RAW = "{{LOCKED}}";
      (overlay's modal sugar refs window.Action); field separately; theme
      self-contained (storage-free now \u2014 reads <html data-theme>). All
      parser-blocking, executed in source order. -->
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/i18n-engine/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/footer-brand/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/action/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/field/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/overlay/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/theme/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/upload2kv/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/i18n-engine/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/footer-brand/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/action/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/field/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/overlay/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/theme/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/upload2kv/client.min.js"></script>
 
 <!-- markdown-editor (Phase 5b-B): per-app config via inline shim BEFORE
      the CDN <script src> so window.MDE_CONFIG / window.MDE_I18N_OVERRIDES
      are set when the IIFE executes. -->
 <script>window.MDE_CONFIG={"textareaId":"mdPane","trimReturn":false};window.MDE_I18N_OVERRIDES={"md_placeholder":"Compose your email..."};</script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/markdown-editor/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/markdown-editor/client.min.js"></script>
 
-<!-- mg's own assets: i18n.min.js (sets \`var I18N=\u2026\`) loads BEFORE
-     client.min.js so the IIFE sees I18N as a free var. Both shipped via
-     jsDelivr (1 year cache, repeat-page revisits skip the download). -->
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c2edd27efa7fac4045a25f099140c16655198933/mailgunfire/i18n.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c2edd27efa7fac4045a25f099140c16655198933/mailgunfire/client.min.js"></script>
+<!-- Per-lang i18n loader: detect lang client-side, async-fetch ONLY the
+     matching i18n-<lang>.min.js (~5 KB) instead of the legacy all-langs
+     pattern (~100 KB). Exposes window.LangBundle.{initial,ready,load} \u2014
+     client.min.js waits on LangBundle.ready before its first applyI18n
+     and uses LangBundle.load for switch-on-demand. Bootstrap depends on
+     detectLang() from ccs:i18n-engine loaded above. -->
+<script>(function(){var b="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c9c1c41035ef315ce5bae624b9c8db163ae1b988/mailgunfire";var s=["en","eo","fr","de","es","it","nl","da","zh-cn","zh-tw","ja","ko","ms","vi","th","ta","my","uk","he","ar"];var d="en";function load(l){return new Promise(function(r,j){var x=document.createElement('script');x.src=b+'/i18n-'+l+'.min.js';x.onload=function(){r(l)};x.onerror=function(){j(new Error('i18n-'+l+' failed'))};document.head.appendChild(x)})}var init=(function(){var g=window["INITIAL_LANG"];if(typeof g==='string'&&s.indexOf(g)>=0)return g;return typeof detectLang==='function'?detectLang(s):d})();if(s.indexOf(init)<0)init=d;window.LangBundle={initial:init,ready:load(init),load:load}})();</script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c9c1c41035ef315ce5bae624b9c8db163ae1b988/mailgunfire/client.min.js"></script>
 </body>
 </html>
 `;
@@ -305,12 +348,12 @@ function isValidTtl(val) {
   return !isNaN(n) && n >= 60 && String(n) === String(val).trim();
 }
 
-function handleGet(env, cdnHost, theme) {
+function handleGet(env, cdnHost, theme, lang) {
   const cfg = getConfig(env);
   if (cfg.error) return json({ error: cfg.error }, 500);
   const kvBound = env.SENT ? "true" : "false";
   const locked = isValidLock(env.LOCK) ? "true" : "false";
-  const body = main_default.replace(/\{\{CDN_HOST\}\}/g, cdnHost).replace(/\{\{KV_BOUND\}\}/g, kvBound).replace(/\{\{LOCKED\}\}/g, locked).replace(/\{\{THEME\}\}/g, theme).replace(/\{\{DOMAIN\}\}/g, cfg.domain).replace(/\{\{DEFAULT_SENDER\}\}/g, cfg.login).replace(/\{\{DEFAULT_DISPLAY\}\}/g, cfg.display);
+  const body = main_default.replace(/\{\{CDN_HOST\}\}/g, cdnHost).replace(/\{\{KV_BOUND\}\}/g, kvBound).replace(/\{\{LOCKED\}\}/g, locked).replace(/\{\{THEME\}\}/g, theme).replace(/\{\{LANG\}\}/g, lang).replace(/\{\{DOMAIN\}\}/g, cfg.domain).replace(/\{\{DEFAULT_SENDER\}\}/g, cfg.login).replace(/\{\{DEFAULT_DISPLAY\}\}/g, cfg.display);
   return html(body);
 }
 
@@ -806,35 +849,55 @@ async function handleSentDelete(request, env) {
   return json({ success: true, deleted: ids.length });
 }
 
-var VALID_THEMES = /* @__PURE__ */ new Set(["light", "dark"]);
-async function handlePrefs(request) {
+var DEFAULT_VALID_THEMES = /* @__PURE__ */ new Set(["light", "dark"]);
+var DEFAULT_VALID_LANGS = new Set(SUPPORTED_LANGS_DEFAULT);
+var DEFAULT_COOKIE_NAMES = { theme: "theme", lang: "lang" };
+var DEFAULT_MAX_AGE = 31536e3;
+function buildPrefCookies(prefs, options = {}) {
+  const cookieNames = { ...DEFAULT_COOKIE_NAMES, ...options.cookieNames || {} };
+  const validThemes = options.validThemes || DEFAULT_VALID_THEMES;
+  const validLangs = options.validLangs || DEFAULT_VALID_LANGS;
+  const maxAge = options.maxAge || DEFAULT_MAX_AGE;
+  const cookieOpts = { maxAge, sameSite: "Lax" };
+  const out = [];
+  if (typeof prefs.theme === "string") {
+    if (!validThemes.has(prefs.theme)) throw new Error("Invalid theme");
+    out.push(buildSetCookie(cookieNames.theme, prefs.theme, cookieOpts));
+  }
+  if (typeof prefs.lang === "string") {
+    if (!validLangs.has(prefs.lang)) throw new Error("Invalid lang");
+    out.push(buildSetCookie(cookieNames.lang, prefs.lang, cookieOpts));
+  }
+  return out;
+}
+async function handlePrefs(request, options) {
   let body;
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Invalid JSON" }, 400);
+    return jsonResponse({ error: "Invalid JSON" }, 400);
   }
-  const headers = {};
-  let setCookies = [];
-  if (typeof body.theme === "string") {
-    if (!VALID_THEMES.has(body.theme)) {
-      return json({ error: "Invalid theme" }, 400);
-    }
-    setCookies.push(buildSetCookie("theme", body.theme, {
-      maxAge: 31536e3,
-      // 1 year
-      sameSite: "Lax"
-    }));
+  let cookies;
+  try {
+    cookies = buildPrefCookies(body, options);
+  } catch (e) {
+    return jsonResponse({ error: e.message }, 400);
   }
-  if (setCookies.length === 0) {
-    return json({ error: "No prefs to update" }, 400);
+  if (cookies.length === 0) {
+    return jsonResponse({ error: "No prefs to update" }, 400);
   }
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
     headers: {
       "Content-Type": "application/json",
-      "Set-Cookie": setCookies.join(", ")
+      "Set-Cookie": cookies.join(", ")
     }
+  });
+}
+function jsonResponse(body, status) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" }
   });
 }
 
@@ -1026,7 +1089,7 @@ body {
     <div class="lock-err" id="lockErr"></div>
   </form>
 </div>
-<script>window.LOCK_CONFIG={"unlockPath":"/unlock","appNameI18n":{"en":"Mailgun Fire","eo":"Mailgun Fire","fr":"Mailgun Fire","de":"Mailgun Fire","es":"Mailgun Fire","it":"Mailgun Fire","nl":"Mailgun Fire","da":"Mailgun Fire","zh-cn":"\u5F00\u706B\u90AE\u4EF6","zh-tw":"\u958B\u706B\u90F5\u4EF6","ja":"Mailgun Fire","ko":"Mailgun Fire","ms":"Mailgun Fire","vi":"Mailgun Fire","th":"Mailgun Fire","ta":"Mailgun Fire","my":"Mailgun Fire","uk":"Mailgun Fire","he":"Mailgun Fire","ar":"Mailgun Fire"}};</script><script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/lock/client.min.js"></script>
+<script>window.LOCK_CONFIG={"unlockPath":"/unlock","appNameI18n":{"en":"Mailgun Fire","eo":"Mailgun Fire","fr":"Mailgun Fire","de":"Mailgun Fire","es":"Mailgun Fire","it":"Mailgun Fire","nl":"Mailgun Fire","da":"Mailgun Fire","zh-cn":"\u5F00\u706B\u90AE\u4EF6","zh-tw":"\u958B\u706B\u90F5\u4EF6","ja":"Mailgun Fire","ko":"Mailgun Fire","ms":"Mailgun Fire","vi":"Mailgun Fire","th":"Mailgun Fire","ta":"Mailgun Fire","my":"Mailgun Fire","uk":"Mailgun Fire","he":"Mailgun Fire","ar":"Mailgun Fire"}};</script><script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/lock/client.min.js"></script>
 </body></html>
 `;
 var lock = makeLockModule({
@@ -1048,6 +1111,8 @@ var index_default = {
     const cdnHost = selectJsdelivrCdnHost(request);
     const themeCookie = getCookie(request, "theme");
     const theme = themeCookie === "dark" ? "dark" : "light";
+    const langCookie = getCookie(request, "lang");
+    const lang = langCookie && SUPPORTED_LANGS_DEFAULT.includes(langCookie) ? langCookie : detectLangFromAcceptLanguage(request.headers.get("Accept-Language") || "", SUPPORTED_LANGS_DEFAULT);
     if (method === "POST" && path === lockModule.unlockPath) {
       return lockModule.handleUnlock(request, env);
     }
@@ -1063,7 +1128,7 @@ var index_default = {
       return json({ error: lockModule.errorCode }, 401);
     }
     if (method === "GET" && path === "/") {
-      return handleGet(env, cdnHost, theme);
+      return handleGet(env, cdnHost, theme, lang);
     }
     if (method === "POST" && path === "/api/prefs") {
       return handlePrefs(request);

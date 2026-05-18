@@ -197,10 +197,10 @@ var main_default = `<!DOCTYPE html>
 <html lang="{{LANG}}" data-theme="{{THEME}}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MixSSL \u2014 Certificates with domains from mixed DNS accounts under same or different registrars</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2.5' stroke-linecap='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2'/%3E%3Cpath d='M7 11V7a5 5 0 0110 0v4'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/overlay/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/toast/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/spinner/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c2edd27efa7fac4045a25f099140c16655198933/mixssl/view.min.css"></head>
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/overlay/style.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/toast/style.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/spinner/style.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c9c1c41035ef315ce5bae624b9c8db163ae1b988/mixssl/view.min.css"></head>
 <body>
 <header>
   <div class="brand">
@@ -260,7 +260,7 @@ var main_default = `<!DOCTYPE html>
   <h2 id="certsTitle" data-i18n="h_certs" style="margin:16px 0 10px 0;display:none">Certificates</h2>
   <div id="confList"><div class="modal-loading"><div class="spinner"></div><span data-i18n="loading">Loading\u2026</span></div></div>
 </main>
-<footer style="text-align:center;padding:1rem 0;font-size:.75rem;color:var(--footer-color,inherit)">\xA9 <span id="footerYear"></span> <a href="https://go.gb.net/gaobo" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)"><img src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/gaobo.png" alt="" style="height:20px;vertical-align:middle;margin:0 2px;"><span id="footerBrand"></span></a> <span id="footerProd"></span> <a href="https://github.com/onegbnet/tinyutils/blob/master/LICENSE" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)">MIT License</a></footer>
+<footer style="text-align:center;padding:1rem 0;font-size:.75rem;color:var(--footer-color,inherit)">\xA9 <span id="footerYear"></span> <a href="https://go.gb.net/gaobo" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)"><img src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/gaobo.png" alt="" style="height:20px;vertical-align:middle;margin:0 2px;"><span id="footerBrand"></span></a> <span id="footerProd"></span> <a href="https://github.com/onegbnet/tinyutils/blob/master/LICENSE" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)">MIT License</a></footer>
 
 
 <div id="toasts"></div>
@@ -392,61 +392,73 @@ var INITIAL_LANG = "{{LANG}}";
      (overlay's modal sugar refs window.Action); theme self-contained
      (storage-free, reads <html data-theme>). {{CDN_HOST}} swapped per-
      request by handleGet(). -->
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/i18n-engine/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/footer-brand/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/action/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/field/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/overlay/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/popover/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/toast/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/theme/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/i18n-engine/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/footer-brand/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/action/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/field/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/overlay/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/popover/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/toast/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/theme/client.min.js"></script>
 
-<!-- mixssl's own assets: i18n.min.js (sets \`var I18N=\u2026\`) loads BEFORE
-     client.min.js so the IIFE sees I18N as a free var. Both shipped via
-     jsDelivr (1 year cache, repeat-page revisits skip the download).
-     client.min.js reads outer-script free var INITIAL_LANG + window
-     globals from CDN modules above. -->
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c2edd27efa7fac4045a25f099140c16655198933/mixssl/i18n.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c2edd27efa7fac4045a25f099140c16655198933/mixssl/client.min.js"></script>
+<!-- Per-lang i18n loader: bootstrap reads server-injected INITIAL_LANG
+     (preferred) or falls back to client-side detectLang, then async-
+     fetches the matching i18n-<lang>.min.js. Exposes window.LangBundle \u2014
+     client.min.js waits on LangBundle.ready before applyI18n and uses
+     LangBundle.load on lang switch. -->
+<script>(function(){var b="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c9c1c41035ef315ce5bae624b9c8db163ae1b988/mixssl";var s=["en","eo","fr","de","es","it","nl","da","zh-cn","zh-tw","ja","ko","ms","vi","th","ta","my","uk","he","ar"];var d="en";function load(l){return new Promise(function(r,j){var x=document.createElement('script');x.src=b+'/i18n-'+l+'.min.js';x.onload=function(){r(l)};x.onerror=function(){j(new Error('i18n-'+l+' failed'))};document.head.appendChild(x)})}var init=(function(){var g=window["INITIAL_LANG"];if(typeof g==='string'&&s.indexOf(g)>=0)return g;return typeof detectLang==='function'?detectLang(s):d})();if(s.indexOf(init)<0)init=d;window.LangBundle={initial:init,ready:load(init),load:load}})();</script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c9c1c41035ef315ce5bae624b9c8db163ae1b988/mixssl/client.min.js"></script>
 </body></html>`;
 
-var VALID_THEMES = /* @__PURE__ */ new Set(["light", "dark"]);
-var VALID_LANGS = new Set(SUPPORTED_LANGS_DEFAULT);
-async function handlePrefs(request) {
+var DEFAULT_VALID_THEMES = /* @__PURE__ */ new Set(["light", "dark"]);
+var DEFAULT_VALID_LANGS = new Set(SUPPORTED_LANGS_DEFAULT);
+var DEFAULT_COOKIE_NAMES = { theme: "theme", lang: "lang" };
+var DEFAULT_MAX_AGE = 31536e3;
+function buildPrefCookies(prefs, options = {}) {
+  const cookieNames = { ...DEFAULT_COOKIE_NAMES, ...options.cookieNames || {} };
+  const validThemes = options.validThemes || DEFAULT_VALID_THEMES;
+  const validLangs = options.validLangs || DEFAULT_VALID_LANGS;
+  const maxAge = options.maxAge || DEFAULT_MAX_AGE;
+  const cookieOpts = { maxAge, sameSite: "Lax" };
+  const out = [];
+  if (typeof prefs.theme === "string") {
+    if (!validThemes.has(prefs.theme)) throw new Error("Invalid theme");
+    out.push(buildSetCookie(cookieNames.theme, prefs.theme, cookieOpts));
+  }
+  if (typeof prefs.lang === "string") {
+    if (!validLangs.has(prefs.lang)) throw new Error("Invalid lang");
+    out.push(buildSetCookie(cookieNames.lang, prefs.lang, cookieOpts));
+  }
+  return out;
+}
+async function handlePrefs(request, options) {
   let body;
   try {
     body = await request.json();
   } catch {
-    return json({ error: "INVALID_JSON" }, 400);
+    return jsonResponse({ error: "Invalid JSON" }, 400);
   }
-  const setCookies = [];
-  if (typeof body.theme === "string") {
-    if (!VALID_THEMES.has(body.theme)) {
-      return json({ error: "INVALID_THEME" }, 400);
-    }
-    setCookies.push(buildSetCookie("theme", body.theme, {
-      maxAge: 31536e3,
-      sameSite: "Lax"
-    }));
+  let cookies;
+  try {
+    cookies = buildPrefCookies(body, options);
+  } catch (e) {
+    return jsonResponse({ error: e.message }, 400);
   }
-  if (typeof body.lang === "string") {
-    if (!VALID_LANGS.has(body.lang)) {
-      return json({ error: "INVALID_LANG" }, 400);
-    }
-    setCookies.push(buildSetCookie("lang", body.lang, {
-      maxAge: 31536e3,
-      sameSite: "Lax"
-    }));
-  }
-  if (setCookies.length === 0) {
-    return json({ error: "NO_PREFS" }, 400);
+  if (cookies.length === 0) {
+    return jsonResponse({ error: "No prefs to update" }, 400);
   }
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
     headers: {
       "Content-Type": "application/json",
-      "Set-Cookie": setCookies.join(", ")
+      "Set-Cookie": cookies.join(", ")
     }
+  });
+}
+function jsonResponse(body, status) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" }
   });
 }
 
@@ -2722,7 +2734,7 @@ body {
     <div class="lock-err" id="lockErr"></div>
   </form>
 </div>
-<script>window.LOCK_CONFIG={"unlockPath":"/unlock","appNameI18n":{"en":"MixSSL","eo":"MixSSL","fr":"MixSSL","de":"MixSSL","es":"MixSSL","it":"MixSSL","nl":"MixSSL","da":"MixSSL","zh-cn":"\u6DF7\u642D\u8BC1\u4E66","zh-tw":"\u6DF7\u642D\u6191\u8B49","ja":"MixSSL","ko":"MixSSL","ms":"MixSSL","vi":"MixSSL","th":"MixSSL","ta":"MixSSL","my":"MixSSL","uk":"MixSSL","he":"MixSSL","ar":"MixSSL"}};</script><script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7191554f0b83eb52aea9a9d22303ba026d4820f4/lock/client.min.js"></script>
+<script>window.LOCK_CONFIG={"unlockPath":"/unlock","appNameI18n":{"en":"MixSSL","eo":"MixSSL","fr":"MixSSL","de":"MixSSL","es":"MixSSL","it":"MixSSL","nl":"MixSSL","da":"MixSSL","zh-cn":"\u6DF7\u642D\u8BC1\u4E66","zh-tw":"\u6DF7\u642D\u6191\u8B49","ja":"MixSSL","ko":"MixSSL","ms":"MixSSL","vi":"MixSSL","th":"MixSSL","ta":"MixSSL","my":"MixSSL","uk":"MixSSL","he":"MixSSL","ar":"MixSSL"}};</script><script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/lock/client.min.js"></script>
 </body></html>
 `
 });

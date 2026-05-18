@@ -124,7 +124,7 @@ function makeResponseHelpers({
   if (cors) baseJsonHeaders["Access-Control-Allow-Origin"] = cors;
   const baseHtmlHeaders = { "Content-Type": "text/html;charset=UTF-8" };
   if (htmlCache) baseHtmlHeaders["Cache-Control"] = htmlCache;
-  function json6(data, status = 200, extraHeaders = {}) {
+  function json5(data, status = 200, extraHeaders = {}) {
     const body = prettyJson ? JSON.stringify(data, null, 2) : JSON.stringify(data);
     return new Response(body, {
       status,
@@ -140,7 +140,7 @@ function makeResponseHelpers({
       headers: { "Content-Type": "text/plain;charset=UTF-8" }
     });
   }
-  return { json: json6, html: html2, text };
+  return { json: json5, html: html2, text };
 }
 
 function getCookie(reqOrHeader, name) {
@@ -171,13 +171,49 @@ function buildSetCookie(name, value, opts = {}) {
   return parts.join("; ");
 }
 
+var SUPPORTED_LANGS_DEFAULT = [
+  "en",
+  "eo",
+  "fr",
+  "de",
+  "es",
+  "it",
+  "nl",
+  "da",
+  "zh-cn",
+  "zh-tw",
+  "ja",
+  "ko",
+  "ms",
+  "vi",
+  "th",
+  "ta",
+  "my",
+  "uk",
+  "he",
+  "ar"
+];
+function detectLangFromAcceptLanguage(headerString, supported) {
+  supported = supported || SUPPORTED_LANGS_DEFAULT;
+  if (!headerString) return "en";
+  const candidates = headerString.split(",").map((s) => s.split(";")[0].trim().toLowerCase()).filter(Boolean);
+  for (const l of candidates) {
+    if (supported.indexOf(l) !== -1) return l;
+    if (/^zh-(hant|tw|hk|mo)/.test(l) && supported.indexOf("zh-tw") !== -1) return "zh-tw";
+    if (/^zh/.test(l) && supported.indexOf("zh-cn") !== -1) return "zh-cn";
+    const p = l.split("-")[0];
+    if (supported.indexOf(p) !== -1) return p;
+  }
+  return "en";
+}
+
 var landing_default = `<!DOCTYPE html>
 <html lang="en" dir="ltr" data-theme="{{THEME}}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Shurl</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71'/%3E%3C/svg%3E">
 <script src="https://{{CDN_HOST}}/npm/markdown-it@14/dist/markdown-it.min.js"></script>
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@23215cf99cd8eb8d59bc8f04932ac7b7b73b64b3/overlay/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@905419f91068db299be77bf467803ff511caa2c0/shurl/view.min.css"></head><body><div style="width:100%;max-width:480px"><div class="c">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/overlay/style.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c9c1c41035ef315ce5bae624b9c8db163ae1b988/shurl/view.min.css"></head><body><div style="width:100%;max-width:480px"><div class="c">
 <div class="header">
   <div class="header-left">
     <div class="logo-icon">
@@ -397,7 +433,7 @@ var landing_default = `<!DOCTYPE html>
 <div id="r"></div>
 
 </div>
-<footer style="text-align:center;padding:1rem 0;font-size:.75rem;color:var(--footer-color,inherit)">\xA9 <span id="footerYear"></span> <a href="https://go.gb.net/gaobo" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)"><img src="https://{{CDN_HOST}}/gh/onegbnet/ccs@23215cf99cd8eb8d59bc8f04932ac7b7b73b64b3/gaobo.png" alt="" style="height:20px;vertical-align:middle;margin:0 2px;"><span id="footerBrand"></span></a> <span id="footerProd"></span> <a href="https://github.com/onegbnet/tinyutils/blob/master/LICENSE" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)">MIT License</a></footer>
+<footer style="text-align:center;padding:1rem 0;font-size:.75rem;color:var(--footer-color,inherit)">\xA9 <span id="footerYear"></span> <a href="https://go.gb.net/gaobo" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)"><img src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/gaobo.png" alt="" style="height:20px;vertical-align:middle;margin:0 2px;"><span id="footerBrand"></span></a> <span id="footerProd"></span> <a href="https://github.com/onegbnet/tinyutils/blob/master/LICENSE" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)">MIT License</a></footer>
 
 </div>
 <script>
@@ -411,30 +447,35 @@ var landing_default = `<!DOCTYPE html>
 // (Phase 5b-A self assets) via the <script src> below. jsDelivr 1y cache.
 var KEY_REQUIRED_RAW = "{{KEY_REQUIRED}}";
 var IS_ADMIN_RAW = "{{IS_ADMIN}}";
+// Server-injected lang (cookie OR Accept-Language fallback). Bootstrap
+// reads this via initialFromGlobal:'INITIAL_LANG' so reload preserves
+// the user's last LangSelect choice (persisted via POST /api/prefs).
+var INITIAL_LANG = "{{LANG}}";
 </script>
 
 <!-- CDN-served browser modules \u2014 order: i18n-engine first; action before
      overlay; field separately; theme self-contained (storage-free, reads
      <html data-theme>). {{CDN_HOST}} swapped per-request by handleGet(). -->
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@23215cf99cd8eb8d59bc8f04932ac7b7b73b64b3/i18n-engine/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@23215cf99cd8eb8d59bc8f04932ac7b7b73b64b3/footer-brand/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@23215cf99cd8eb8d59bc8f04932ac7b7b73b64b3/action/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@23215cf99cd8eb8d59bc8f04932ac7b7b73b64b3/field/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@23215cf99cd8eb8d59bc8f04932ac7b7b73b64b3/overlay/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@23215cf99cd8eb8d59bc8f04932ac7b7b73b64b3/theme/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@23215cf99cd8eb8d59bc8f04932ac7b7b73b64b3/upload2kv/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/i18n-engine/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/footer-brand/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/action/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/field/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/overlay/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/theme/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/upload2kv/client.min.js"></script>
 
 <!-- markdown-editor (Phase 5b-B): per-app config via inline shim BEFORE
      the CDN <script src> so window.MDE_CONFIG / window.MDE_I18N_OVERRIDES
      are set when the IIFE executes. -->
 <script>window.MDE_CONFIG={"textareaId":"mdPane","trimReturn":true};</script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@23215cf99cd8eb8d59bc8f04932ac7b7b73b64b3/markdown-editor/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/markdown-editor/client.min.js"></script>
 
-<!-- shurl's own assets: i18n.min.js (sets window.I18N) loads BEFORE
-     client.min.js so the IIFE sees I18N as a free var. Both shipped via
-     jsDelivr (1 year cache, repeat-page revisits skip the download). -->
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@905419f91068db299be77bf467803ff511caa2c0/shurl/i18n.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@905419f91068db299be77bf467803ff511caa2c0/shurl/client.min.js"></script></body></html>`;
+<!-- Per-lang i18n loader: detect lang client-side, async-fetch ONLY the
+     matching i18n-<lang>.min.js. Exposes window.LangBundle.{initial,
+     ready, load} \u2014 client.min.js waits on LangBundle.ready before its
+     first applyI18n and uses LangBundle.load for switch-on-demand. -->
+<script>(function(){var b="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c9c1c41035ef315ce5bae624b9c8db163ae1b988/shurl";var s=["en","eo","fr","de","es","it","nl","da","zh-cn","zh-tw","ja","ko","ms","vi","th","ta","my","uk","he","ar"];var d="en";function load(l){return new Promise(function(r,j){var x=document.createElement('script');x.src=b+'/i18n-'+l+'.min.js';x.onload=function(){r(l)};x.onerror=function(){j(new Error('i18n-'+l+' failed'))};document.head.appendChild(x)})}var init=(function(){var g=window["INITIAL_LANG"];if(typeof g==='string'&&s.indexOf(g)>=0)return g;return typeof detectLang==='function'?detectLang(s):d})();if(s.indexOf(init)<0)init=d;window.LangBundle={initial:init,ready:load(init),load:load}})();</script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c9c1c41035ef315ce5bae624b9c8db163ae1b988/shurl/client.min.js"></script></body></html>`;
 
 var SLUG_CHARS = "abcdefghijkmnpqrstuvwxyz23456789";
 var SLUG_MIN = 3;
@@ -1084,7 +1125,7 @@ body {
     <div class="lock-err" id="lockErr"></div>
   </form>
 </div>
-<script>window.LOCK_CONFIG={"unlockPath":"/_unlock","appNameI18n":{"en":"Shurl","eo":"Shurl","fr":"Shurl","de":"Shurl","es":"Shurl","it":"Shurl","nl":"Shurl","da":"Shurl","zh-cn":"\u901F\u81F3\u77ED\u94FE","zh-tw":"\u901F\u81F3\u77ED\u93C8","ja":"Shurl","ko":"Shurl","ms":"Shurl","vi":"Shurl","th":"Shurl","ta":"Shurl","my":"Shurl","uk":"Shurl","he":"Shurl","ar":"Shurl"}};</script><script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@23215cf99cd8eb8d59bc8f04932ac7b7b73b64b3/lock/client.min.js"></script>
+<script>window.LOCK_CONFIG={"unlockPath":"/_unlock","appNameI18n":{"en":"Shurl","eo":"Shurl","fr":"Shurl","de":"Shurl","es":"Shurl","it":"Shurl","nl":"Shurl","da":"Shurl","zh-cn":"\u901F\u81F3\u77ED\u94FE","zh-tw":"\u901F\u81F3\u77ED\u93C8","ja":"Shurl","ko":"Shurl","ms":"Shurl","vi":"Shurl","th":"Shurl","ta":"Shurl","my":"Shurl","uk":"Shurl","he":"Shurl","ar":"Shurl"}};</script><script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/lock/client.min.js"></script>
 </body></html>
 `;
 function hasApiHeader(request) {
@@ -1100,7 +1141,7 @@ var lockModule = makeLockModule({
   lockPageHtml: LOCK_PAGE_HTML
 });
 
-var APP_ASSETS_URL = "gh/onegbnet/tinycfw@905419f91068db299be77bf467803ff511caa2c0/shurl";
+var APP_ASSETS_URL = "gh/onegbnet/tinycfw@c9c1c41035ef315ce5bae624b9c8db163ae1b988/shurl";
 function redirectPage(entry, acceptLang, cdnHost, slug, showError, authed) {
   const isFile = entry.type === "files";
   const files = entry.files || [];
@@ -1646,38 +1687,59 @@ async function handleUploadCommit(request, env, url, slug) {
   return json3(resp);
 }
 
-var { json: json4 } = makeResponseHelpers({ cors: "*", prettyJson: true });
-var VALID_THEMES = /* @__PURE__ */ new Set(["light", "dark"]);
-async function handlePrefs(request) {
+var DEFAULT_VALID_THEMES = /* @__PURE__ */ new Set(["light", "dark"]);
+var DEFAULT_VALID_LANGS = new Set(SUPPORTED_LANGS_DEFAULT);
+var DEFAULT_COOKIE_NAMES = { theme: "theme", lang: "lang" };
+var DEFAULT_MAX_AGE = 31536e3;
+function buildPrefCookies(prefs, options = {}) {
+  const cookieNames = { ...DEFAULT_COOKIE_NAMES, ...options.cookieNames || {} };
+  const validThemes = options.validThemes || DEFAULT_VALID_THEMES;
+  const validLangs = options.validLangs || DEFAULT_VALID_LANGS;
+  const maxAge = options.maxAge || DEFAULT_MAX_AGE;
+  const cookieOpts = { maxAge, sameSite: "Lax" };
+  const out = [];
+  if (typeof prefs.theme === "string") {
+    if (!validThemes.has(prefs.theme)) throw new Error("Invalid theme");
+    out.push(buildSetCookie(cookieNames.theme, prefs.theme, cookieOpts));
+  }
+  if (typeof prefs.lang === "string") {
+    if (!validLangs.has(prefs.lang)) throw new Error("Invalid lang");
+    out.push(buildSetCookie(cookieNames.lang, prefs.lang, cookieOpts));
+  }
+  return out;
+}
+async function handlePrefs(request, options) {
   let body;
   try {
     body = await request.json();
   } catch {
-    return json4({ error: "INVALID_JSON" }, 400);
+    return jsonResponse({ error: "Invalid JSON" }, 400);
   }
-  const setCookies = [];
-  if (typeof body.theme === "string") {
-    if (!VALID_THEMES.has(body.theme)) {
-      return json4({ error: "INVALID_THEME" }, 400);
-    }
-    setCookies.push(buildSetCookie("theme", body.theme, {
-      maxAge: 31536e3,
-      sameSite: "Lax"
-    }));
+  let cookies;
+  try {
+    cookies = buildPrefCookies(body, options);
+  } catch (e) {
+    return jsonResponse({ error: e.message }, 400);
   }
-  if (setCookies.length === 0) {
-    return json4({ error: "NO_PREFS" }, 400);
+  if (cookies.length === 0) {
+    return jsonResponse({ error: "No prefs to update" }, 400);
   }
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
     headers: {
       "Content-Type": "application/json",
-      "Set-Cookie": setCookies.join(", ")
+      "Set-Cookie": cookies.join(", ")
     }
   });
 }
+function jsonResponse(body, status) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" }
+  });
+}
 
-var { json: json5, html } = makeResponseHelpers({ cors: "*", prettyJson: true, htmlCache: "no-store" });
+var { json: json4, html } = makeResponseHelpers({ cors: "*", prettyJson: true, htmlCache: "no-store" });
 var HTML = landing_default;
 var index_default = {
   async fetch(request, env, ctx) {
@@ -1697,6 +1759,8 @@ var index_default = {
     const cdnHost = selectJsdelivrCdnHost(request);
     const themeCookie = getCookie(request, "theme");
     const theme = themeCookie === "dark" ? "dark" : "light";
+    const langCookie = getCookie(request, "lang");
+    const lang = langCookie && SUPPORTED_LANGS_DEFAULT.includes(langCookie) ? langCookie : detectLangFromAcceptLanguage(request.headers.get("Accept-Language") || "", SUPPORTED_LANGS_DEFAULT);
     if (method === "POST" && slug === "_admin/auth") {
       return handleAdminAuth(request, env);
     }
@@ -1714,7 +1778,7 @@ var index_default = {
         return lockModule.renderLockPage(cdnHost);
       }
       if ((method === "POST" || method === "PUT" || method === "DELETE") && !slug.startsWith("_")) {
-        return json5({ error: "UNAUTHORIZED" }, 401);
+        return json4({ error: "UNAUTHORIZED" }, 401);
       }
     }
     if (method === "GET") {
@@ -1723,7 +1787,7 @@ var index_default = {
         const ttlStr = String(normalizeTtl(env.TTL || 0));
         const authPeek = await checkAuth(request, env);
         const isAdmin = authPeek && authPeek.isAdmin === true ? "true" : "false";
-        const page = HTML.replace(/\{\{DEFAULT_TTL\}\}/g, ttlStr).replace(/\{\{KEY_REQUIRED\}\}/g, keyRequired).replace(/\{\{IS_ADMIN\}\}/g, isAdmin).replace(/\{\{THEME\}\}/g, theme).replace(/\{\{CDN_HOST\}\}/g, cdnHost);
+        const page = HTML.replace(/\{\{DEFAULT_TTL\}\}/g, ttlStr).replace(/\{\{KEY_REQUIRED\}\}/g, keyRequired).replace(/\{\{IS_ADMIN\}\}/g, isAdmin).replace(/\{\{THEME\}\}/g, theme).replace(/\{\{LANG\}\}/g, lang).replace(/\{\{CDN_HOST\}\}/g, cdnHost);
         return html(page);
       }
       if (slug.includes("/")) return notFound(env, url);
@@ -1850,16 +1914,16 @@ var index_default = {
     }
     if (method === "POST" && slug.startsWith("_ot/")) {
       const realSlug = slug.slice(4);
-      if (!realSlug) return json5({ ok: false }, 400);
+      if (!realSlug) return json4({ ok: false }, 400);
       const raw = await env.DATA.get(realSlug);
       if (raw) {
         const entry = JSON.parse(raw);
         if (entry.oneTime) {
           await env.DATA.delete(realSlug);
-          return json5({ ok: true });
+          return json4({ ok: true });
         }
       }
-      return json5({ ok: true });
+      return json4({ ok: true });
     }
     if (method === "POST" && slug === "_u/reserve") return handleUploadReserve(request, env, url);
     if (method === "PUT" && slug.startsWith("_u/chunk/")) return handleUploadChunk(request, env, url, slug.slice("_u/chunk/".length));
@@ -1867,7 +1931,7 @@ var index_default = {
     if (method === "POST" && slug === "_cleanup") {
       const auth = await checkAuth(request, env);
       if (auth instanceof Response) return auth;
-      if (!auth.isAdmin) return json5({ error: "UNAUTHORIZED" }, 401);
+      if (!auth.isAdmin) return json4({ error: "UNAUTHORIZED" }, 401);
       let deleted = 0;
       let cursor = null;
       do {
@@ -1903,7 +1967,7 @@ var index_default = {
         }
         cursor = list.list_complete ? null : list.cursor;
       } while (cursor);
-      return json5({ deleted });
+      return json4({ deleted });
     }
     if (method === "HEAD") {
       const auth = await checkAuth(request, env);
@@ -1936,12 +2000,12 @@ var index_default = {
         body = {};
       }
       if (Array.isArray(body)) {
-        if (!isAdmin) return json5({ error: "UNAUTHORIZED" }, 401);
+        if (!isAdmin) return json4({ error: "UNAUTHORIZED" }, 401);
         const slugsSeen = /* @__PURE__ */ new Set();
         for (const item of body) {
           const s = (item.slug || "").trim();
           if (s && /^[a-zA-Z0-9]{3,10}$/.test(s)) {
-            if (slugsSeen.has(s)) return json5({ error: "BATCH_DUPLICATE_SLUG", slug: s }, 400);
+            if (slugsSeen.has(s)) return json4({ error: "BATCH_DUPLICATE_SLUG", slug: s }, 400);
             slugsSeen.add(s);
           }
         }
@@ -1952,7 +2016,7 @@ var index_default = {
         }));
         const errors = results.filter((r) => r.error).length;
         const status = errors === 0 ? 201 : errors === results.length ? 400 : 207;
-        return json5(results, status);
+        return json4(results, status);
       }
       const validSlug = slug && !slug.includes("/") && /^[a-zA-Z0-9]{3,10}$/.test(slug);
       const hasUrl = !!(body.url || "").trim();
@@ -1963,49 +2027,49 @@ var index_default = {
             const entry2 = JSON.parse(raw);
             const { pwHash: _2, ...safe2 } = entry2;
             if (safe2.accessHash) safe2.accessHash = true;
-            return json5({ slug, ...safe2 });
+            return json4({ slug, ...safe2 });
           }
-          if (!password) return json5({ error: "SLUG_EXISTS" }, 400);
+          if (!password) return json4({ error: "SLUG_EXISTS" }, 400);
           const entry = JSON.parse(raw);
           const pwHash = await hashPassword(password);
           if (!await safeEqual(entry.pwHash, pwHash)) {
-            return json5({ error: "VERIFY_FAILED" }, 403);
+            return json4({ error: "VERIFY_FAILED" }, 403);
           }
           const { pwHash: _, ...safe } = entry;
           if (safe.accessHash) safe.accessHash = true;
-          return json5({ slug, ...safe });
+          return json4({ slug, ...safe });
         }
-        if (password && !hasUrl) return json5({ error: "VERIFY_FAILED" }, 403);
+        if (password && !hasUrl) return json4({ error: "VERIFY_FAILED" }, 403);
       }
       if (!isAdmin) {
         const rl = await checkRateLimit(env, request);
         if (rl instanceof Response) return rl;
         const result = await createOne(body, slug, validSlug, env, url);
         if (!result.error) await incrementRateLimit(env, rl.key, rl.data);
-        return json5(result, result.error ? 400 : 201);
+        return json4(result, result.error ? 400 : 201);
       }
-      return json5(await createOne(body, slug, validSlug, env, url), 201);
+      return json4(await createOne(body, slug, validSlug, env, url), 201);
     }
     if (method === "PUT") {
       const auth = await checkAuth(request, env);
       if (auth instanceof Response) return auth;
       const isAdmin = auth.isAdmin;
-      if (!slug || slug.includes("/")) return json5({ error: "VERIFY_FAILED" }, 403);
+      if (!slug || slug.includes("/")) return json4({ error: "VERIFY_FAILED" }, 403);
       const password = (request.headers.get("X-Password") || "").trim();
       let body;
       try {
         body = await request.json();
       } catch {
-        return json5({ error: "INVALID_JSON" }, 400);
+        return json4({ error: "INVALID_JSON" }, 400);
       }
       const raw = await env.DATA.get(slug);
-      if (!raw) return json5({ error: "VERIFY_FAILED" }, 403);
+      if (!raw) return json4({ error: "VERIFY_FAILED" }, 403);
       const entry = JSON.parse(raw);
       if (!isAdmin) {
-        if (!password) return json5({ error: "VERIFY_FAILED" }, 403);
+        if (!password) return json4({ error: "VERIFY_FAILED" }, 403);
         const pwHash = await hashPassword(password);
         if (!await safeEqual(entry.pwHash, pwHash)) {
-          return json5({ error: "VERIFY_FAILED" }, 403);
+          return json4({ error: "VERIFY_FAILED" }, 403);
         }
         const rl = await checkRateLimit(env, request);
         if (rl instanceof Response) return rl;
@@ -2013,7 +2077,7 @@ var index_default = {
       }
       const isFile = entry.type === "files";
       if (isFile && entry.uploadToken) {
-        return json5({ error: "UPLOAD_IN_PROGRESS" }, 409);
+        return json4({ error: "UPLOAD_IN_PROGRESS" }, 409);
       }
       let target = null;
       if (!isFile) {
@@ -2022,11 +2086,11 @@ var index_default = {
           const u = new URL(target);
           if (u.protocol !== "http:" && u.protocol !== "https:" || !/^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63}$/i.test(u.hostname)) throw 0;
         } catch {
-          return json5({ error: "INVALID_URL" }, 400);
+          return json4({ error: "INVALID_URL" }, 400);
         }
       }
       const meta = await applyMetadataFields(body, entry, env);
-      if (meta.error) return json5({ error: meta.error }, 400);
+      if (meta.error) return json4({ error: meta.error }, 400);
       const updatedEntry = clean({
         ...entry,
         ...isFile ? {} : { url: target },
@@ -2047,14 +2111,14 @@ var index_default = {
       if (newPassword) resp.password = newPassword;
       if (meta.warnings.length === 1) resp.warn = meta.warnings[0];
       else if (meta.warnings.length > 1) resp.warn = meta.warnings;
-      return json5(resp, 200);
+      return json4(resp, 200);
     }
     if (method === "DELETE") {
       const auth = await checkAuth(request, env);
       if (auth instanceof Response) return auth;
       const isAdmin = auth.isAdmin;
       if (!slug) {
-        if (!isAdmin) return json5({ error: "UNAUTHORIZED" }, 401);
+        if (!isAdmin) return json4({ error: "UNAUTHORIZED" }, 401);
         let deleted = 0;
         let cursor = null;
         do {
@@ -2065,9 +2129,9 @@ var index_default = {
           }
           cursor = list.list_complete ? null : list.cursor;
         } while (cursor);
-        return json5({ purged: deleted });
+        return json4({ purged: deleted });
       }
-      if (slug.includes("/")) return json5({ error: "VERIFY_FAILED" }, 403);
+      if (slug.includes("/")) return json4({ error: "VERIFY_FAILED" }, 403);
       const sweepChunks = async (s, e) => {
         const committedEnd = e.committedChunkEnd || 0;
         if (committedEnd > 0) {
@@ -2081,24 +2145,24 @@ var index_default = {
       };
       if (isAdmin) {
         const raw2 = await env.DATA.get(slug);
-        if (!raw2) return json5({ error: "VERIFY_FAILED" }, 403);
+        if (!raw2) return json4({ error: "VERIFY_FAILED" }, 403);
         const entry2 = JSON.parse(raw2);
         if (entry2.type === "files") await sweepChunks(slug, entry2);
         await env.DATA.delete(slug);
-        return json5({ deleted: slug });
+        return json4({ deleted: slug });
       }
       const password = (request.headers.get("X-Password") || "").trim();
-      if (!password) return json5({ error: "VERIFY_FAILED" }, 403);
+      if (!password) return json4({ error: "VERIFY_FAILED" }, 403);
       const raw = await env.DATA.get(slug);
-      if (!raw) return json5({ error: "VERIFY_FAILED" }, 403);
+      if (!raw) return json4({ error: "VERIFY_FAILED" }, 403);
       const entry = JSON.parse(raw);
       const pwHash = await hashPassword(password);
       if (!await safeEqual(entry.pwHash, pwHash)) {
-        return json5({ error: "VERIFY_FAILED" }, 403);
+        return json4({ error: "VERIFY_FAILED" }, 403);
       }
       if (entry.type === "files") await sweepChunks(slug, entry);
       await env.DATA.delete(slug);
-      return json5({ deleted: slug });
+      return json4({ deleted: slug });
     }
     return notFound(env, url);
   }
