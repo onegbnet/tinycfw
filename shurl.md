@@ -53,12 +53,46 @@ Most URL shorteners force you to sign up before you can create a link, or give y
 | `POST`   | `/_u/reserve`                 | Start a file upload session (create new file slug, or modify existing)      |
 | `PUT`    | `/_u/chunk/:slug?c=<idx>`     | Upload one chunk (raw bytes) of an active upload session                    |
 | `POST`   | `/_u/commit/:slug`            | Finalize an active upload session                                           |
-| `POST`   | `/_a/:slug`                   | Browser-only: submit `accessPassword` form, set unlock cookie, 303 to slug  |
+| `POST`   | `/_a/:slug`                   | Submit `accessPassword`; on success: set unlock cookie + 303 to `/:slug` (regardless of slug kind — URL or file). The subsequent `GET /:slug` dispatches per `redirectMode` |
 | `POST`   | `/_admin/auth`                | Browser-only: exchange admin key for HttpOnly `shul_admin` cookie           |
 | `POST`   | `/_admin/logout`              | Browser-only: clear `shul_admin` cookie                                     |
 | `POST`   | `/api/prefs`                  | Browser-only: persist UI preferences (e.g. `theme`) via cookie              |
 | `PUT`    | `/:slug`                      | Update existing short link                                                  |
 | `DELETE` | `/:slug`                      | Delete short link                                                           |
+
+## Hit counter and expiry
+
+Two independent runtime limits gate every slug:
+
+- **`maxHits`** (visit count): when `maxHits > 0`, each "page open" increments `hits`; the slug is deleted on the N-th visit. `maxHits = 0` means unlimited.
+  - **Instant-redirect / direct-file paths** (URL instant, single-file file slug without access password): the `GET /:slug` request itself IS the "open" — counts on serve.
+  - **Interstitial paths** (URL manual mode, file slug with multiple files or with countdown, file-slug post-auth file list): the interstitial render counts as one "open", whether or not the user proceeds to click / download. Bot-style refreshes will drain the cap — the limit measures "page opens", not "actual uses".
+  - **Individual file downloads** via `GET /:slug?__f=1&i=N` do NOT count separately. Multi-file slugs see one hit per file-list page open, regardless of how many files the visitor downloads in that session.
+  - **Password gate render** (pre-authentication, including failed retry with `?e=1`) does NOT count. `POST /_a/:slug` itself does not count either — it just sets the unlock cookie and 303s to `/:slug`; that subsequent GET is what counts (or doesn't, if the hit-session cookie is set — see below).
+  - **Hit-session cookie** (`shul_h_<slug>`, 15 min, HttpOnly, Path=/<slug>): set on every counted visit. While the cookie is present in the browser, repeat GETs to the same slug do NOT increment hits — same visitor refreshing / using the back button stays as 1 hit within the 15-minute window. After cookie expires, the next GET counts as a new visit. Different browsers / devices each get their own cookie + window. Independent from the unlock cookie (`shul_a_<slug>`).
+  - The counter is **best-effort under concurrency** — Cloudflare KV has no atomic increment, so simultaneous visits may collectively under-count. Don't rely on it for security-critical quotas; for fair "share with N friends" use cases it's fine.
+- **`ttl`** (validity duration): when `ttl > 0`, the slug carries an absolute `expiresAt = create_time + ttl`. Modifies preserve this anchor unless you change `ttl` or pass `resetTtl: true`.
+
+Owner-visible (admin key or correct `X-Password`) GET-style responses include `maxHits`, `hits`, `hitsLeft = max(0, maxHits - hits)`, `ttl`, `expiresAt` (Unix seconds), and `expiresInSec`. Unauthenticated / wrong-password responses omit these six fields entirely.
+
+## Multi-file landing page
+
+When a file slug ends up with more than one file, the visitor-facing page is a fixed file-list landing — **no customization is accepted**. The server silently normalizes 8 landing fields to defaults at commit time:
+
+| Field | Normalized to |
+|---|---|
+| `redirectMode` | `'manual'` |
+| `permanent` | `true` |
+| `countdown` | `0` |
+| `manualBtnTitle` | `null` |
+| `redirectPageTitle` | `null` |
+| `redirectPageContent` | `null` |
+| `darkBackground` | `false` |
+| `centerContent` | `false` |
+
+Anything you set on these fields for a multi-file slug is dropped (no warning — this is API contract, not a runtime ignore). The rendered page shows: localized title `Files to download (N)`, the file list with names + sizes, and a hint `Click any file to download`. Background follows the visitor's `theme` cookie (set on the main shurl UI by clicking the theme toggle) with light as fallback; content is left-aligned. Single-file and URL slugs are unaffected and retain full landing customization.
+
+`accessPassword` still works for multi-file slugs — the password gate page is independent of the landing customization.
 
 ## Setup
 
@@ -186,10 +220,10 @@ Create a new short link. Optionally specify a custom slug via `POST /:slug` or i
 | `redirectPageTitle`  | string  | No       | Custom redirect page title; max 128 chars          |
 | `redirectPageContent`| string  | No       | Redirect page content (Markdown); max 2000 chars   |
 | `manualBtnTitle`     | string  | No       | Custom redirect button text; max 128 chars         |
-| `oneTime`            | boolean | No       | Link self-destructs after first redirect; default `false`  |
-| `accessPassword`     | string  | No       | Visitor password for manual-redirect links (3–64 printable non-space chars); ignored if invalid or mode is `instant` |
+| `maxHits`            | integer | No       | Visit count cap (0 = unlimited; 1 = self-destruct after first visit; N = delete on N-th visit). Counter is best-effort under concurrency — see "Hit counter and expiry" below. |
+| `accessPassword`     | string  | No       | Visitor password — works in **all** redirect modes and target types (URL/single-file/multi-file). 3–16 printable non-space chars. Server-side password gate page (separate from the redirect interstitial) runs before any content; visitors must pass the gate before `redirectMode` dispatches. PUT with empty string clears an existing password. |
 | `lightPage`          | boolean | No       | Light background for redirect page; default `true` |
-| `ttl`                | integer | No       | Expiration in seconds (60–31536000); 0 = permanent |
+| `ttl`                | integer | No       | Validity duration in seconds (60–31536000); 0 = permanent. On create, anchors `expiresAt = now + ttl`. |
 
 **Behavior:**
 
@@ -281,10 +315,18 @@ Update an existing short link.
 | Field           | Type    | Required | Description                                          |
 |-----------------|---------|----------|------------------------------------------------------|
 | `resetPassword` | boolean | No       | Regenerate slug password; default `false`            |
+| `resetHits`     | boolean | No       | Zero the `hits` counter while keeping `maxHits` unchanged; default `false` |
+| `resetTtl`      | boolean | No       | Re-anchor `expiresAt = now + ttl` while keeping `ttl` unchanged; default `false` |
+
+**Modify semantics for `ttl` / `maxHits`:**
+
+- Omitting `ttl` (or sending the unchanged value) preserves the original `expiresAt` — the expiry window does **not** roll forward on every modify. Send `resetTtl: true` to refresh the window without changing the policy.
+- Omitting `maxHits` (or sending the unchanged value) preserves the current `hits` counter. Sending a new `maxHits` value (including `0` to remove the cap) resets `hits` to `0`. Send `resetHits: true` to zero the counter without changing `maxHits`.
+- The legacy `oneTime` field is no longer accepted — `oneTime: true` now returns `400 INVALID_FIELD`. Use `maxHits: 1` instead.
 
 **Response (200):**
 
-Returns updated entry data. If `resetPassword` is `true`, a new `password` field is included — save it immediately.
+Returns updated entry data. If `resetPassword` is `true`, a new `password` field is included — save it immediately. Owner-visible runtime fields (`maxHits` / `hits` / `hitsLeft` / `ttl` / `expiresAt` / `expiresInSec`) are included alongside the persisted policy fields.
 
 ### DELETE /:slug — Delete short URL
 
@@ -377,7 +419,7 @@ Reserves a slug and plans a new upload session. Used for both **create** (no `sl
 | `slug`            | string   | No       | Custom slug (3–10 chars). Required to enter modify flow                           |
 | `removedFileIds`  | int[]    | No       | (Modify only) `id`s of existing files to drop on commit                           |
 | `redirectMode`    | string   | No       | `instant` or `manual`; default `instant`                                          |
-| `countdown` / `redirectPageTitle` / `redirectPageContent` / `manualBtnTitle` / `lightPage` / `oneTime` / `accessPassword` / `ttl` | — | No | Same semantics as URL slug create; applied at commit |
+| `countdown` / `redirectPageTitle` / `redirectPageContent` / `manualBtnTitle` / `lightPage` / `maxHits` / `accessPassword` / `ttl` | — | No | Same semantics as URL slug create; applied at commit. **Multi-file slugs silently normalize away** all landing customization (`redirectMode='manual'`, `permanent=true`, `countdown=0`, `manualBtnTitle/redirectPageTitle/redirectPageContent=null`, `darkBackground/centerContent=false`) — the file-list landing is fixed. See "Multi-file landing page" below. |
 | `resetPassword`   | boolean  | No       | (Modify only) regenerate slug password at commit; default `false`                 |
 
 **Response (201 on create, 200 on modify):**
@@ -459,7 +501,7 @@ Fetches the bytes for file `idx` (zero-based, matches the position in the `files
 
 **Response (200):** Raw file bytes with `Content-Type` (the stored MIME or `application/octet-stream`), `Content-Disposition: attachment; filename=...`, `Content-Length`, and `Cache-Control: private, no-store`.
 
-`oneTime` single-file slugs are deleted after a successful download. For multi-file slugs, `oneTime` is consumed by the redirect-page JS calling `POST /_ot/:slug` (an internal endpoint).
+Visit counting (when `maxHits > 0`) attributes hits to "page opens", not individual file downloads. See **Hit counter and expiry** above for the per-mode breakdown.
 
 **Errors:** 403 if `accessPassword` is required and neither cookie nor correct `X-Password` is supplied. Slug-not-found falls back to the same `DEFAULT`/home redirect as ordinary `GET /:slug`.
 
@@ -532,12 +574,46 @@ For **file slugs**, this endpoint serves the file-list / download page instead o
 | `POST`   | `/_u/reserve`                 | 启动文件上传会话（新建文件短码或修改已有）                                    |
 | `PUT`    | `/_u/chunk/:slug?c=<idx>`     | 上传一个分片（原始字节）至活跃的上传会话                                      |
 | `POST`   | `/_u/commit/:slug`            | 提交并最终化上传会话                                                          |
-| `POST`   | `/_a/:slug`                   | 仅浏览器：提交 `accessPassword` 表单，设置解锁 cookie，303 跳回短码           |
+| `POST`   | `/_a/:slug`                   | 提交 `accessPassword`；成功 → set 解锁 cookie + 303 跳回 `/:slug`（不分 URL/文件 slug）；后续 GET 按 `redirectMode` 分发 |
 | `POST`   | `/_admin/auth`                | 仅浏览器：用管理员密钥换取 HttpOnly `shul_admin` cookie                       |
 | `POST`   | `/_admin/logout`              | 仅浏览器：清除 `shul_admin` cookie                                            |
 | `POST`   | `/api/prefs`                  | 仅浏览器：通过 cookie 持久化 UI 偏好（例如 `theme`）                          |
 | `PUT`    | `/:slug`                      | 更新短链接                                                                    |
 | `DELETE` | `/:slug`                      | 删除短链接                                                                    |
+
+## 有效次数与有效时长
+
+每个短码受两个独立运行时上限约束：
+
+- **`maxHits`**（有效次数）：当 `maxHits > 0`，每次"打开页面"使 `hits` 加一，达到第 N 次时短码自毁。`maxHits = 0` 表示无限制。
+  - **即跳/直发路径**（URL instant、无访问密码的单文件短码）：`GET /:slug` 请求本身即为一次"打开"，serve 时计数。
+  - **跳转页路径**（URL manual 模式、多文件或带倒计时的文件短码、带访问密码且已认证后的文件列表）：跳转页渲染计一次"打开"，无论用户是否实际点击/下载。爬虫式刷新会消耗配额——此上限计的是"打开次数"，不是"实际使用"。
+  - `GET /:slug?__f=1&i=N` 形式的**单文件下载**不单独计数。多文件短码每次打开列表页计一次，与该会话下载多少个文件无关。
+  - **访问密码门禁页面**（认证前，含失败重试 `?e=1`）渲染**不**计数。`POST /_a/:slug` 本身也**不**计数——它只 set 解锁 cookie + 303 跳回 `/:slug`，后续 GET 才算（或不算，看下面 hit-session cookie）。
+  - **Hit-session cookie**（`shul_h_<slug>`，15 分钟，HttpOnly，Path=/<slug>）：每次有效计数的访问 set 此 cookie。同一浏览器只要 cookie 还在，重复 GET 同 slug **不**会再加 hits——刷新/回退按钮在 15 分钟窗口内仍算 1 次。Cookie 自然过期后下次 GET 算新会话。不同浏览器/设备各自独立的 cookie 和窗口。与解锁 cookie（`shul_a_<slug>`）互不影响。
+  - 并发场景下计数器是**尽力而为**——CF KV 无原子 increment，同时发生的访问可能合计少计若干次。**不要用它做安全配额**；用于"分享给 N 个朋友看"这类宽松场景即可。
+- **`ttl`**（有效时长）：当 `ttl > 0`，短码带绝对 `expiresAt = create_time + ttl`。修改时除非显式改 `ttl` 或传 `resetTtl: true`，该锚点保持不变。
+
+Owner（管理员密钥或正确的 `X-Password`）的 GET 类响应包含 `maxHits`、`hits`、`hitsLeft = max(0, maxHits - hits)`、`ttl`、`expiresAt`（Unix 秒）、`expiresInSec`。未认证 / 密码错误的响应完全不返回这六个字段。
+
+## 多文件下载页面
+
+当文件短码最终包含一个以上文件，访客侧呈现的就是**固定的文件列表下载页**——**不接受任何定制**。服务端在 commit 时静默把 8 个 landing 字段归一化为默认：
+
+| 字段 | 归一化值 |
+|---|---|
+| `redirectMode` | `'manual'` |
+| `permanent` | `true` |
+| `countdown` | `0` |
+| `manualBtnTitle` | `null` |
+| `redirectPageTitle` | `null` |
+| `redirectPageContent` | `null` |
+| `darkBackground` | `false` |
+| `centerContent` | `false` |
+
+为多文件短码提交的这些字段被丢弃（不发 warning——这是 API 合同，不是 runtime ignore）。渲染出来的页面包含：本地化标题 `下载文件 (N)`、文件列表（名称 + 大小）、提示 `点击任意文件开始下载`。背景跟随访客的 `theme` cookie（在 shurl 主 UI 点主题按钮设的），无 cookie fallback 亮色；内容左对齐。单文件和 URL 短码不受影响，保留完整的 landing 定制能力。
+
+`accessPassword` 在多文件短码上仍然有效——密码门禁页跟 landing 定制完全独立。
 
 ## 配置步骤
 
@@ -665,10 +741,10 @@ X-Password: slug-password
 | `redirectPageTitle`  | string  | 否   | 自定义跳转页面标题；最长 128 字符            |
 | `redirectPageContent`| string  | 否   | 跳转页面内容（Markdown）；最长 2000 字符     |
 | `manualBtnTitle`     | string  | 否   | 自定义跳转按钮文案；最长 128 字符            |
-| `oneTime`            | boolean | 否   | 跳转后即失效，首次跳转后自动删除；默认 `false`               |
-| `accessPassword`     | string  | 否   | 访客密码，仅手动跳转模式有效（3–64 位可打印非空格字符）；无效则忽略 |
+| `maxHits`            | integer | 否   | 有效次数上限（0 = 无限制；1 = 一次后自毁；N = 第 N 次访问后删除）。并发场景下计数器为尽力而为，详见下文“有效次数与有效时长”。 |
+| `accessPassword`     | string  | 否   | 访客密码——在**所有**跳转模式与目标类型（URL/单文件/多文件）下都生效。3–16 个可打印非空格字符。服务端密码门禁页（独立于跳转页）在所有内容之前；访客必须通过门禁后才进入 `redirectMode` 分发逻辑。PUT 传空字符串可清除已设置的密码。 |
 | `lightPage`          | boolean | 否   | 跳转页面使用亮色背景；默认 `true`            |
-| `ttl`                | integer | 否   | 过期时间（60–31536000 秒）；0 = 永久         |
+| `ttl`                | integer | 否   | 有效时长（60–31536000 秒）；0 = 永久。创建时锚定 `expiresAt = now + ttl`。 |
 
 **行为说明：**
 
@@ -760,10 +836,18 @@ X-Password: slug-password
 | 字段            | 类型    | 必填 | 说明                            |
 |-----------------|---------|------|---------------------------------|
 | `resetPassword` | boolean | 否   | 重新生成短码密码；默认 `false`  |
+| `resetHits`     | boolean | 否   | 在保持 `maxHits` 不变的前提下将 `hits` 计数器清零；默认 `false` |
+| `resetTtl`      | boolean | 否   | 在保持 `ttl` 不变的前提下将 `expiresAt` 重锚为 `now + ttl`；默认 `false` |
+
+**`ttl` / `maxHits` 修改语义：**
+
+- 省略 `ttl`（或传入未变化的值）会保留原有的 `expiresAt`——过期窗口**不会**因每次修改而往后滚动。需要刷新窗口但不改策略时传 `resetTtl: true`。
+- 省略 `maxHits`（或传入未变化的值）会保留当前 `hits` 计数。传入新的 `maxHits` 值（含 `0` 用于解除上限）会把 `hits` 重置为 `0`。需要在不改 `maxHits` 的情况下清零计数则传 `resetHits: true`。
+- 旧的 `oneTime` 字段已被移除——传入 `oneTime: true` 现在会返回 `400 INVALID_FIELD`，请改用 `maxHits: 1`。
 
 **响应（200）：**
 
-返回更新后的条目数据。若 `resetPassword` 为 `true`，响应中包含新的 `password` 字段，请立即保存。
+返回更新后的条目数据。若 `resetPassword` 为 `true`，响应中包含新的 `password` 字段，请立即保存。Owner 可见的 runtime 字段（`maxHits` / `hits` / `hitsLeft` / `ttl` / `expiresAt` / `expiresInSec`）会与持久化策略字段一同返回。
 
 ### DELETE /:slug — 删除短链接
 
@@ -856,7 +940,7 @@ X-Password: slug-password
 | `slug`            | string   | 否     | 自定义短码（3–10 位）；修改流程必须传                                       |
 | `removedFileIds`  | int[]    | 否     | （仅修改）提交时要删除的现有文件 `id` 列表                                  |
 | `redirectMode`    | string   | 否     | `instant` 或 `manual`；默认 `instant`                                       |
-| `countdown` / `redirectPageTitle` / `redirectPageContent` / `manualBtnTitle` / `lightPage` / `oneTime` / `accessPassword` / `ttl` | — | 否 | 与 URL 短码创建语义相同，提交时应用 |
+| `countdown` / `redirectPageTitle` / `redirectPageContent` / `manualBtnTitle` / `lightPage` / `maxHits` / `accessPassword` / `ttl` | — | 否 | 与 URL 短码创建语义相同，提交时应用。 |
 | `resetPassword`   | boolean  | 否     | （仅修改）提交时重生短码密码；默认 `false`                                  |
 
 **响应（创建 201、修改 200）：**
@@ -938,7 +1022,7 @@ X-Password: slug-password
 
 **响应（200）：** 文件原始字节，附 `Content-Type`（存储时的 MIME 或 `application/octet-stream`）、`Content-Disposition: attachment; filename=...`、`Content-Length`、`Cache-Control: private, no-store`。
 
-`oneTime` 单文件短码在成功下载后自动删除；多文件短码的 `oneTime` 由跳转页 JS 调内部端点 `POST /_ot/:slug` 来触发消费。
+次数计数（当 `maxHits > 0`）按"打开页面次数"统计，不按单文件下载次数统计。具体规则见上文 **有效次数与有效时长** 小节。
 
 **错误码：** 当 `accessPassword` 必需但 cookie 与 `X-Password` 都未提供（或错误）时返回 403。短码不存在则与普通 `GET /:slug` 一样回退到 `DEFAULT` / 首页跳转。
 
@@ -1011,12 +1095,46 @@ X-Password: slug-password
 | `POST`   | `/_u/reserve`                 | 啟動檔案上傳工作階段（新建檔案短碼或修改既有）                                |
 | `PUT`    | `/_u/chunk/:slug?c=<idx>`     | 上傳一個分片（原始位元組）至作用中的上傳工作階段                              |
 | `POST`   | `/_u/commit/:slug`            | 提交並最終化上傳工作階段                                                      |
-| `POST`   | `/_a/:slug`                   | 僅瀏覽器：提交 `accessPassword` 表單，設定解鎖 cookie，303 跳回短碼           |
+| `POST`   | `/_a/:slug`                   | 提交 `accessPassword`；成功 → set 解鎖 cookie + 303 跳回 `/:slug`（不分 URL/檔案 slug）；後續 GET 按 `redirectMode` 分發 |
 | `POST`   | `/_admin/auth`                | 僅瀏覽器：以管理員金鑰換取 HttpOnly `shul_admin` cookie                       |
 | `POST`   | `/_admin/logout`              | 僅瀏覽器：清除 `shul_admin` cookie                                            |
 | `POST`   | `/api/prefs`                  | 僅瀏覽器：透過 cookie 持久化 UI 偏好（例如 `theme`）                          |
 | `PUT`    | `/:slug`                      | 更新短連結                                                                    |
 | `DELETE` | `/:slug`                      | 刪除短連結                                                                    |
+
+## 有效次數與有效時長
+
+每個短碼受兩個獨立執行時上限約束：
+
+- **`maxHits`**（有效次數）：當 `maxHits > 0`，每次「打開頁面」使 `hits` 加一，達到第 N 次時短碼自毀。`maxHits = 0` 表示無限制。
+  - **即跳/直送路徑**（URL instant、無存取密碼的單檔短碼）：`GET /:slug` 請求本身即為一次「打開」，serve 時計數。
+  - **跳轉頁路徑**（URL manual 模式、多檔案或帶倒數計時的檔案短碼、帶存取密碼且已認證後的檔案列表）：跳轉頁渲染計一次「打開」，無論使用者是否實際點擊/下載。爬蟲式重新整理會消耗配額——此上限計的是「打開次數」，不是「實際使用」。
+  - `GET /:slug?__f=1&i=N` 形式的**單檔下載**不單獨計數。多檔案短碼每次打開列表頁計一次，與該工作階段下載多少個檔案無關。
+  - **存取密碼門禁頁面**（認證前，含失敗重試 `?e=1`）渲染**不**計數。`POST /_a/:slug` 本身也**不**計數——它只 set 解鎖 cookie + 303 跳回 `/:slug`，後續 GET 才算（或不算，看下面 hit-session cookie）。
+  - **Hit-session cookie**（`shul_h_<slug>`，15 分鐘，HttpOnly，Path=/<slug>）：每次有效計數的存取 set 此 cookie。同一瀏覽器只要 cookie 還在，重複 GET 同 slug **不**會再加 hits——重新整理/返回按鈕在 15 分鐘視窗內仍算 1 次。Cookie 自然過期後下次 GET 算新工作階段。不同瀏覽器/裝置各自獨立的 cookie 與視窗。與解鎖 cookie（`shul_a_<slug>`）互不影響。
+  - 並行場景下計數器是**盡力而為**——CF KV 無原子 increment，同時發生的存取可能合計少計若干次。**不要用它做安全配額**；用於「分享給 N 個朋友看」這類寬鬆場景即可。
+- **`ttl`**（有效時長）：當 `ttl > 0`，短碼帶絕對 `expiresAt = create_time + ttl`。修改時除非顯式改 `ttl` 或傳 `resetTtl: true`，該錨點保持不變。
+
+擁有者（管理員金鑰或正確的 `X-Password`）的 GET 類回應包含 `maxHits`、`hits`、`hitsLeft = max(0, maxHits - hits)`、`ttl`、`expiresAt`（Unix 秒）、`expiresInSec`。未認證 / 密碼錯誤的回應完全不返回這六個欄位。
+
+## 多檔案下載頁面
+
+當檔案短碼最終包含一個以上檔案，訪客側呈現的就是**固定的檔案列表下載頁**——**不接受任何客製化**。伺服器在 commit 時靜默把 8 個 landing 欄位歸一化為預設：
+
+| 欄位 | 歸一化值 |
+|---|---|
+| `redirectMode` | `'manual'` |
+| `permanent` | `true` |
+| `countdown` | `0` |
+| `manualBtnTitle` | `null` |
+| `redirectPageTitle` | `null` |
+| `redirectPageContent` | `null` |
+| `darkBackground` | `false` |
+| `centerContent` | `false` |
+
+為多檔案短碼提交的這些欄位被丟棄（不發 warning——這是 API 合約，不是 runtime ignore）。渲染出的頁面包含：本地化標題 `下載檔案 (N)`、檔案列表（名稱 + 大小）、提示 `點擊任意檔案開始下載`。背景跟隨訪客的 `theme` cookie（在 shurl 主 UI 點主題按鈕設的），無 cookie fallback 亮色；內容靠左對齊。單檔與 URL 短碼不受影響，保留完整的 landing 客製化能力。
+
+`accessPassword` 在多檔案短碼上仍然有效——密碼門禁頁跟 landing 客製化完全獨立。
 
 ## 設定步驟
 
@@ -1144,10 +1262,10 @@ X-Password: slug-password
 | `redirectPageTitle`  | string  | 否   | 自訂跳轉頁面標題；最長 128 字元              |
 | `redirectPageContent`| string  | 否   | 跳轉頁面內容（Markdown）；最長 2000 字元     |
 | `manualBtnTitle`     | string  | 否   | 自訂跳轉按鈕文案；最長 128 字元              |
-| `oneTime`            | boolean | 否   | 跳轉後即失效，首次跳轉後自動刪除；預設 `false`               |
-| `accessPassword`     | string  | 否   | 訪客密碼，僅手動跳轉模式有效（3–64 位可列印非空格字元）；無效則忽略 |
+| `maxHits`            | integer | 否   | 有效次數上限（0 = 無限制；1 = 一次後自毀；N = 第 N 次存取後刪除）。並行場景下計數器為盡力而為，詳見上文「有效次數與有效時長」。 |
+| `accessPassword`     | string  | 否   | 訪客密碼——在**所有**跳轉模式與目標類型（URL/單檔/多檔）下都生效。3–16 個可列印非空格字元。伺服端密碼門禁頁（獨立於跳轉頁）在所有內容之前；訪客必須通過門禁後才進入 `redirectMode` 分發邏輯。PUT 傳空字串可清除已設定的密碼。 |
 | `lightPage`          | boolean | 否   | 跳轉頁面使用亮色背景；預設 `true`            |
-| `ttl`                | integer | 否   | 過期時間（60–31536000 秒）；0 = 永久         |
+| `ttl`                | integer | 否   | 有效時長（60–31536000 秒）；0 = 永久。建立時錨定 `expiresAt = now + ttl`。 |
 
 **行為說明：**
 
@@ -1239,10 +1357,18 @@ X-Password: slug-password
 | 欄位            | 類型    | 必填 | 說明                            |
 |-----------------|---------|------|---------------------------------|
 | `resetPassword` | boolean | 否   | 重新產生短碼密碼；預設 `false`  |
+| `resetHits`     | boolean | 否   | 在保持 `maxHits` 不變的前提下將 `hits` 計數器歸零；預設 `false` |
+| `resetTtl`      | boolean | 否   | 在保持 `ttl` 不變的前提下將 `expiresAt` 重錨為 `now + ttl`；預設 `false` |
+
+**`ttl` / `maxHits` 修改語意：**
+
+- 省略 `ttl`（或傳入未變化的值）會保留原有的 `expiresAt`——過期視窗**不會**因每次修改而往後滾動。需要刷新視窗但不改策略時傳 `resetTtl: true`。
+- 省略 `maxHits`（或傳入未變化的值）會保留目前 `hits` 計數。傳入新的 `maxHits` 值（含 `0` 用於解除上限）會把 `hits` 重置為 `0`。需要在不改 `maxHits` 的情況下歸零計數則傳 `resetHits: true`。
+- 舊的 `oneTime` 欄位已被移除——傳入 `oneTime: true` 現在會回傳 `400 INVALID_FIELD`，請改用 `maxHits: 1`。
 
 **回應（200）：**
 
-回傳更新後的條目資料。若 `resetPassword` 為 `true`，回應中包含新的 `password` 欄位，請立即儲存。
+回傳更新後的條目資料。若 `resetPassword` 為 `true`，回應中包含新的 `password` 欄位，請立即儲存。擁有者可見的 runtime 欄位（`maxHits` / `hits` / `hitsLeft` / `ttl` / `expiresAt` / `expiresInSec`）會與持久化策略欄位一同回傳。
 
 ### DELETE /:slug — 刪除短連結
 
@@ -1335,7 +1461,7 @@ X-Password: slug-password
 | `slug`            | string   | 否     | 自訂短碼（3–10 位）；修改流程必須傳                                         |
 | `removedFileIds`  | int[]    | 否     | （僅修改）提交時要刪除的既有檔案 `id` 清單                                  |
 | `redirectMode`    | string   | 否     | `instant` 或 `manual`；預設 `instant`                                       |
-| `countdown` / `redirectPageTitle` / `redirectPageContent` / `manualBtnTitle` / `lightPage` / `oneTime` / `accessPassword` / `ttl` | — | 否 | 與 URL 短碼建立語意相同，提交時套用 |
+| `countdown` / `redirectPageTitle` / `redirectPageContent` / `manualBtnTitle` / `lightPage` / `maxHits` / `accessPassword` / `ttl` | — | 否 | 與 URL 短碼建立語意相同，提交時套用。 |
 | `resetPassword`   | boolean  | 否     | （僅修改）提交時重新產生短碼密碼；預設 `false`                              |
 
 **回應（建立 201、修改 200）：**
@@ -1417,7 +1543,7 @@ X-Password: slug-password
 
 **回應（200）：** 檔案原始位元組，附 `Content-Type`（儲存時的 MIME 或 `application/octet-stream`）、`Content-Disposition: attachment; filename=...`、`Content-Length`、`Cache-Control: private, no-store`。
 
-`oneTime` 單檔短碼在成功下載後自動刪除；多檔短碼的 `oneTime` 由跳轉頁 JS 呼叫內部端點 `POST /_ot/:slug` 來觸發消費。
+次數計數（當 `maxHits > 0`）按「打開頁面次數」統計，不按單檔下載次數統計。具體規則見上文 **有效次數與有效時長** 小節。
 
 **錯誤碼：** 當 `accessPassword` 必須但 cookie 與 `X-Password` 都未提供（或錯誤）時回傳 403。短碼不存在則與普通 `GET /:slug` 一樣回退到 `DEFAULT` / 首頁跳轉。
 
