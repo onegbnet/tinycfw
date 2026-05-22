@@ -525,7 +525,7 @@ For **file slugs**, this endpoint serves the file-list / download page instead o
 
 ## 为什么选择速至短链？
 
-大多数短链接服务要求你先注册才能创建链接，或者创建后完全无法管理。速至短链采用不同的思路：**任何人都可以创建链接并获得一次性修改密码** — 无需账号、无需登录、无第三方跟踪。凭这个密码即可随时编辑或删除链接，Web 界面和 API 均可使用。
+大多数短链接服务要求你先注册才能创建链接，或者创建后完全无法管理。速至短链采用不同的思路：**任何人都可以创建链接并获得一次性短链密码** — 无需账号、无需登录、无第三方跟踪。凭这个密码即可随时编辑或删除链接，Web 界面和 API 均可使用。
 
 ### 最终用户（点击短链接的人）
 
@@ -538,7 +538,7 @@ For **file slugs**, this endpoint serves the file-list / download page instead o
 ### 匿名链接创建者（Web 界面，无需账号）
 
 - **无需注册即可创建** — 打开页面、粘贴 URL、获得短链接。不要邮箱、不要 OAuth、无第三方跟踪。（第一方功能性 cookie 用于持久化主题/语言/解锁令牌/同访客去重——详见 API 文档列表）
-- **一次性修改密码** — 创建时显示一次，保存好它就能随时查看、编辑或删除你的链接 — 不用注册账号也能拥有链接的完整控制权
+- **一次性短链密码** — 创建时显示一次，保存好它就能随时查看、编辑或删除你的链接 — 不用注册账号也能拥有链接的完整控制权
 - **Markdown 跳转页编辑器** — 工具栏（粗体 / 斜体 / 列表 / 代码 / 引用 / 分隔线 / 链接）+ 实时预览，打造品牌化跳转页面，自定义标题、按钮文案、亮色/暗色背景、内容居中
 - **每短码最多 128 MiB 文件上传** — 拖拽一到多个文件，浏览器端切成 10 MiB 分片流式写入 KV，每分片独立重试可断点续传
 - **三个正交的限定选项** — 每个链接可叠加任意组合：(a) **有效时长**（`ttl`，60 秒到 12 个月，绝对过期时间——修改时不会滑动过期窗口）、(b) **有效次数**（`maxHits`，N 次后自毁——`maxHits: 1` 对应经典"一次性链接"）、(c) **访问密码**（`accessPassword`，服务端门禁，访客需通过验证才进入内容）。UI 将三者归入「限定选项」面板，自由组合。次数采用"打开页面"语义 + 15 分钟同访客 cookie 去重；密码门禁失败不消耗配额
@@ -547,15 +547,15 @@ For **file slugs**, this endpoint serves the file-list / download page instead o
 ### 自动化与 API 用户
 
 - **RESTful CRUD** — 标准 `POST` / `PUT` / `DELETE` / `HEAD` 操作 `/:slug`，轻松集成到 CI/CD 或脚本
-- **灵活认证** — 逐链接密码（`X-Password`）或全局管理员密钥（`X-Admin-Key` / `Bearer`）；私有部署可完全跳过密钥认证
+- **灵活认证** — 短链密码（`X-Password`）或全局管理密码（`X-Admin-Key` / `Bearer`）；私有部署可完全跳过认证
 - **自定义或随机短码** — 自选（3–10 位）或系统生成
 - **逐链接 TTL** — 每条链接可独立设置过期时间
 - **分片文件上传 API** — 三阶段 reserve / chunk / commit 协议，与短链共用同一个 KV；支持原子修改（增删文件、轮换密码），不打断并发下载
 - **所有页面选项均可通过 API 设置** — 跳转模式、倒计时（0–600 秒）、标题、Markdown 正文、按钮文案、访问密码、暗色背景 — Web 界面能做的，API 都能做
 
-### 管理员（持有管理员密钥）
+### 管理员（持有管理密码）
 
-- **全局管理员密钥** — 可管理任意链接，无需其修改密码；随时通过 `KEY` 环境变量轮换密钥
+- **全局管理密码** — 可管理任意链接，无需其短链密码；随时通过 `KEY` 环境变量轮换管理密码
 - **锁屏保护** — 可选 `LOCK` Secret，为 Web 界面加上密码门禁，同时 API 不受影响
 - **防枚举** — 全站无 404 响应；未知短码静默跳转至首页或可配置的 `DEFAULT` URL；所有写操作失败均返回 403
 - **防循环跳转** — 指向本服务或常见短链接服务（bit.ly、tinyurl.com、t.co 等）的目标 URL 在前端和 API 层面均被拒绝
@@ -575,7 +575,7 @@ For **file slugs**, this endpoint serves the file-list / download page instead o
 | `PUT`    | `/_u/chunk/:slug?c=<idx>`     | 上传一个分片（原始字节）至活跃的上传会话                                      |
 | `POST`   | `/_u/commit/:slug`            | 提交并最终化上传会话                                                          |
 | `POST`   | `/_a/:slug`                   | 提交 `accessPassword`；成功 → set 解锁 cookie + 303 跳回 `/:slug`（不分 URL/文件 slug）；后续 GET 按 `redirectMode` 分发 |
-| `POST`   | `/_admin/auth`                | 仅浏览器：用管理员密钥换取 HttpOnly `shul_admin` cookie                       |
+| `POST`   | `/_admin/auth`                | 仅浏览器：用管理密码换取 HttpOnly `shul_admin` cookie                       |
 | `POST`   | `/_admin/logout`              | 仅浏览器：清除 `shul_admin` cookie                                            |
 | `POST`   | `/api/prefs`                  | 仅浏览器：通过 cookie 持久化 UI 偏好（例如 `theme`）                          |
 | `PUT`    | `/:slug`                      | 更新短链接                                                                    |
@@ -594,7 +594,7 @@ For **file slugs**, this endpoint serves the file-list / download page instead o
   - 并发场景下计数器是**尽力而为**——CF KV 无原子 increment，同时发生的访问可能合计少计若干次。**不要用它做安全配额**；用于"分享给 N 个朋友看"这类宽松场景即可。
 - **`ttl`**（有效时长）：当 `ttl > 0`，短码带绝对 `expiresAt = create_time + ttl`。修改时除非显式改 `ttl` 或传 `resetTtl: true`，该锚点保持不变。
 
-Owner（管理员密钥或正确的 `X-Password`）的 GET 类响应包含 `maxHits`、`hits`、`hitsLeft = max(0, maxHits - hits)`、`ttl`、`expiresAt`（Unix 秒）、`expiresInSec`。未认证 / 密码错误的响应完全不返回这六个字段。
+Owner（管理密码或正确的 `X-Password`）的 GET 类响应包含 `maxHits`、`hits`、`hitsLeft = max(0, maxHits - hits)`、`ttl`、`expiresAt`（Unix 秒）、`expiresInSec`。未认证 / 密码错误的响应完全不返回这六个字段。
 
 ## 多文件下载页面
 
@@ -623,7 +623,7 @@ Owner（管理员密钥或正确的 `X-Password`）的 GET 类响应包含 `maxH
 
    | 变量名    | 类型   | 说明                                                                          |
    |-----------|--------|-------------------------------------------------------------------------------|
-   | `KEY`     | Secret | 逗号分隔的管理员密钥；不设则无需认证                                           |
+   | `KEY`     | Secret | 逗号分隔的管理密码；不设则无需认证                                           |
    | `BASE`    | Text   | 短链接基础 URL，如 `https://s.mydomain.tld`；不设则使用请求来源               |
    | `TTL`     | Text   | 默认链接过期时间（秒，整数 >= 60）；不设则永久                                |
    | `DEFAULT` | Text   | slug 不存在时的跳转 URL；不设或非法则回到首页                                 |
@@ -638,7 +638,7 @@ Owner（管理员密钥或正确的 `X-Password`）的 GET 类响应包含 `maxH
 
 ### 认证方式
 
-**管理员密钥**（仅在配置了 `KEY` 环境变量时需要）：
+**管理密码**（仅在配置了 `KEY` 环境变量时需要）：
 
 ```
 X-Admin-Key: your-admin-key
@@ -648,7 +648,7 @@ X-Admin-Key: your-admin-key
 Authorization: Bearer your-admin-key
 ```
 
-**短码密码**（创建时返回的短码专属密钥）：
+**短链密码**（创建时返回的短链专属密码）：
 
 ```
 X-Password: slug-password
@@ -656,7 +656,7 @@ X-Password: slug-password
 
 密码始终通过 `X-Password` 请求头发送，不再放在请求体中。
 
-**浏览器管理员路径**：Web 界面不在 JS storage 里保留管理员密钥，而是通过 `POST /_admin/auth` 把密钥换成 HttpOnly `shul_admin` cookie，后续管理操作均凭该 cookie。API 客户端（机器到机器）仍使用 `X-Admin-Key` / `Bearer` 请求头；cookie 路径仅服务于浏览器，二者互补。
+**浏览器管理员路径**：Web 界面不在 JS storage 里保留管理密码，而是通过 `POST /_admin/auth` 把管理密码换成 HttpOnly `shul_admin` cookie，后续管理操作均凭该 cookie。API 客户端（机器到机器）仍使用 `X-Admin-Key` / `Bearer` 请求头；cookie 路径仅服务于浏览器，二者互补。
 
 ### 错误响应
 
@@ -664,7 +664,7 @@ X-Password: slug-password
 
 | 错误码                    | 状态码 | 说明                                      |
 |---------------------------|--------|-------------------------------------------|
-| `UNAUTHORIZED`            | 401    | 管理员密钥缺失或无效                      |
+| `UNAUTHORIZED`            | 401    | 管理密码缺失或无效                      |
 | `INVALID_JSON`            | 400    | 请求体不是有效的 JSON                     |
 | `INVALID_URL`             | 400    | 目标 URL 不是有效的 HTTP/HTTPS 地址       |
 | `BLOCKED_URL`             | 400    | 目标 URL 指向本服务或已知短链接服务       |
@@ -707,15 +707,15 @@ X-Password: slug-password
 
 | 请求头       | 必填       | 说明       |
 |--------------|------------|------------|
-| `X-Password` | 是         | 短码密码   |
-| `X-Admin-Key`  | 配置时必填 | 管理员密钥 |
+| `X-Password` | 是         | 短链密码   |
+| `X-Admin-Key`  | 配置时必填 | 管理密码 |
 
 **响应：** 无响应体。
 
 | 状态码 | 含义                             |
 |--------|----------------------------------|
 | 200    | 短码存在且密码正确               |
-| 401    | 管理员密钥缺失或无效             |
+| 401    | 管理密码缺失或无效             |
 | 403    | 密码错误 / 短码不存在 / 未提供密码 |
 
 ### POST / — 创建短链接（单条）
@@ -727,7 +727,7 @@ X-Password: slug-password
 | 请求头       | 必填       | 说明                                     |
 |--------------|------------|------------------------------------------|
 | `X-Password` | 否         | 若短码已存在，验证所有权并返回条目数据   |
-| `X-Admin-Key`  | 配置时必填 | 管理员密钥                               |
+| `X-Admin-Key`  | 配置时必填 | 管理密码                               |
 
 **请求体：**
 
@@ -742,7 +742,7 @@ X-Password: slug-password
 | `redirectPageContent`| string  | 否   | 跳转页面内容（Markdown）；最长 2000 字符     |
 | `manualBtnTitle`     | string  | 否   | 自定义跳转按钮文案；最长 128 字符            |
 | `maxHits`            | integer | 否   | 有效次数上限（0 = 无限制；1 = 一次后自毁；N = 第 N 次访问后删除）。并发场景下计数器为尽力而为，详见下文“有效次数与有效时长”。 |
-| `accessPassword`     | string  | 否   | 访客密码——在**所有**跳转模式与目标类型（URL/单文件/多文件）下都生效。3–16 个可打印非空格字符。服务端密码门禁页（独立于跳转页）在所有内容之前；访客必须通过门禁后才进入 `redirectMode` 分发逻辑。PUT 传空字符串可清除已设置的密码。 |
+| `accessPassword`     | string  | 否   | 访问密码——在**所有**跳转模式与目标类型（URL/单文件/多文件）下都生效。3–16 个可打印非空格字符。服务端密码门禁页（独立于跳转页）在所有内容之前；访客必须通过门禁后才进入 `redirectMode` 分发逻辑。PUT 传空字符串可清除已设置的密码。 |
 | `darkBackground`     | boolean | 否   | 跳转页面使用暗色背景；默认 `false`（亮色）   |
 | `centerContent`      | boolean | 否   | 跳转页面正文居中；默认 `false`（左对齐）     |
 | `ttl`                | integer | 否   | 有效时长（60–31536000 秒）；0 = 永久。创建时锚定 `expiresAt = now + ttl`。 |
@@ -771,13 +771,13 @@ X-Password: slug-password
 
 ### POST / — 批量创建（仅管理员）
 
-发送 JSON 数组一次创建多条短链接。需要管理员密钥。
+发送 JSON 数组一次创建多条短链接。需要管理密码。
 
 **请求头：**
 
 | 请求头       | 必填 | 说明       |
 |--------------|------|------------|
-| `X-Admin-Key`  | 是   | 管理员密钥 |
+| `X-Admin-Key`  | 是   | 管理密码 |
 
 **请求体：** 与单条创建相同字段的 JSON 数组。
 
@@ -797,8 +797,8 @@ X-Password: slug-password
 
 | 请求头       | 必填       | 说明     |
 |--------------|------------|----------|
-| `X-Password` | 是         | 短码密码 |
-| `X-Admin-Key`  | 配置时必填 | 管理员密钥 |
+| `X-Password` | 是         | 短链密码 |
+| `X-Admin-Key`  | 配置时必填 | 管理密码 |
 
 **响应（200）：**
 
@@ -828,14 +828,14 @@ X-Password: slug-password
 
 | 请求头       | 必填       | 说明     |
 |--------------|------------|----------|
-| `X-Password` | 是         | 短码密码 |
-| `X-Admin-Key`  | 配置时必填 | 管理员密钥 |
+| `X-Password` | 是         | 短链密码 |
+| `X-Admin-Key`  | 配置时必填 | 管理密码 |
 
 **请求体：** 与创建相同的字段，另加：
 
 | 字段            | 类型    | 必填 | 说明                            |
 |-----------------|---------|------|---------------------------------|
-| `resetPassword` | boolean | 否   | 重新生成短码密码；默认 `false`  |
+| `resetPassword` | boolean | 否   | 重新生成短链密码；默认 `false`  |
 | `resetHits`     | boolean | 否   | 在保持 `maxHits` 不变的前提下将 `hits` 计数器清零；默认 `false` |
 | `resetTtl`      | boolean | 否   | 在保持 `ttl` 不变的前提下将 `expiresAt` 重锚为 `now + ttl`；默认 `false` |
 
@@ -855,10 +855,10 @@ X-Password: slug-password
 
 | 请求头       | 必填       | 说明     |
 |--------------|------------|----------|
-| `X-Password` | 是         | 短码密码   |
-| `X-Admin-Key`  | 配置时必填 | 管理员密钥 |
+| `X-Password` | 是         | 短链密码   |
+| `X-Admin-Key`  | 配置时必填 | 管理密码 |
 
-注：持有 `X-Admin-Key` 的管理员可删除任意短码，无需其修改密码。
+注：持有 `X-Admin-Key` 的管理员可删除任意短码，无需其短链密码。
 
 **响应（200）：**
 
@@ -870,13 +870,13 @@ X-Password: slug-password
 
 ### DELETE / — 清除全部（仅管理员）
 
-删除 KV 命名空间中的**所有**短链接。需要管理员密钥。请谨慎使用。
+删除 KV 命名空间中的**所有**短链接。需要管理密码。请谨慎使用。
 
 **请求头：**
 
 | 请求头       | 必填 | 说明       |
 |--------------|------|------------|
-| `X-Admin-Key`  | 是   | 管理员密钥 |
+| `X-Admin-Key`  | 是   | 管理密码 |
 
 **响应（200）：**
 
@@ -888,13 +888,13 @@ X-Password: slug-password
 
 ### 管理员专属功能
 
-以下操作仅限持有管理员密钥（`X-Admin-Key`）的用户：
+以下操作仅限持有管理密码（`X-Admin-Key`）的用户：
 
 | 功能           | 说明                                                      |
 |----------------|-----------------------------------------------------------|
 | **批量创建**   | `POST /` 发送 JSON 数组 — 一次请求创建多条短链接          |
 | **清除全部**   | `DELETE /` — 删除命名空间中的所有链接                     |
-| **管理任意链接** | 无需修改密码即可查看、更新或删除任意短码                |
+| **管理任意链接** | 无需短链密码即可查看、更新或删除任意短码                |
 | **不受频率限制** | 管理员请求不受每日配额限制                              |
 
 ### 文件上传
@@ -929,8 +929,8 @@ X-Password: slug-password
 
 | 请求头       | 必填         | 说明                                                |
 |--------------|--------------|-----------------------------------------------------|
-| `X-Password` | 修改流程     | 短码密码（针对已有文件短码）                        |
-| `X-Admin-Key`  | 配置时必填   | 管理员密钥（可绕过 `X-Password` 与频率限制）        |
+| `X-Password` | 修改流程     | 短链密码（针对已有文件短码）                        |
+| `X-Admin-Key`  | 配置时必填   | 管理密码（可绕过 `X-Password` 与频率限制）        |
 
 **请求体：**
 
@@ -941,7 +941,7 @@ X-Password: slug-password
 | `removedFileIds`  | int[]    | 否     | （仅修改）提交时要删除的现有文件 `id` 列表                                  |
 | `redirectMode`    | string   | 否     | `instant` 或 `manual`；默认 `instant`                                       |
 | `countdown` / `redirectPageTitle` / `redirectPageContent` / `manualBtnTitle` / `darkBackground` / `centerContent` / `maxHits` / `accessPassword` / `ttl` | — | 否 | 与 URL 短码创建语义相同，提交时应用。 |
-| `resetPassword`   | boolean  | 否     | （仅修改）提交时重生短码密码；默认 `false`                                  |
+| `resetPassword`   | boolean  | 否     | （仅修改）提交时重生短链密码；默认 `false`                                  |
 
 **响应（创建 201、修改 200）：**
 
@@ -1046,7 +1046,7 @@ X-Password: slug-password
 
 ## 為什麼選擇速至短鏈？
 
-大多數短連結服務要求你先註冊才能建立連結，或者建立後完全無法管理。速至短鏈採用不同的思路：**任何人都可以建立連結並取得一次性修改密碼** — 無需帳號、無需登入、無第三方追蹤。憑這個密碼即可隨時編輯或刪除連結，Web 介面和 API 均可使用。
+大多數短連結服務要求你先註冊才能建立連結，或者建立後完全無法管理。速至短鏈採用不同的思路：**任何人都可以建立連結並取得一次性短鏈密碼** — 無需帳號、無需登入、無第三方追蹤。憑這個密碼即可隨時編輯或刪除連結，Web 介面和 API 均可使用。
 
 ### 最終使用者（點擊短連結的人）
 
@@ -1059,7 +1059,7 @@ X-Password: slug-password
 ### 匿名連結建立者（Web 介面，無需帳號）
 
 - **無需註冊即可建立** — 開啟頁面、貼上 URL、取得短連結。不要信箱、不要 OAuth、無第三方追蹤。（第一方功能性 cookie 用於持久化主題/語言/解鎖權杖/同訪客去重——詳見 API 文件清單）
-- **一次性修改密碼** — 建立時顯示一次，保存好它就能隨時檢視、編輯或刪除你的連結 — 不用註冊帳號也能擁有連結的完整控制權
+- **一次性短鏈密碼** — 建立時顯示一次，保存好它就能隨時檢視、編輯或刪除你的連結 — 不用註冊帳號也能擁有連結的完整控制權
 - **Markdown 跳轉頁編輯器** — 工具列（粗體 / 斜體 / 清單 / 程式碼 / 引用 / 分隔線 / 連結）+ 即時預覽，打造品牌化跳轉頁面，自訂標題、按鈕文案、亮色/暗色背景、內容置中
 - **每短碼最多 128 MiB 檔案上傳** — 拖曳一到多個檔案，瀏覽器端切成 10 MiB 分片串流寫入 KV，每分片獨立重試可斷點續傳
 - **三個正交的限定選項** — 每個連結可疊加任意組合：(a) **有效時長**（`ttl`，60 秒到 12 個月，絕對過期時間——修改時不會滑動過期視窗）、(b) **有效次數**（`maxHits`，N 次後自毀——`maxHits: 1` 對應經典「一次性連結」）、(c) **存取密碼**（`accessPassword`，伺服端門禁，訪客需通過驗證才進入內容）。UI 將三者歸入「限定選項」面板，自由組合。次數採用「打開頁面」語意 + 15 分鐘同訪客 cookie 去重；密碼門禁失敗不消耗配額
@@ -1068,15 +1068,15 @@ X-Password: slug-password
 ### 自動化與 API 使用者
 
 - **RESTful CRUD** — 標準 `POST` / `PUT` / `DELETE` / `HEAD` 操作 `/:slug`，輕鬆整合到 CI/CD 或指令碼
-- **靈活認證** — 逐連結密碼（`X-Password`）或全域管理員金鑰（`X-Admin-Key` / `Bearer`）；私有部署可完全跳過金鑰認證
+- **靈活認證** — 短鏈密碼（`X-Password`）或全域管理密碼（`X-Admin-Key` / `Bearer`）；私有部署可完全跳過認證
 - **自訂或隨機短碼** — 自選（3–10 位）或系統產生
 - **逐連結 TTL** — 每條連結可獨立設定過期時間
 - **分片檔案上傳 API** — 三階段 reserve / chunk / commit 協定，與短連結共用同一個 KV；支援原子修改（增刪檔案、輪換密碼），不打斷並行下載
 - **所有頁面選項均可透過 API 設定** — 跳轉模式、倒數計時（0–600 秒）、標題、Markdown 正文、按鈕文案、存取密碼、暗色背景 — Web 介面能做的，API 都能做
 
-### 管理員（持有管理員金鑰）
+### 管理員（持有管理密碼）
 
-- **全域管理員金鑰** — 可管理任意連結，無需其修改密碼；隨時透過 `KEY` 環境變數輪換金鑰
+- **全域管理密碼** — 可管理任意連結，無需其短鏈密碼；隨時透過 `KEY` 環境變數輪換管理密碼
 - **鎖屏保護** — 選用 `LOCK` Secret，為 Web 介面加上密碼門禁，同時 API 不受影響
 - **防列舉** — 全站無 404 回應；未知短碼靜默跳轉至首頁或可配置的 `DEFAULT` URL；所有寫入操作失敗均回傳 403
 - **防循環跳轉** — 指向本服務或常見短連結服務（bit.ly、tinyurl.com、t.co 等）的目標 URL 在前端和 API 層面均被拒絕
@@ -1096,7 +1096,7 @@ X-Password: slug-password
 | `PUT`    | `/_u/chunk/:slug?c=<idx>`     | 上傳一個分片（原始位元組）至作用中的上傳工作階段                              |
 | `POST`   | `/_u/commit/:slug`            | 提交並最終化上傳工作階段                                                      |
 | `POST`   | `/_a/:slug`                   | 提交 `accessPassword`；成功 → set 解鎖 cookie + 303 跳回 `/:slug`（不分 URL/檔案 slug）；後續 GET 按 `redirectMode` 分發 |
-| `POST`   | `/_admin/auth`                | 僅瀏覽器：以管理員金鑰換取 HttpOnly `shul_admin` cookie                       |
+| `POST`   | `/_admin/auth`                | 僅瀏覽器：以管理密碼換取 HttpOnly `shul_admin` cookie                       |
 | `POST`   | `/_admin/logout`              | 僅瀏覽器：清除 `shul_admin` cookie                                            |
 | `POST`   | `/api/prefs`                  | 僅瀏覽器：透過 cookie 持久化 UI 偏好（例如 `theme`）                          |
 | `PUT`    | `/:slug`                      | 更新短連結                                                                    |
@@ -1115,7 +1115,7 @@ X-Password: slug-password
   - 並行場景下計數器是**盡力而為**——CF KV 無原子 increment，同時發生的存取可能合計少計若干次。**不要用它做安全配額**；用於「分享給 N 個朋友看」這類寬鬆場景即可。
 - **`ttl`**（有效時長）：當 `ttl > 0`，短碼帶絕對 `expiresAt = create_time + ttl`。修改時除非顯式改 `ttl` 或傳 `resetTtl: true`，該錨點保持不變。
 
-擁有者（管理員金鑰或正確的 `X-Password`）的 GET 類回應包含 `maxHits`、`hits`、`hitsLeft = max(0, maxHits - hits)`、`ttl`、`expiresAt`（Unix 秒）、`expiresInSec`。未認證 / 密碼錯誤的回應完全不返回這六個欄位。
+擁有者（管理密碼或正確的 `X-Password`）的 GET 類回應包含 `maxHits`、`hits`、`hitsLeft = max(0, maxHits - hits)`、`ttl`、`expiresAt`（Unix 秒）、`expiresInSec`。未認證 / 密碼錯誤的回應完全不返回這六個欄位。
 
 ## 多檔案下載頁面
 
@@ -1144,7 +1144,7 @@ X-Password: slug-password
 
    | 變數名    | 類型   | 說明                                                                          |
    |-----------|--------|-------------------------------------------------------------------------------|
-   | `KEY`     | Secret | 逗號分隔的管理員金鑰；不設則無需認證                                           |
+   | `KEY`     | Secret | 逗號分隔的管理密碼；不設則無需認證                                           |
    | `BASE`    | Text   | 短連結基礎 URL，如 `https://s.mydomain.tld`；不設則使用請求來源               |
    | `TTL`     | Text   | 預設連結過期時間（秒，整數 >= 60）；不設則永久                                |
    | `DEFAULT` | Text   | slug 不存在時的跳轉 URL；不設或非法則回到首頁                                 |
@@ -1159,7 +1159,7 @@ X-Password: slug-password
 
 ### 認證方式
 
-**管理員金鑰**（僅在設定了 `KEY` 環境變數時需要）：
+**管理密碼**（僅在設定了 `KEY` 環境變數時需要）：
 
 ```
 X-Admin-Key: your-admin-key
@@ -1169,7 +1169,7 @@ X-Admin-Key: your-admin-key
 Authorization: Bearer your-admin-key
 ```
 
-**短碼密碼**（建立時回傳的短碼專屬密鑰）：
+**短鏈密碼**（建立時回傳的短鏈專屬密碼）：
 
 ```
 X-Password: slug-password
@@ -1177,7 +1177,7 @@ X-Password: slug-password
 
 密碼一律透過 `X-Password` 請求標頭發送，不再放在請求體中。
 
-**瀏覽器管理員路徑**：Web 介面不在 JS storage 中保留管理員金鑰，而是透過 `POST /_admin/auth` 將金鑰換成 HttpOnly `shul_admin` cookie，後續管理操作均憑該 cookie。API 客戶端（機器對機器）仍使用 `X-Admin-Key` / `Bearer` 請求標頭；cookie 路徑僅服務於瀏覽器，兩者互補。
+**瀏覽器管理員路徑**：Web 介面不在 JS storage 中保留管理密碼，而是透過 `POST /_admin/auth` 將管理密碼換成 HttpOnly `shul_admin` cookie，後續管理操作均憑該 cookie。API 客戶端（機器對機器）仍使用 `X-Admin-Key` / `Bearer` 請求標頭；cookie 路徑僅服務於瀏覽器，兩者互補。
 
 ### 錯誤回應
 
@@ -1185,7 +1185,7 @@ X-Password: slug-password
 
 | 錯誤碼                    | 狀態碼 | 說明                                      |
 |---------------------------|--------|-------------------------------------------|
-| `UNAUTHORIZED`            | 401    | 管理員金鑰缺失或無效                      |
+| `UNAUTHORIZED`            | 401    | 管理密碼缺失或無效                      |
 | `INVALID_JSON`            | 400    | 請求體不是有效的 JSON                     |
 | `INVALID_URL`             | 400    | 目標 URL 不是有效的 HTTP/HTTPS 地址       |
 | `BLOCKED_URL`             | 400    | 目標 URL 指向本服務或已知短連結服務       |
@@ -1228,15 +1228,15 @@ X-Password: slug-password
 
 | 請求標頭     | 必填       | 說明       |
 |--------------|------------|------------|
-| `X-Password` | 是         | 短碼密碼   |
-| `X-Admin-Key`  | 設定時必填 | 管理員金鑰 |
+| `X-Password` | 是         | 短鏈密碼   |
+| `X-Admin-Key`  | 設定時必填 | 管理密碼 |
 
 **回應：** 無回應體。
 
 | 狀態碼 | 含義                              |
 |--------|-----------------------------------|
 | 200    | 短碼存在且密碼正確                |
-| 401    | 管理員金鑰缺失或無效              |
+| 401    | 管理密碼缺失或無效              |
 | 403    | 密碼錯誤 / 短碼不存在 / 未提供密碼 |
 
 ### POST / — 建立短連結（單條）
@@ -1248,7 +1248,7 @@ X-Password: slug-password
 | 請求標頭     | 必填       | 說明                                     |
 |--------------|------------|------------------------------------------|
 | `X-Password` | 否         | 若短碼已存在，驗證所有權並回傳條目資料   |
-| `X-Admin-Key`  | 設定時必填 | 管理員金鑰                               |
+| `X-Admin-Key`  | 設定時必填 | 管理密碼                               |
 
 **請求體：**
 
@@ -1263,7 +1263,7 @@ X-Password: slug-password
 | `redirectPageContent`| string  | 否   | 跳轉頁面內容（Markdown）；最長 2000 字元     |
 | `manualBtnTitle`     | string  | 否   | 自訂跳轉按鈕文案；最長 128 字元              |
 | `maxHits`            | integer | 否   | 有效次數上限（0 = 無限制；1 = 一次後自毀；N = 第 N 次存取後刪除）。並行場景下計數器為盡力而為，詳見上文「有效次數與有效時長」。 |
-| `accessPassword`     | string  | 否   | 訪客密碼——在**所有**跳轉模式與目標類型（URL/單檔/多檔）下都生效。3–16 個可列印非空格字元。伺服端密碼門禁頁（獨立於跳轉頁）在所有內容之前；訪客必須通過門禁後才進入 `redirectMode` 分發邏輯。PUT 傳空字串可清除已設定的密碼。 |
+| `accessPassword`     | string  | 否   | 存取密碼——在**所有**跳轉模式與目標類型（URL/單檔/多檔）下都生效。3–16 個可列印非空格字元。伺服端密碼門禁頁（獨立於跳轉頁）在所有內容之前；訪客必須通過門禁後才進入 `redirectMode` 分發邏輯。PUT 傳空字串可清除已設定的密碼。 |
 | `darkBackground`     | boolean | 否   | 跳轉頁面使用暗色背景；預設 `false`（亮色）   |
 | `centerContent`      | boolean | 否   | 跳轉頁面正文置中；預設 `false`（左對齊）     |
 | `ttl`                | integer | 否   | 有效時長（60–31536000 秒）；0 = 永久。建立時錨定 `expiresAt = now + ttl`。 |
@@ -1292,13 +1292,13 @@ X-Password: slug-password
 
 ### POST / — 批次建立（僅管理員）
 
-發送 JSON 陣列一次建立多條短連結。需要管理員金鑰。
+發送 JSON 陣列一次建立多條短連結。需要管理密碼。
 
 **請求標頭：**
 
 | 請求標頭     | 必填 | 說明       |
 |--------------|------|------------|
-| `X-Admin-Key`  | 是   | 管理員金鑰 |
+| `X-Admin-Key`  | 是   | 管理密碼 |
 
 **請求體：** 與單條建立相同欄位的 JSON 陣列。
 
@@ -1318,8 +1318,8 @@ X-Password: slug-password
 
 | 請求標頭     | 必填       | 說明     |
 |--------------|------------|----------|
-| `X-Password` | 是         | 短碼密碼 |
-| `X-Admin-Key`  | 設定時必填 | 管理員金鑰 |
+| `X-Password` | 是         | 短鏈密碼 |
+| `X-Admin-Key`  | 設定時必填 | 管理密碼 |
 
 **回應（200）：**
 
@@ -1349,14 +1349,14 @@ X-Password: slug-password
 
 | 請求標頭     | 必填       | 說明     |
 |--------------|------------|----------|
-| `X-Password` | 是         | 短碼密碼 |
-| `X-Admin-Key`  | 設定時必填 | 管理員金鑰 |
+| `X-Password` | 是         | 短鏈密碼 |
+| `X-Admin-Key`  | 設定時必填 | 管理密碼 |
 
 **請求體：** 與建立相同的欄位，另加：
 
 | 欄位            | 類型    | 必填 | 說明                            |
 |-----------------|---------|------|---------------------------------|
-| `resetPassword` | boolean | 否   | 重新產生短碼密碼；預設 `false`  |
+| `resetPassword` | boolean | 否   | 重新產生短鏈密碼；預設 `false`  |
 | `resetHits`     | boolean | 否   | 在保持 `maxHits` 不變的前提下將 `hits` 計數器歸零；預設 `false` |
 | `resetTtl`      | boolean | 否   | 在保持 `ttl` 不變的前提下將 `expiresAt` 重錨為 `now + ttl`；預設 `false` |
 
@@ -1376,10 +1376,10 @@ X-Password: slug-password
 
 | 請求標頭     | 必填       | 說明     |
 |--------------|------------|----------|
-| `X-Password` | 是         | 短碼密碼   |
-| `X-Admin-Key`  | 設定時必填 | 管理員金鑰 |
+| `X-Password` | 是         | 短鏈密碼   |
+| `X-Admin-Key`  | 設定時必填 | 管理密碼 |
 
-注：持有 `X-Admin-Key` 的管理員可刪除任意短碼，無需其修改密碼。
+注：持有 `X-Admin-Key` 的管理員可刪除任意短碼，無需其短鏈密碼。
 
 **回應（200）：**
 
@@ -1391,13 +1391,13 @@ X-Password: slug-password
 
 ### DELETE / — 清除全部（僅管理員）
 
-刪除 KV 命名空間中的**所有**短連結。需要管理員金鑰。請謹慎使用。
+刪除 KV 命名空間中的**所有**短連結。需要管理密碼。請謹慎使用。
 
 **請求標頭：**
 
 | 請求標頭     | 必填 | 說明       |
 |--------------|------|------------|
-| `X-Admin-Key`  | 是   | 管理員金鑰 |
+| `X-Admin-Key`  | 是   | 管理密碼 |
 
 **回應（200）：**
 
@@ -1409,13 +1409,13 @@ X-Password: slug-password
 
 ### 管理員專屬功能
 
-以下操作僅限持有管理員金鑰（`X-Admin-Key`）的使用者：
+以下操作僅限持有管理密碼（`X-Admin-Key`）的使用者：
 
 | 功能             | 說明                                                      |
 |------------------|-----------------------------------------------------------|
 | **批次建立**     | `POST /` 發送 JSON 陣列 — 一次請求建立多條短連結          |
 | **清除全部**     | `DELETE /` — 刪除命名空間中的所有連結                     |
-| **管理任意連結** | 無需修改密碼即可檢視、更新或刪除任意短碼                  |
+| **管理任意連結** | 無需短鏈密碼即可檢視、更新或刪除任意短碼                  |
 | **不受頻率限制** | 管理員請求不受每日配額限制                                |
 
 ### 檔案上傳
@@ -1450,8 +1450,8 @@ X-Password: slug-password
 
 | 請求標頭     | 必填         | 說明                                                |
 |--------------|--------------|-----------------------------------------------------|
-| `X-Password` | 修改流程     | 短碼密碼（針對既有檔案短碼）                        |
-| `X-Admin-Key`  | 設定時必填   | 管理員金鑰（可繞過 `X-Password` 與頻率限制）        |
+| `X-Password` | 修改流程     | 短鏈密碼（針對既有檔案短碼）                        |
+| `X-Admin-Key`  | 設定時必填   | 管理密碼（可繞過 `X-Password` 與頻率限制）        |
 
 **請求體：**
 
@@ -1462,7 +1462,7 @@ X-Password: slug-password
 | `removedFileIds`  | int[]    | 否     | （僅修改）提交時要刪除的既有檔案 `id` 清單                                  |
 | `redirectMode`    | string   | 否     | `instant` 或 `manual`；預設 `instant`                                       |
 | `countdown` / `redirectPageTitle` / `redirectPageContent` / `manualBtnTitle` / `darkBackground` / `centerContent` / `maxHits` / `accessPassword` / `ttl` | — | 否 | 與 URL 短碼建立語意相同，提交時套用。 |
-| `resetPassword`   | boolean  | 否     | （僅修改）提交時重新產生短碼密碼；預設 `false`                              |
+| `resetPassword`   | boolean  | 否     | （僅修改）提交時重新產生短鏈密碼；預設 `false`                              |
 
 **回應（建立 201、修改 200）：**
 

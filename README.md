@@ -17,7 +17,7 @@ Tiny Cloudflare Workers. Self-contained and well-documented. Simply copy and pas
 | 产品                             | 源码            | 说明                                                                                              |
 |----------------------------------|-----------------|---------------------------------------------------------------------------------------------------|
 | [开火邮件](mailgunfire.md)        | `mailgunfire.js`| 通过 Mailgun HTTP API 发送邮件；Markdown 编辑界面（含预览）；支持附件                               |
-| [速至短链](shurl.md)              | `shurl.js`      | 短链接服务（支持 URL 或文件上传）：匿名创建、逐链接密码、自定义跳转页（Markdown 内容），提供完整 API |
+| [速至短链](shurl.md)              | `shurl.js`      | 短链接服务（支持 URL 或文件上传）：匿名创建、短链密码、自定义跳转页（Markdown 内容），提供完整 API |
 | [MixSSL](mixssl.md)              | `mixssl.js`     | 混合来自相同或不同 DNS 管理机构下多帐号域名的 SSL 证书签发，支持 ZeroSSL 和 Google Trust Services 等 CA 及多种 RSA / 椭圆曲线密钥算法 |
 
 ---
@@ -29,5 +29,5 @@ Tiny Cloudflare Workers. Self-contained and well-documented. Simply copy and pas
 | 產品                             | 源碼            | 說明                                                                                              |
 |----------------------------------|-----------------|---------------------------------------------------------------------------------------------------|
 | [開火郵件](mailgunfire.md)        | `mailgunfire.js`| 透過 Mailgun HTTP API 發送郵件；Markdown 編輯介面（含預覽）；支援附件                               |
-| [速至短鏈](shurl.md)              | `shurl.js`      | 短連結服務（支援 URL 或檔案上傳）：匿名建立、逐連結密碼、自訂跳轉頁（Markdown 內容），提供完整 API   |
+| [速至短鏈](shurl.md)              | `shurl.js`      | 短連結服務（支援 URL 或檔案上傳）：匿名建立、短鏈密碼、自訂跳轉頁（Markdown 內容），提供完整 API   |
 | [MixSSL](mixssl.md)              | `mixssl.js`     | 混合來自相同或不同 DNS 管理機構下多帳號域名的 SSL 憑證簽發，支援 ZeroSSL 和 Google Trust Services 等 CA 及多種 RSA / 橢圓曲線金鑰演算法              |
