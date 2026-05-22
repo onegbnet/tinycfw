@@ -208,12 +208,12 @@ function detectLangFromAcceptLanguage(headerString, supported) {
 }
 
 var landing_default = `<!DOCTYPE html>
-<html lang="en" dir="ltr" data-theme="{{THEME}}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="{{LANG}}" dir="ltr" data-theme="{{THEME}}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Shurl</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71'/%3E%3C/svg%3E">
 <script src="https://{{CDN_HOST}}/npm/markdown-it@14/dist/markdown-it.min.js"></script>
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/overlay/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c9c1c41035ef315ce5bae624b9c8db163ae1b988/shurl/view.min.css"></head><body><div style="width:100%;max-width:480px"><div class="c">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/overlay/style.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@a66a4128c1d6b15d73941b5ba3e764c36053ce76/shurl/view.min.css"></head><body><div style="width:100%;max-width:480px"><div class="c">
 <div class="header">
   <div class="header-left">
     <div class="logo-icon">
@@ -311,24 +311,64 @@ var landing_default = `<!DOCTYPE html>
   </label>
 </div>
 
-<div class="collapse-toggle" id="ttl-toggle" onclick="toggleTtl()"><span class="caret">\u25B6</span> <span data-i18n="ttl_options"></span></div>
-<div id="ttl-section" class="hidden">
-  <div class="ttl-row">
-    <input id="ttl" type="number" min="0">
-    <select id="ttl-unit">
-      <option value="s" id="ttlopt-s" data-i18n="ttl_unit_s">Seconds</option>
-      <option value="m" id="ttlopt-m" data-i18n="ttl_unit_m">Minutes</option>
-      <option value="h" id="ttlopt-h" data-i18n="ttl_unit_h">Hours</option>
-      <option value="d" id="ttlopt-d" data-i18n="ttl_unit_d">Days</option>
-      <option value="mo" id="ttlopt-mo" data-i18n="ttl_unit_mo">Months</option>
-    </select>
-  </div>
-  <p class="hint" id="h-ttl" data-i18n="ttl_hint"></p>
-  <label class="rd-check" style="margin:.8rem 0">
-    <input type="checkbox" id="oneTime">
-    <span id="l-oneTime" data-i18n="label_one_time"></span>
+<div class="collapse-toggle" id="restrict-toggle" onclick="toggleRestrict()"><span class="caret">\u25B6</span> <span data-i18n="restrict_options"></span></div>
+<div id="restrict-section" class="hidden">
+
+<div class="validity-block">
+  <label class="rd-check">
+    <input type="checkbox" id="enable-ttl">
+    <span data-i18n="ttl_options"></span>
   </label>
+  <div id="ttl-inputs" class="hidden" style="margin:.4rem 0 0 1.6rem">
+    <div class="ttl-row">
+      <input id="ttl" type="number" inputmode="numeric" pattern="\\d*" min="1">
+      <select id="ttl-unit">
+        <option value="s" id="ttlopt-s" data-i18n="ttl_unit_s">Seconds</option>
+        <option value="m" id="ttlopt-m" data-i18n="ttl_unit_m">Minutes</option>
+        <option value="h" id="ttlopt-h" data-i18n="ttl_unit_h">Hours</option>
+        <option value="d" id="ttlopt-d" data-i18n="ttl_unit_d">Days</option>
+        <option value="mo" id="ttlopt-mo" data-i18n="ttl_unit_mo">Months</option>
+      </select>
+    </div>
+    <p class="hint" id="h-ttl-expires" data-show-mode="modify" style="display:none"></p>
+    <label class="rd-check" id="reset-ttl-wrap" data-show-mode="modify" style="display:none;margin-top:.4rem">
+      <input type="checkbox" id="resetTtl">
+      <span data-i18n="reset_ttl_label"></span>
+    </label>
+  </div>
 </div>
+
+<div class="validity-block" id="max-hits-block">
+  <label class="rd-check">
+    <input type="checkbox" id="enable-max-hits">
+    <span data-i18n="label_max_hits"></span>
+  </label>
+  <div id="max-hits-inputs" class="hidden" style="margin:.4rem 0 0 1.6rem">
+    <div class="ttl-row">
+      <input id="max-hits" type="number" inputmode="numeric" pattern="\\d*" min="1">
+      <span class="ttl-row-suffix" data-i18n="max_hits_unit"></span>
+    </div>
+    <p class="hint" data-i18n="max_hits_concurrency_hint"></p>
+    <p class="hint" id="h-hits-consumed" data-show-mode="modify" style="display:none"></p>
+    <label class="rd-check" id="reset-hits-wrap" data-show-mode="modify" style="display:none;margin-top:.4rem">
+      <input type="checkbox" id="resetHits">
+      <span data-i18n="reset_hits_label"></span>
+    </label>
+  </div>
+</div>
+
+<div class="validity-block" id="access-pw-block">
+  <label class="rd-check">
+    <input type="checkbox" id="enable-access-pw">
+    <span data-i18n="label_require_password"></span>
+  </label>
+  <div id="access-pw-inputs" class="hidden" style="margin:.4rem 0 0 1.6rem">
+    <input id="accessPassword" type="password" maxlength="16" data-i18n-ph="access_password_placeholder" style="margin:0">
+    <p class="hint" id="h-accessPassword" style="color:#ef4444;display:none;margin:.2rem 0 .4rem"></p>
+  </div>
+</div>
+
+</div><!-- /restrict-section -->
 
 <div class="collapse-toggle" id="adv-toggle" onclick="toggleAdvanced()"><span class="caret">\u25B6</span> <span data-i18n="redirect_options"></span></div>
 <div id="advanced" class="hidden">
@@ -348,10 +388,10 @@ var landing_default = `<!DOCTYPE html>
 <div class="rd-mode">
   <label class="rd-radio">
     <input type="radio" name="rdMode" value="manual">
-    <span id="l-rdManual" data-i18n="redirect_mode_manual"></span>
+    <!-- l-rdManual text is set imperatively (kind-aware: URL\u2192use landing page, file\u2192use download page) by applyKindAwareLabels() -->
+    <span id="l-rdManual"></span>
   </label>
   <div id="rd-manual-opts" class="hidden" style="padding-left:1.5rem">
-    <div class="group-title" id="g-contentStyle" data-i18n="heading_content_style"></div>
     <label id="l-redirectPageTitle" data-i18n="redirect_page_title_label" class="field-label"></label>
     <input id="redirectPageTitle" type="text" maxlength="128" data-i18n-ph="redirect_page_title_placeholder">
 
@@ -402,26 +442,21 @@ var landing_default = `<!DOCTYPE html>
       <span id="l-darkBackground" data-i18n="label_dark_background"></span>
     </label>
 
-    <div class="group-title" id="g-interaction" data-i18n="heading_interaction"></div>
-    <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
-      <label class="rd-check" style="margin:0">
-        <input type="checkbox" id="requirePassword">
-        <span id="l-requirePassword" data-i18n="label_require_password"></span>
-      </label>
-      <input id="accessPassword" type="password" maxlength="16" style="display:none;flex:1;min-width:140px;margin:0">
-    </div>
-    <p class="hint" id="h-accessPassword" style="color:#ef4444;display:none;margin:.2rem 0 .4rem"></p>
+    <label id="l-manualBtn" data-i18n="manual_btn_label" class="field-label" style="margin-top:.8rem"></label>
+    <input id="manualBtnTitle" type="text" maxlength="128" data-i18n-ph="manual_btn_placeholder">
 
-    <div style="margin-top:.4rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
-      <label class="rd-check" style="margin:0">
+    <div class="validity-block" id="countdown-block">
+      <label class="rd-check">
         <input type="checkbox" id="useCountdown">
         <span id="l-useCountdown" data-i18n="label_use_countdown"></span>
       </label>
-      <select id="countdown" style="display:none;width:auto;margin:0"></select>
+      <div id="countdown-inputs" class="hidden" style="margin:.4rem 0 0 1.6rem">
+        <div class="ttl-row">
+          <input id="countdown" type="number" inputmode="numeric" pattern="\\d*" min="1">
+          <span class="ttl-row-suffix" data-i18n="countdown_unit"></span>
+        </div>
+      </div>
     </div>
-
-    <label id="l-manualBtn" data-i18n="manual_btn_label" class="field-label" style="margin-top:.8rem"></label>
-    <input id="manualBtnTitle" type="text" maxlength="128" data-i18n-ph="manual_btn_placeholder">
   </div>
 </div>
 </div>
@@ -433,7 +468,7 @@ var landing_default = `<!DOCTYPE html>
 <div id="r"></div>
 
 </div>
-<footer style="text-align:center;padding:1rem 0;font-size:.75rem;color:var(--footer-color,inherit)">\xA9 <span id="footerYear"></span> <a href="https://go.gb.net/gaobo" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)"><img src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/gaobo.png" alt="" style="height:20px;vertical-align:middle;margin:0 2px;"><span id="footerBrand"></span></a> <span id="footerProd"></span> <a href="https://github.com/onegbnet/tinyutils/blob/master/LICENSE" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)">MIT License</a></footer>
+<footer style="text-align:center;padding:1rem 0;font-size:.75rem;color:var(--footer-color,inherit)">\xA9 <span id="footerYear"></span> <a href="https://go.gb.net/gaobo" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)"><img src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/gaobo.png" alt="" style="height:20px;vertical-align:middle;margin:0 2px;"><span id="footerBrand"></span></a> <span id="footerProd"></span> <a href="https://github.com/onegbnet/tinyutils/blob/master/LICENSE" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)">MIT License</a></footer>
 
 </div>
 <script>
@@ -456,37 +491,39 @@ var INITIAL_LANG = "{{LANG}}";
 <!-- CDN-served browser modules \u2014 order: i18n-engine first; action before
      overlay; field separately; theme self-contained (storage-free, reads
      <html data-theme>). {{CDN_HOST}} swapped per-request by handleGet(). -->
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/i18n-engine/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/footer-brand/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/action/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/field/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/overlay/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/theme/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/upload2kv/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/i18n-engine/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/footer-brand/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/action/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/field/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/overlay/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/theme/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/upload2kv/client.min.js"></script>
 
 <!-- markdown-editor (Phase 5b-B): per-app config via inline shim BEFORE
      the CDN <script src> so window.MDE_CONFIG / window.MDE_I18N_OVERRIDES
      are set when the IIFE executes. -->
 <script>window.MDE_CONFIG={"textareaId":"mdPane","trimReturn":true};</script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/markdown-editor/client.min.js"></script>
+<script>var MDE_I18N = {en:{md_placeholder:"Write markdown here...",md_preview_title:"Preview",md_preview_close:"Close",md_tb_bold:"Bold",md_tb_italic:"Italic",md_tb_h1:"Heading 1",md_tb_h2:"Heading 2",md_tb_h3:"Heading 3",md_tb_ul:"Bullet list",md_tb_ol:"Numbered list",md_tb_blockquote:"Blockquote",md_tb_code:"Inline code",md_tb_link:"Insert link",md_tb_hr:"Horizontal rule",md_tb_preview:"Preview"},eo:{md_placeholder:"Skribu markdown \u0109i tie...",md_preview_title:"Anta\u016Drigardo",md_preview_close:"Fermi",md_tb_bold:"Grasa",md_tb_italic:"Kursiva",md_tb_h1:"Titolo 1",md_tb_h2:"Titolo 2",md_tb_h3:"Titolo 3",md_tb_ul:"Bula listo",md_tb_ol:"Numerita listo",md_tb_blockquote:"Cita\u0135o",md_tb_code:"Enlinia kodo",md_tb_link:"Enmeti ligilon",md_tb_hr:"Horizontala linio",md_tb_preview:"Anta\u016Drigardo"},fr:{md_placeholder:"\xC9crivez du markdown ici...",md_preview_title:"Aper\xE7u",md_preview_close:"Fermer",md_tb_bold:"Gras",md_tb_italic:"Italique",md_tb_h1:"Titre 1",md_tb_h2:"Titre 2",md_tb_h3:"Titre 3",md_tb_ul:"Liste \xE0 puces",md_tb_ol:"Liste num\xE9rot\xE9e",md_tb_blockquote:"Citation",md_tb_code:"Code en ligne",md_tb_link:"Ins\xE9rer un lien",md_tb_hr:"Ligne horizontale",md_tb_preview:"Aper\xE7u"},de:{md_placeholder:"Markdown hier schreiben...",md_preview_title:"Vorschau",md_preview_close:"Schlie\xDFen",md_tb_bold:"Fett",md_tb_italic:"Kursiv",md_tb_h1:"\xDCberschrift 1",md_tb_h2:"\xDCberschrift 2",md_tb_h3:"\xDCberschrift 3",md_tb_ul:"Aufz\xE4hlung",md_tb_ol:"Nummerierte Liste",md_tb_blockquote:"Zitat",md_tb_code:"Inline-Code",md_tb_link:"Link einf\xFCgen",md_tb_hr:"Horizontale Linie",md_tb_preview:"Vorschau"},es:{md_placeholder:"Escribe markdown aqu\xED...",md_preview_title:"Vista previa",md_preview_close:"Cerrar",md_tb_bold:"Negrita",md_tb_italic:"Cursiva",md_tb_h1:"Encabezado 1",md_tb_h2:"Encabezado 2",md_tb_h3:"Encabezado 3",md_tb_ul:"Lista con vi\xF1etas",md_tb_ol:"Lista numerada",md_tb_blockquote:"Cita",md_tb_code:"C\xF3digo en l\xEDnea",md_tb_link:"Insertar enlace",md_tb_hr:"L\xEDnea horizontal",md_tb_preview:"Vista previa"},it:{md_placeholder:"Scrivi markdown qui...",md_preview_title:"Anteprima",md_preview_close:"Chiudi",md_tb_bold:"Grassetto",md_tb_italic:"Corsivo",md_tb_h1:"Titolo 1",md_tb_h2:"Titolo 2",md_tb_h3:"Titolo 3",md_tb_ul:"Elenco puntato",md_tb_ol:"Elenco numerato",md_tb_blockquote:"Citazione",md_tb_code:"Codice in linea",md_tb_link:"Inserisci collegamento",md_tb_hr:"Riga orizzontale",md_tb_preview:"Anteprima"},nl:{md_placeholder:"Schrijf hier markdown...",md_preview_title:"Voorbeeld",md_preview_close:"Sluiten",md_tb_bold:"Vet",md_tb_italic:"Cursief",md_tb_h1:"Kop 1",md_tb_h2:"Kop 2",md_tb_h3:"Kop 3",md_tb_ul:"Opsommingslijst",md_tb_ol:"Genummerde lijst",md_tb_blockquote:"Citaat",md_tb_code:"Inline code",md_tb_link:"Link invoegen",md_tb_hr:"Horizontale lijn",md_tb_preview:"Voorbeeld"},da:{md_placeholder:"Skriv markdown her...",md_preview_title:"Forh\xE5ndsvisning",md_preview_close:"Luk",md_tb_bold:"Fed",md_tb_italic:"Kursiv",md_tb_h1:"Overskrift 1",md_tb_h2:"Overskrift 2",md_tb_h3:"Overskrift 3",md_tb_ul:"Punktliste",md_tb_ol:"Nummereret liste",md_tb_blockquote:"Citat",md_tb_code:"Inline-kode",md_tb_link:"Inds\xE6t link",md_tb_hr:"Vandret linje",md_tb_preview:"Forh\xE5ndsvisning"},"zh-cn":{md_placeholder:"\u5728\u6B64\u7F16\u5199 Markdown...",md_preview_title:"\u9884\u89C8",md_preview_close:"\u5173\u95ED",md_tb_bold:"\u52A0\u7C97",md_tb_italic:"\u659C\u4F53",md_tb_h1:"\u6807\u9898 1",md_tb_h2:"\u6807\u9898 2",md_tb_h3:"\u6807\u9898 3",md_tb_ul:"\u65E0\u5E8F\u5217\u8868",md_tb_ol:"\u6709\u5E8F\u5217\u8868",md_tb_blockquote:"\u5F15\u7528",md_tb_code:"\u884C\u5185\u4EE3\u7801",md_tb_link:"\u63D2\u5165\u94FE\u63A5",md_tb_hr:"\u6C34\u5E73\u7EBF",md_tb_preview:"\u9884\u89C8"},"zh-tw":{md_placeholder:"\u5728\u6B64\u7DE8\u5BEB Markdown...",md_preview_title:"\u9810\u89BD",md_preview_close:"\u95DC\u9589",md_tb_bold:"\u7C97\u9AD4",md_tb_italic:"\u659C\u9AD4",md_tb_h1:"\u6A19\u984C 1",md_tb_h2:"\u6A19\u984C 2",md_tb_h3:"\u6A19\u984C 3",md_tb_ul:"\u7121\u5E8F\u6E05\u55AE",md_tb_ol:"\u6709\u5E8F\u6E05\u55AE",md_tb_blockquote:"\u5F15\u7528",md_tb_code:"\u884C\u5167\u7A0B\u5F0F\u78BC",md_tb_link:"\u63D2\u5165\u9023\u7D50",md_tb_hr:"\u6C34\u5E73\u7DDA",md_tb_preview:"\u9810\u89BD"},ja:{md_placeholder:"Markdown\u3067\u8A18\u8FF0...",md_preview_title:"\u30D7\u30EC\u30D3\u30E5\u30FC",md_preview_close:"\u9589\u3058\u308B",md_tb_bold:"\u592A\u5B57",md_tb_italic:"\u659C\u4F53",md_tb_h1:"\u898B\u51FA\u3057 1",md_tb_h2:"\u898B\u51FA\u3057 2",md_tb_h3:"\u898B\u51FA\u3057 3",md_tb_ul:"\u7B87\u6761\u66F8\u304D",md_tb_ol:"\u756A\u53F7\u4ED8\u304D\u30EA\u30B9\u30C8",md_tb_blockquote:"\u5F15\u7528",md_tb_code:"\u30A4\u30F3\u30E9\u30A4\u30F3\u30B3\u30FC\u30C9",md_tb_link:"\u30EA\u30F3\u30AF\u3092\u633F\u5165",md_tb_hr:"\u6C34\u5E73\u7DDA",md_tb_preview:"\u30D7\u30EC\u30D3\u30E5\u30FC"},ko:{md_placeholder:"\uB9C8\uD06C\uB2E4\uC6B4 \uC791\uC131...",md_preview_title:"\uBBF8\uB9AC\uBCF4\uAE30",md_preview_close:"\uB2EB\uAE30",md_tb_bold:"\uAD75\uAC8C",md_tb_italic:"\uAE30\uC6B8\uC784",md_tb_h1:"\uC81C\uBAA9 1",md_tb_h2:"\uC81C\uBAA9 2",md_tb_h3:"\uC81C\uBAA9 3",md_tb_ul:"\uAE00\uBA38\uB9AC \uAE30\uD638",md_tb_ol:"\uBC88\uD638 \uBAA9\uB85D",md_tb_blockquote:"\uC778\uC6A9",md_tb_code:"\uC778\uB77C\uC778 \uCF54\uB4DC",md_tb_link:"\uB9C1\uD06C \uC0BD\uC785",md_tb_hr:"\uAD6C\uBD84\uC120",md_tb_preview:"\uBBF8\uB9AC\uBCF4\uAE30"},ms:{md_placeholder:"Tulis markdown di sini...",md_preview_title:"Pratonton",md_preview_close:"Tutup",md_tb_bold:"Tebal",md_tb_italic:"Condong",md_tb_h1:"Tajuk 1",md_tb_h2:"Tajuk 2",md_tb_h3:"Tajuk 3",md_tb_ul:"Senarai titik",md_tb_ol:"Senarai bernombor",md_tb_blockquote:"Petikan",md_tb_code:"Kod sebaris",md_tb_link:"Sisip pautan",md_tb_hr:"Garisan mendatar",md_tb_preview:"Pratonton"},vi:{md_placeholder:"Vi\u1EBFt markdown t\u1EA1i \u0111\xE2y...",md_preview_title:"Xem tr\u01B0\u1EDBc",md_preview_close:"\u0110\xF3ng",md_tb_bold:"\u0110\u1EADm",md_tb_italic:"Nghi\xEAng",md_tb_h1:"Ti\xEAu \u0111\u1EC1 1",md_tb_h2:"Ti\xEAu \u0111\u1EC1 2",md_tb_h3:"Ti\xEAu \u0111\u1EC1 3",md_tb_ul:"Danh s\xE1ch",md_tb_ol:"Danh s\xE1ch s\u1ED1",md_tb_blockquote:"Tr\xEDch d\u1EABn",md_tb_code:"M\xE3 n\u1ED9i d\xF2ng",md_tb_link:"Ch\xE8n li\xEAn k\u1EBFt",md_tb_hr:"\u0110\u01B0\u1EDDng k\u1EBB ngang",md_tb_preview:"Xem tr\u01B0\u1EDBc"},th:{md_placeholder:"\u0E40\u0E02\u0E35\u0E22\u0E19 Markdown \u0E17\u0E35\u0E48\u0E19\u0E35\u0E48...",md_preview_title:"\u0E14\u0E39\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07",md_preview_close:"\u0E1B\u0E34\u0E14",md_tb_bold:"\u0E15\u0E31\u0E27\u0E2B\u0E19\u0E32",md_tb_italic:"\u0E15\u0E31\u0E27\u0E40\u0E2D\u0E35\u0E22\u0E07",md_tb_h1:"\u0E2B\u0E31\u0E27\u0E02\u0E49\u0E2D 1",md_tb_h2:"\u0E2B\u0E31\u0E27\u0E02\u0E49\u0E2D 2",md_tb_h3:"\u0E2B\u0E31\u0E27\u0E02\u0E49\u0E2D 3",md_tb_ul:"\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E08\u0E38\u0E14",md_tb_ol:"\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E40\u0E25\u0E02",md_tb_blockquote:"\u0E04\u0E33\u0E1E\u0E39\u0E14",md_tb_code:"\u0E42\u0E04\u0E49\u0E14\u0E43\u0E19\u0E1A\u0E23\u0E23\u0E17\u0E31\u0E14",md_tb_link:"\u0E41\u0E17\u0E23\u0E01\u0E25\u0E34\u0E07\u0E01\u0E4C",md_tb_hr:"\u0E40\u0E2A\u0E49\u0E19\u0E41\u0E19\u0E27\u0E19\u0E2D\u0E19",md_tb_preview:"\u0E14\u0E39\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07"},ta:{md_placeholder:"Markdown \u0B8E\u0BB4\u0BC1\u0BA4\u0BC1\u0B99\u0BCD\u0B95\u0BB3\u0BCD...",md_preview_title:"\u0BAE\u0BC1\u0BA9\u0BCD\u0BA9\u0BCB\u0B9F\u0BCD\u0B9F\u0BAE\u0BCD",md_preview_close:"\u0BAE\u0BC2\u0B9F\u0BC1",md_tb_bold:"\u0BA4\u0B9F\u0BBF\u0BAE\u0BA9\u0BCD",md_tb_italic:"\u0B9A\u0BBE\u0BAF\u0BCD\u0BB5\u0BC1",md_tb_h1:"\u0BA4\u0BB2\u0BC8\u0BAA\u0BCD\u0BAA\u0BC1 1",md_tb_h2:"\u0BA4\u0BB2\u0BC8\u0BAA\u0BCD\u0BAA\u0BC1 2",md_tb_h3:"\u0BA4\u0BB2\u0BC8\u0BAA\u0BCD\u0BAA\u0BC1 3",md_tb_ul:"\u0BAA\u0BC1\u0BB3\u0BCD\u0BB3\u0BBF \u0BAA\u0B9F\u0BCD\u0B9F\u0BBF\u0BAF\u0BB2\u0BCD",md_tb_ol:"\u0B8E\u0BA3\u0BCD \u0BAA\u0B9F\u0BCD\u0B9F\u0BBF\u0BAF\u0BB2\u0BCD",md_tb_blockquote:"\u0BAE\u0BC7\u0BB1\u0BCD\u0B95\u0BCB\u0BB3\u0BCD",md_tb_code:"\u0B87\u0BA9\u0BCD\u0BB2\u0BC8\u0BA9\u0BCD \u0B95\u0BC1\u0BB1\u0BBF\u0BAF\u0BC0\u0B9F\u0BC1",md_tb_link:"\u0B87\u0BA3\u0BC8\u0BAA\u0BCD\u0BAA\u0BC1 \u0B9A\u0BC6\u0BB0\u0BC1\u0B95\u0BC1",md_tb_hr:"\u0B95\u0BBF\u0B9F\u0BC8\u0B95\u0BCD\u0B95\u0BCB\u0B9F\u0BC1",md_tb_preview:"\u0BAE\u0BC1\u0BA9\u0BCD\u0BA9\u0BCB\u0B9F\u0BCD\u0B9F\u0BAE\u0BCD"},my:{md_placeholder:"\u1024\u1014\u1031\u101B\u102C\u1010\u103D\u1004\u103A Markdown \u101B\u1031\u1038\u1015\u102B...",md_preview_title:"\u1000\u103C\u102D\u102F\u1000\u103C\u100A\u1037\u103A",md_preview_close:"\u1015\u102D\u1010\u103A",md_tb_bold:"\u1011\u1030",md_tb_italic:"\u1005\u1031\u102C\u1004\u103A\u1038",md_tb_h1:"\u1001\u1031\u102B\u1004\u103A\u1038\u1005\u1009\u103A \u1041",md_tb_h2:"\u1001\u1031\u102B\u1004\u103A\u1038\u1005\u1009\u103A \u1042",md_tb_h3:"\u1001\u1031\u102B\u1004\u103A\u1038\u1005\u1009\u103A \u1043",md_tb_ul:"\u1021\u1005\u1000\u103A\u1005\u102C\u101B\u1004\u103A\u1038",md_tb_ol:"\u1014\u1036\u1015\u102B\u1010\u103A\u1005\u102C\u101B\u1004\u103A\u1038",md_tb_blockquote:"\u1000\u102D\u102F\u1038\u1000\u102C\u1038",md_tb_code:"\u101C\u102D\u102F\u1004\u103A\u1038\u1010\u103D\u1004\u103A\u1038\u1000\u102F\u1012\u103A",md_tb_link:"\u101C\u1004\u1037\u103A\u1011\u100A\u1037\u103A",md_tb_hr:"\u1019\u103B\u1009\u103A\u1038\u1021\u101C\u103B\u102C\u1038",md_tb_preview:"\u1000\u103C\u102D\u102F\u1000\u103C\u100A\u1037\u103A"},uk:{md_placeholder:"\u041F\u0438\u0448\u0456\u0442\u044C markdown \u0442\u0443\u0442...",md_preview_title:"\u041F\u043E\u043F\u0435\u0440\u0435\u0434\u043D\u0456\u0439 \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434",md_preview_close:"\u0417\u0430\u043A\u0440\u0438\u0442\u0438",md_tb_bold:"\u0416\u0438\u0440\u043D\u0438\u0439",md_tb_italic:"\u041A\u0443\u0440\u0441\u0438\u0432",md_tb_h1:"\u0417\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A 1",md_tb_h2:"\u0417\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A 2",md_tb_h3:"\u0417\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A 3",md_tb_ul:"\u041C\u0430\u0440\u043A\u043E\u0432\u0430\u043D\u0438\u0439 \u0441\u043F\u0438\u0441\u043E\u043A",md_tb_ol:"\u041D\u0443\u043C\u0435\u0440\u043E\u0432\u0430\u043D\u0438\u0439 \u0441\u043F\u0438\u0441\u043E\u043A",md_tb_blockquote:"\u0426\u0438\u0442\u0430\u0442\u0430",md_tb_code:"\u0412\u0431\u0443\u0434\u043E\u0432\u0430\u043D\u0438\u0439 \u043A\u043E\u0434",md_tb_link:"\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F",md_tb_hr:"\u0413\u043E\u0440\u0438\u0437\u043E\u043D\u0442\u0430\u043B\u044C\u043D\u0430 \u043B\u0456\u043D\u0456\u044F",md_tb_preview:"\u041F\u043E\u043F\u0435\u0440\u0435\u0434\u043D\u0456\u0439 \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434"},he:{md_placeholder:"\u05DB\u05EA\u05D5\u05D1 Markdown \u05DB\u05D0\u05DF...",md_preview_title:"\u05EA\u05E6\u05D5\u05D2\u05D4 \u05DE\u05E7\u05D3\u05D9\u05DE\u05D4",md_preview_close:"\u05E1\u05D2\u05D5\u05E8",md_tb_bold:"\u05DE\u05D5\u05D3\u05D2\u05E9",md_tb_italic:"\u05E0\u05D8\u05D5\u05D9",md_tb_h1:"\u05DB\u05D5\u05EA\u05E8\u05EA 1",md_tb_h2:"\u05DB\u05D5\u05EA\u05E8\u05EA 2",md_tb_h3:"\u05DB\u05D5\u05EA\u05E8\u05EA 3",md_tb_ul:"\u05E8\u05E9\u05D9\u05DE\u05EA \u05EA\u05D1\u05DC\u05D9\u05D8\u05D9\u05DD",md_tb_ol:"\u05E8\u05E9\u05D9\u05DE\u05D4 \u05DE\u05DE\u05D5\u05E1\u05E4\u05E8\u05EA",md_tb_blockquote:"\u05E6\u05D9\u05D8\u05D5\u05D8",md_tb_code:"\u05E7\u05D5\u05D3 \u05D1\u05E9\u05D5\u05E8\u05D4",md_tb_link:"\u05D4\u05DB\u05E0\u05E1 \u05E7\u05D9\u05E9\u05D5\u05E8",md_tb_hr:"\u05E7\u05D5 \u05D0\u05D5\u05E4\u05E7\u05D9",md_tb_preview:"\u05EA\u05E6\u05D5\u05D2\u05D4 \u05DE\u05E7\u05D3\u05D9\u05DE\u05D4"},ar:{md_placeholder:"\u0627\u0643\u062A\u0628 Markdown \u0647\u0646\u0627...",md_preview_title:"\u0645\u0639\u0627\u064A\u0646\u0629",md_preview_close:"\u0625\u063A\u0644\u0627\u0642",md_tb_bold:"\u063A\u0627\u0645\u0642",md_tb_italic:"\u0645\u0627\u0626\u0644",md_tb_h1:"\u0639\u0646\u0648\u0627\u0646 1",md_tb_h2:"\u0639\u0646\u0648\u0627\u0646 2",md_tb_h3:"\u0639\u0646\u0648\u0627\u0646 3",md_tb_ul:"\u0642\u0627\u0626\u0645\u0629 \u0646\u0642\u0637\u064A\u0629",md_tb_ol:"\u0642\u0627\u0626\u0645\u0629 \u0645\u0631\u0642\u0645\u0629",md_tb_blockquote:"\u0627\u0642\u062A\u0628\u0627\u0633",md_tb_code:"\u0643\u0648\u062F \u0633\u0637\u0631\u064A",md_tb_link:"\u0625\u062F\u0631\u0627\u062C \u0631\u0627\u0628\u0637",md_tb_hr:"\u062E\u0637 \u0623\u0641\u0642\u064A",md_tb_preview:"\u0645\u0639\u0627\u064A\u0646\u0629"}};</script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/markdown-editor/client.min.js"></script>
 
 <!-- Per-lang i18n loader: detect lang client-side, async-fetch ONLY the
      matching i18n-<lang>.min.js. Exposes window.LangBundle.{initial,
      ready, load} \u2014 client.min.js waits on LangBundle.ready before its
      first applyI18n and uses LangBundle.load for switch-on-demand. -->
-<script>(function(){var b="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c9c1c41035ef315ce5bae624b9c8db163ae1b988/shurl";var s=["en","eo","fr","de","es","it","nl","da","zh-cn","zh-tw","ja","ko","ms","vi","th","ta","my","uk","he","ar"];var d="en";function load(l){return new Promise(function(r,j){var x=document.createElement('script');x.src=b+'/i18n-'+l+'.min.js';x.onload=function(){r(l)};x.onerror=function(){j(new Error('i18n-'+l+' failed'))};document.head.appendChild(x)})}var init=(function(){var g=window["INITIAL_LANG"];if(typeof g==='string'&&s.indexOf(g)>=0)return g;return typeof detectLang==='function'?detectLang(s):d})();if(s.indexOf(init)<0)init=d;window.LangBundle={initial:init,ready:load(init),load:load}})();</script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@c9c1c41035ef315ce5bae624b9c8db163ae1b988/shurl/client.min.js"></script></body></html>`;
+<script>(function(){var b="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@a66a4128c1d6b15d73941b5ba3e764c36053ce76/shurl";var s=["en","eo","fr","de","es","it","nl","da","zh-cn","zh-tw","ja","ko","ms","vi","th","ta","my","uk","he","ar"];var d="en";function load(l){return new Promise(function(r,j){var x=document.createElement('script');x.src=b+'/i18n-'+l+'.min.js';x.onload=function(){r(l)};x.onerror=function(){j(new Error('i18n-'+l+' failed'))};document.head.appendChild(x)})}var init=(function(){var g=window["INITIAL_LANG"];if(typeof g==='string'&&s.indexOf(g)>=0)return g;return typeof detectLang==='function'?detectLang(s):d})();if(s.indexOf(init)<0)init=d;window.LangBundle={initial:init,ready:load(init),load:load}})();</script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@a66a4128c1d6b15d73941b5ba3e764c36053ce76/shurl/client.min.js"></script></body></html>`;
 
 var SLUG_CHARS = "abcdefghijkmnpqrstuvwxyz23456789";
 var SLUG_MIN = 3;
 var SLUG_MAX = 10;
 var PW_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
 var PW_LEN = 16;
-var DELAY_MAX = 60;
+var DELAY_MAX = 600;
 var DELAY_HTML_MAX = 2e3;
 var DELAY_TITLE_MAX = 128;
 var TTL_MIN = 60;
 var TTL_MAX = 31536e3;
+var MAX_HITS_MAX = Number.MAX_SAFE_INTEGER;
 var CHUNK_SIZE = 10 * 1024 * 1024;
 var TOTAL_MAX = 128 * 1024 * 1024;
 var RESERVE_TTL = 3600;
@@ -498,6 +535,14 @@ function normalizeTtl(val, fallback) {
   const n = Math.floor(Number(val));
   if (n === 0) return 0;
   if (isNaN(n) || n < TTL_MIN || n > TTL_MAX) return fallback !== void 0 ? fallback : 0;
+  return n;
+}
+function normalizeMaxHits(val, fallback) {
+  const n = Math.floor(Number(val));
+  if (n === 0) return 0;
+  if (isNaN(n) || n < 0 || !Number.isSafeInteger(n) || n > MAX_HITS_MAX) {
+    return fallback !== void 0 ? fallback : 0;
+  }
   return n;
 }
 function makeSlug() {
@@ -530,7 +575,7 @@ function esc(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 function clean(obj) {
-  var defaults = { countdown: 0, permanent: true, oneTime: false, darkBackground: false, centerContent: false, ttl: 0, redirectMode: "instant" };
+  var defaults = { countdown: 0, permanent: true, darkBackground: false, centerContent: false, ttl: 0, maxHits: 0, hits: 0, redirectMode: "instant" };
   var result = {};
   for (var k in obj) {
     if (!obj.hasOwnProperty(k)) continue;
@@ -542,7 +587,10 @@ function clean(obj) {
   }
   return result;
 }
-async function applyMetadataFields(body, existing, env) {
+async function applyMetadataFields(body, existing, env, nowSec) {
+  if (Object.prototype.hasOwnProperty.call(body, "oneTime")) {
+    return { error: "INVALID_FIELD" };
+  }
   const redirectMode = body.redirectMode || "instant";
   if (Array.isArray(body.redirectMode) || redirectMode !== "instant" && redirectMode !== "manual") {
     return { error: "INVALID_REDIRECT_MODE" };
@@ -551,7 +599,6 @@ async function applyMetadataFields(body, existing, env) {
   if (countdown < 0 || countdown > DELAY_MAX) countdown = 0;
   const permanent = body.permanent !== false;
   const manualBtnTitle = (body.manualBtnTitle || "").trim().slice(0, 128);
-  const oneTime = body.oneTime === true;
   const darkBackground = body.darkBackground === true;
   const centerContent = body.centerContent === true;
   const redirectPageTitle = (body.redirectPageTitle || "").trim().slice(0, DELAY_TITLE_MAX);
@@ -559,37 +606,108 @@ async function applyMetadataFields(body, existing, env) {
   const warnings = [];
   let accessHash = existing ? existing.accessHash || null : null;
   const accessPassword = (body.accessPassword || "").trim();
-  if (redirectMode === "manual") {
-    if (accessPassword) {
-      if (/^\S{3,16}$/.test(accessPassword)) {
-        accessHash = await hashPassword(accessPassword);
-      } else {
-        warnings.push("ACCESS_PASSWORD_IGNORED");
-      }
-    } else if (existing && Object.prototype.hasOwnProperty.call(body, "accessPassword") && !accessPassword) {
-      accessHash = null;
+  if (accessPassword) {
+    if (/^\S{3,16}$/.test(accessPassword)) {
+      accessHash = await hashPassword(accessPassword);
+    } else {
+      warnings.push("ACCESS_PASSWORD_IGNORED");
     }
-  } else {
+  } else if (existing && Object.prototype.hasOwnProperty.call(body, "accessPassword") && !accessPassword) {
     accessHash = null;
   }
   const defaultTtl = normalizeTtl(env.TTL || 0);
-  const ttl = normalizeTtl(body.ttl, defaultTtl);
-  return {
-    fields: {
-      redirectMode,
-      permanent,
-      countdown: accessHash ? 0 : countdown,
-      redirectPageTitle: redirectPageTitle || null,
-      redirectPageContent: redirectPageContent || null,
-      manualBtnTitle: manualBtnTitle || null,
-      accessHash: accessHash || null,
-      oneTime,
-      darkBackground,
-      centerContent,
-      ttl
-    },
-    warnings
+  const priorTtl = existing && typeof existing.ttl === "number" ? existing.ttl : 0;
+  const priorExpiresAt = existing && typeof existing.expiresAt === "number" ? existing.expiresAt : 0;
+  const resetTtl = body.resetTtl === true;
+  const hasTtlInBody = Object.prototype.hasOwnProperty.call(body, "ttl");
+  let ttl, expiresAt;
+  if (!existing) {
+    ttl = normalizeTtl(body.ttl, defaultTtl);
+    expiresAt = ttl > 0 ? nowSec + ttl : 0;
+  } else if (hasTtlInBody) {
+    const newTtl = normalizeTtl(body.ttl, priorTtl);
+    if (newTtl !== priorTtl) {
+      ttl = newTtl;
+      expiresAt = ttl > 0 ? nowSec + ttl : 0;
+    } else if (resetTtl) {
+      ttl = priorTtl;
+      expiresAt = ttl > 0 ? nowSec + ttl : 0;
+    } else {
+      ttl = priorTtl;
+      expiresAt = priorTtl > 0 ? priorExpiresAt || nowSec + priorTtl : 0;
+    }
+  } else if (resetTtl && priorTtl > 0) {
+    ttl = priorTtl;
+    expiresAt = nowSec + ttl;
+  } else {
+    ttl = priorTtl;
+    expiresAt = priorTtl > 0 ? priorExpiresAt || nowSec + priorTtl : 0;
+  }
+  const priorMaxHits = existing && typeof existing.maxHits === "number" ? existing.maxHits : 0;
+  const priorHits = existing && typeof existing.hits === "number" ? existing.hits : 0;
+  const resetHits = body.resetHits === true;
+  const hasMaxHitsInBody = Object.prototype.hasOwnProperty.call(body, "maxHits");
+  let maxHits, hits;
+  if (!existing) {
+    maxHits = hasMaxHitsInBody ? normalizeMaxHits(body.maxHits, 0) : 0;
+    hits = 0;
+  } else if (hasMaxHitsInBody) {
+    const newMaxHits = normalizeMaxHits(body.maxHits, priorMaxHits);
+    if (newMaxHits !== priorMaxHits) {
+      maxHits = newMaxHits;
+      hits = 0;
+    } else if (resetHits) {
+      maxHits = priorMaxHits;
+      hits = 0;
+    } else {
+      maxHits = priorMaxHits;
+      hits = priorHits;
+    }
+  } else if (resetHits) {
+    maxHits = priorMaxHits;
+    hits = 0;
+  } else {
+    maxHits = priorMaxHits;
+    hits = priorHits;
+  }
+  const fields = {
+    redirectMode,
+    permanent,
+    countdown,
+    redirectPageTitle: redirectPageTitle || null,
+    redirectPageContent: redirectPageContent || null,
+    manualBtnTitle: manualBtnTitle || null,
+    accessHash: accessHash || null,
+    darkBackground,
+    centerContent,
+    ttl,
+    maxHits,
+    hits
   };
+  if (expiresAt > 0) fields.expiresAt = expiresAt;
+  return { fields, warnings };
+}
+function normalizeMultifile(fields) {
+  fields.redirectMode = "manual";
+  fields.permanent = true;
+  fields.countdown = 0;
+  fields.manualBtnTitle = null;
+  fields.redirectPageTitle = null;
+  fields.redirectPageContent = null;
+  fields.darkBackground = false;
+  fields.centerContent = false;
+  return fields;
+}
+function computeKvPutOpts(fields, nowSec) {
+  const opts = {};
+  if (fields.ttl > 0) {
+    if (fields.expiresAt && fields.expiresAt > nowSec) {
+      opts.expirationTtl = Math.max(60, fields.expiresAt - nowSec);
+    } else {
+      opts.expirationTtl = fields.ttl;
+    }
+  }
+  return opts;
 }
 function isValidUrl(val) {
   if (!val || typeof val !== "string") return false;
@@ -717,7 +835,8 @@ async function createOne(item, slug, validSlug, env, requestUrl) {
     return { error: "INVALID_URL" };
   }
   if (isBlockedTarget(target, requestUrl, env)) return { error: "BLOCKED_URL" };
-  const meta = await applyMetadataFields(item, null, env);
+  const nowSec = Math.floor(Date.now() / 1e3);
+  const meta = await applyMetadataFields(item, null, env, nowSec);
   if (meta.error) return { error: meta.error };
   let newSlug;
   const warnings = [...meta.warnings];
@@ -743,8 +862,7 @@ async function createOne(item, slug, validSlug, env, requestUrl) {
     createdAt: now,
     updatedAt: null
   });
-  const putOpts = {};
-  if (meta.fields.ttl > 0) putOpts.expirationTtl = meta.fields.ttl;
+  const putOpts = computeKvPutOpts(meta.fields, nowSec);
   await env.DATA.put(newSlug, JSON.stringify(newEntry), putOpts);
   const base = getBaseUrl(env, requestUrl);
   const resp = { short_url: base + newSlug, slug: newSlug, target, password: generatedPassword };
@@ -936,6 +1054,13 @@ function readCookie(request, name) {
   }
   return null;
 }
+var HIT_TTL_SECONDS = 900;
+function hitCookieName(slug) {
+  return "shul_h_" + slug;
+}
+function makeHitCookieHeader(slug, ttlSeconds = HIT_TTL_SECONDS) {
+  return `${hitCookieName(slug)}=1; Path=/${slug}; Max-Age=${ttlSeconds}; HttpOnly; Secure; SameSite=Lax`;
+}
 
 var LOCK_PAGE_HTML = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -1125,7 +1250,7 @@ body {
     <div class="lock-err" id="lockErr"></div>
   </form>
 </div>
-<script>window.LOCK_CONFIG={"unlockPath":"/_unlock","appNameI18n":{"en":"Shurl","eo":"Shurl","fr":"Shurl","de":"Shurl","es":"Shurl","it":"Shurl","nl":"Shurl","da":"Shurl","zh-cn":"\u901F\u81F3\u77ED\u94FE","zh-tw":"\u901F\u81F3\u77ED\u93C8","ja":"Shurl","ko":"Shurl","ms":"Shurl","vi":"Shurl","th":"Shurl","ta":"Shurl","my":"Shurl","uk":"Shurl","he":"Shurl","ar":"Shurl"}};</script><script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@1b93ac7d7e40bd8de3f013cc07f0fea0881bd5bf/lock/client.min.js"></script>
+<script>window.LOCK_CONFIG={"unlockPath":"/_unlock","appNameI18n":{"en":"Shurl","eo":"Shurl","fr":"Shurl","de":"Shurl","es":"Shurl","it":"Shurl","nl":"Shurl","da":"Shurl","zh-cn":"\u901F\u81F3\u77ED\u94FE","zh-tw":"\u901F\u81F3\u77ED\u93C8","ja":"Shurl","ko":"Shurl","ms":"Shurl","vi":"Shurl","th":"Shurl","ta":"Shurl","my":"Shurl","uk":"Shurl","he":"Shurl","ar":"Shurl"}};</script><script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/lock/client.min.js"></script>
 </body></html>
 `;
 function hasApiHeader(request) {
@@ -1141,12 +1266,14 @@ var lockModule = makeLockModule({
   lockPageHtml: LOCK_PAGE_HTML
 });
 
-var APP_ASSETS_URL = "gh/onegbnet/tinycfw@c9c1c41035ef315ce5bae624b9c8db163ae1b988/shurl";
-function redirectPage(entry, acceptLang, cdnHost, slug, showError, authed) {
+var APP_ASSETS_URL = "gh/onegbnet/tinycfw@a66a4128c1d6b15d73941b5ba3e764c36053ce76/shurl";
+function redirectPage(entry, acceptLang, cdnHost, slug, showError, authed, theme) {
   const isFile = entry.type === "files";
   const files = entry.files || [];
   const filesMany = isFile && files.length > 1;
-  const target = isFile ? files.length === 1 ? "/" + slug + "?__f=1&i=0" : "" : entry.url || "";
+  const singleFile = isFile && files.length === 1;
+  const singleFileName = singleFile ? files[0].name || "" : "";
+  const target = isFile ? singleFile ? "/" + slug + "?__f=1&i=0" : "" : entry.url || "";
   const seconds = filesMany ? 0 : entry.countdown || 0;
   const needsPw = !!entry.accessHash && !authed;
   const currentLang = detectLang(acceptLang);
@@ -1154,8 +1281,8 @@ function redirectPage(entry, acceptLang, cdnHost, slug, showError, authed) {
   const titleRaw = entry.redirectPageTitle || null;
   const bodyRaw = entry.redirectPageContent || null;
   const customBtnTitle = entry.manualBtnTitle || null;
-  const light = entry.darkBackground !== true;
-  const center = entry.centerContent === true;
+  const light = filesMany ? theme !== "dark" : entry.darkBackground !== true;
+  const center = filesMany ? false : entry.centerContent === true;
   const bg = light ? "#f4f6f9" : "#0f172a";
   const fg = light ? "#1e293b" : "#e2e8f0";
   const muted = light ? "#64748b" : "#94a3b8";
@@ -1169,6 +1296,7 @@ function redirectPage(entry, acceptLang, cdnHost, slug, showError, authed) {
   const filesForPage = files.map((f) => ({ id: f.id, name: f.name, size: f.size }));
   return `<!DOCTYPE html>
 <html lang="${currentLang}" dir="${dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71'/%3E%3C/svg%3E">
 ${makeMarkdownItScriptTag(cdnHost)}
 <title id="page-title"></title>
 <style>
@@ -1191,7 +1319,8 @@ body{font-family:system-ui,sans-serif;background:${bg};color:${fg};min-height:10
 .pw-area input{padding:.6rem .8rem;border:1px solid ${inputBorder};border-radius:.5rem;font-size:1rem;outline:none;background:${inputBg};color:${fg};width:100%;max-width:280px}
 .pw-area input:focus{border-color:#3b82f6;box-shadow:0 0 0 2px rgba(59,130,246,.15)}
 .pw-err{color:#ef4444;font-size:.85rem;margin-bottom:.6rem;text-align:center}
-.files-heading{font-size:.9rem;font-weight:700;color:${fg};margin:1.2rem 0 .7rem;padding:.1rem 0 .3rem .55rem;border-bottom:1px solid ${skipBorder};border-left:3px solid #3b82f6}
+.pw-heading{font-size:1.1rem;font-weight:600;color:${fg};margin:0 0 .8rem;text-align:center}
+.files-hint{font-size:.78rem;color:${muted};margin:.8rem 0 0;text-align:center}
 .file-row{display:flex;align-items:center;gap:.6rem;padding:.6rem .8rem;margin-bottom:.4rem;background:${fileRowBg};border:1px solid ${fileRowBorder};border-radius:.5rem;text-decoration:none;color:${fg}}
 .file-row:hover{border-color:#3b82f6}
 .file-row .icon{font-size:1.2rem}
@@ -1199,17 +1328,18 @@ body{font-family:system-ui,sans-serif;background:${bg};color:${fg};min-height:10
 .file-row .size{color:${muted};font-size:.82rem;font-variant-numeric:tabular-nums}
 </style></head><body><div class="wrap">
 <div class="body-content" id="body-content"></div>
-${needsPw ? `${showError ? '<p class="pw-err" id="pw-err"></p>' : ""}<form id="pw-form" method="POST" action="/_a/${esc(slug)}"><div class="pw-area"><input type="password" name="_pw" id="pw-input" autofocus required></div><div class="skip"><button type="submit" id="pw-btn" style="display:inline-block;padding:12px 32px;background:#3b82f6;color:#fff;border-radius:8px;font-size:1rem;font-weight:600;border:none;cursor:pointer"></button></div></form>` : filesMany ? `<div class="files-heading" id="files-heading"></div><div id="file-list"></div>` : `<div class="countdown" id="count">${seconds}</div>
+${needsPw ? `<h2 class="pw-heading" id="pw-heading"></h2>${showError ? '<p class="pw-err" id="pw-err"></p>' : ""}<form id="pw-form" method="POST" action="/_a/${esc(slug)}"><div class="pw-area"><input type="password" name="_pw" id="pw-input" autofocus required></div><div class="skip"><button type="submit" id="pw-btn" style="display:inline-block;padding:12px 32px;background:#3b82f6;color:#fff;border-radius:8px;font-size:1rem;font-weight:600;border:none;cursor:pointer"></button></div></form>` : filesMany ? `<div id="file-list"></div><p class="files-hint" id="files-hint"></p>` : `<div class="countdown" id="count">${seconds}</div>
 <div class="bar-track"><div class="bar-fill" id="bar" style="width:100%"></div></div>
 <div class="skip"><a id="go-link" href="${esc(target)}" onclick="consumeAndGo();return false"></a></div>`}
-</div><script src="https://${cdnHost}/${APP_ASSETS_URL}/i18n.min.js"></script><script>
+</div><script src="https://${cdnHost}/${APP_ASSETS_URL}/i18n-${currentLang}.min.js"></script><script>
 const currentLang=${JSON.stringify(currentLang)};
-const t=I18N[currentLang]||I18N.en;
+const t=(typeof T!=='undefined'&&T)||{};
 const target=${JSON.stringify(target)};
 const needsPw=${needsPw};
 const isFile=${isFile};
 const filesMany=${filesMany};
-const oneTime=${!!entry.oneTime};
+const singleFile=${singleFile};
+const singleFileName=${JSON.stringify(singleFileName)};
 const slug=${JSON.stringify(slug)};
 const files=${JSON.stringify(filesForPage)};
 function formatSize(n){
@@ -1218,10 +1348,11 @@ function formatSize(n){
   if(n<1073741824)return (n/1048576).toFixed(1)+' MB';
   return (n/1073741824).toFixed(2)+' GB';
 }
+// Visit was already consumed server-side when this interstitial was
+// rendered (see index.mjs consumeVisit on interstitial path). The page
+// just navigates on click.
 function consumeAndGo(){
-  if(isFile){location.href=target;return}
-  if(!oneTime){location.href=target;return}
-  fetch('/_ot/'+slug,{method:'POST'}).finally(function(){location.href=target});
+  location.href=target;
 }
 const customTitle=${JSON.stringify(titleRaw)};
 const customBody=${JSON.stringify(bodyRaw)};
@@ -1233,16 +1364,23 @@ function renderCustomBody(){
   if(customBody){var md=window.markdownit({html:false,linkify:true});document.getElementById('body-content').innerHTML=md.render(customBody)}
 }
 if(needsPw){
-  renderTitle(function(){return t.access_prompt_title});
+  renderTitle(function(){return t.access_prompt_title||'Verify password'});
   renderCustomBody();
-  document.getElementById('pw-input').placeholder=t.access_prompt_placeholder;
-  document.getElementById('pw-btn').textContent=customBtnTitle||t.manual_btn_default;
+  // On-page heading (page <title> alone is too easy to miss in the tab).
+  var headEl=document.getElementById('pw-heading');
+  if(headEl) headEl.textContent=t.access_prompt_heading||'Enter the access password';
+  document.getElementById('pw-input').placeholder=t.access_prompt_placeholder||'Enter password';
+  // Password-gate submit button: dedicated i18n key, does NOT inherit
+  // customBtnTitle (which belongs to the manual-mode redirect button,
+  // semantically unrelated to "verify password").
+  document.getElementById('pw-btn').textContent=t.access_prompt_submit||'Verify';
   var errEl=document.getElementById('pw-err');
-  if(errEl) errEl.textContent=t.access_prompt_error;
+  if(errEl) errEl.textContent=t.access_prompt_error||'Incorrect password';
 }else if(filesMany){
-  renderTitle(function(){return (t.default_files_title||'Files ({n})').replace('{n}',files.length)});
-  renderCustomBody();
-  document.getElementById('files-heading').textContent=t.files_list_heading||'Files';
+  renderTitle(function(){return (t.default_files_title||'Files to download ({n})').replace('{n}',files.length)});
+  // Multi-file landing is fully fixed \u2014 server normalized
+  // redirectPageContent to null, so customBody is null too; no body
+  // markdown render. Title + file list + hint only.
   var listEl=document.getElementById('file-list');
   files.forEach(function(f,idx){
     var a=document.createElement('a');
@@ -1253,11 +1391,18 @@ if(needsPw){
     a.querySelector('.size').textContent=formatSize(f.size);
     listEl.appendChild(a);
   });
+  var hintEl=document.getElementById('files-hint');
+  if(hintEl) hintEl.textContent=t.files_list_hint||'Click any file to download';
 }else{
-  renderTitle(function(){return t.default_redirect_title.replace('{url}',target)});
+  // Single-file vs URL: different default title + button text.
+  renderTitle(function(){
+    if(singleFile){return (t.default_file_title||'To download: {filename}').replace('{filename}',singleFileName)}
+    return (t.default_redirect_title||'Destination URL {url}').replace('{url}',target);
+  });
   if(customBody){var md=window.markdownit({html:false,linkify:true});document.getElementById('body-content').innerHTML=md.render(customBody)}
   else if(!isFile){document.getElementById('body-content').innerHTML='<a href="'+target+'" style="color:${linkColor};word-break:break-all">'+target.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</a>'}
-  var btnTitle=customBtnTitle||t.manual_btn_default;
+  var defaultBtn=singleFile?(t.download_btn_default||'Download now'):(t.manual_btn_default||'Go now');
+  var btnTitle=customBtnTitle||defaultBtn;
   const total=${seconds};
   if(total===0){
     document.getElementById('count').style.display='none';
@@ -1495,8 +1640,10 @@ async function handleUploadReserve(request, env, url) {
     if (keptFiles.length === 0 && plan2.files.length === 0) {
       return json3({ error: "MODIFY_REMOVES_ALL" }, 400);
     }
-    const meta2 = await applyMetadataFields(body, existingEntry, env);
+    const nowSec2 = Math.floor(Date.now() / 1e3);
+    const meta2 = await applyMetadataFields(body, existingEntry, env, nowSec2);
     if (meta2.error) return json3({ error: meta2.error }, 400);
+    if (keptFiles.length + plan2.files.length > 1) normalizeMultifile(meta2.fields);
     const uploadToken2 = generateUploadToken();
     const updated = clean({
       ...existingEntry,
@@ -1510,9 +1657,7 @@ async function handleUploadReserve(request, env, url) {
       uploadToken: uploadToken2,
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
     });
-    const putOpts = {};
-    if (existingEntry.ttl > 0) putOpts.expirationTtl = existingEntry.ttl;
-    await env.DATA.put(customSlug, JSON.stringify(updated), putOpts);
+    await env.DATA.put(customSlug, JSON.stringify(updated), computeKvPutOpts(existingEntry, nowSec2));
     return json3({
       slug: customSlug,
       uploadKey: customSlug,
@@ -1548,8 +1693,10 @@ async function handleUploadReserve(request, env, url) {
   const plan = upload.planFiles(filesIn, { startOffset: 0, startId: 0 });
   if (plan.error) return json3({ error: plan.error }, 400);
   if (plan.sessionBytes > upload.totalMax) return json3({ error: "TOTAL_TOO_BIG" }, 400);
-  const meta = await applyMetadataFields(body, null, env);
+  const nowSec = Math.floor(Date.now() / 1e3);
+  const meta = await applyMetadataFields(body, null, env, nowSec);
   if (meta.error) return json3({ error: meta.error }, 400);
+  if (plan.files.length > 1) normalizeMultifile(meta.fields);
   warnings.push(...meta.warnings);
   const generatedPassword = generatePassword();
   const pwHash = await hashPassword(generatedPassword);
@@ -1650,10 +1797,13 @@ async function handleUploadCommit(request, env, url, slug) {
     pendingWarns: _pw,
     pendingResetPw: _prp,
     pendingSession: _ps,
+    expiresAt: _exa,
+    hits: _hX,
     ...rest
   } = entry;
   const isCreateCommit = !!entry.pending;
   const stashedMeta = entry.pendingMeta || null;
+  if (stashedMeta && newFiles.length > 1) normalizeMultifile(stashedMeta);
   let newPassword = null;
   const pwOverride = {};
   if (entry.pendingResetPw === true) {
@@ -1669,10 +1819,9 @@ async function handleUploadCommit(request, env, url, slug) {
     committedChunkEnd: newCommittedChunkEnd,
     updatedAt: isCreateCommit ? null : (/* @__PURE__ */ new Date()).toISOString()
   });
-  const finalTtl = stashedMeta && typeof stashedMeta.ttl === "number" ? stashedMeta.ttl : entry.ttl || 0;
-  const putOpts = {};
-  if (finalTtl > 0) putOpts.expirationTtl = finalTtl;
-  await env.DATA.put(slug, JSON.stringify(finalEntry), putOpts);
+  const nowSec = Math.floor(Date.now() / 1e3);
+  const ttlSource = stashedMeta ? { ttl: stashedMeta.ttl, expiresAt: stashedMeta.expiresAt } : { ttl: entry.ttl || 0, expiresAt: entry.expiresAt || 0 };
+  await env.DATA.put(slug, JSON.stringify(finalEntry), computeKvPutOpts(ttlSource, nowSec));
   const resp = {
     ok: true,
     slug,
@@ -1741,6 +1890,16 @@ function jsonResponse(body, status) {
 
 var { json: json4, html } = makeResponseHelpers({ cors: "*", prettyJson: true, htmlCache: "no-store" });
 var HTML = landing_default;
+function withRuntimeView(entry, nowSec) {
+  const out = {};
+  if (entry && entry.maxHits > 0) {
+    out.hitsLeft = Math.max(0, entry.maxHits - (entry.hits || 0));
+  }
+  if (entry && entry.ttl > 0 && entry.expiresAt > 0) {
+    out.expiresInSec = Math.max(0, entry.expiresAt - nowSec);
+  }
+  return out;
+}
 var index_default = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -1797,6 +1956,17 @@ var index_default = {
       if (entry.pending) return notFound(env, url);
       const isFile = entry.type === "files";
       const files = entry.files || [];
+      const maxHitsPolicy = entry.maxHits || 0;
+      if (maxHitsPolicy > 0 && (entry.hits || 0) >= maxHitsPolicy) {
+        if (isFile) {
+          const committedEnd = entry.committedChunkEnd || 0;
+          if (committedEnd > 0) {
+            ctx.waitUntil(upload.deleteAllChunks(env.DATA, slug, 0, committedEnd - 1));
+          }
+        }
+        ctx.waitUntil(env.DATA.delete(slug));
+        return notFound(env, url);
+      }
       if (isFile && url.searchParams.get("__f") === "1") {
         const idx = Math.floor(Number(url.searchParams.get("i") || 0));
         const file = files[idx];
@@ -1818,15 +1988,6 @@ var index_default = {
         }
         const blob = await upload.readFile(env.DATA, slug, file);
         if (!blob) return notFound(env, url);
-        if (entry.oneTime && files.length === 1) {
-          ctx.waitUntil((async () => {
-            const committedEnd = entry.committedChunkEnd || 0;
-            if (committedEnd > 0) {
-              await upload.deleteAllChunks(env.DATA, slug, 0, committedEnd - 1);
-            }
-            await env.DATA.delete(slug);
-          })());
-        }
         return new Response(blob, {
           headers: {
             "Content-Type": file.mime || "application/octet-stream",
@@ -1836,52 +1997,70 @@ var index_default = {
           }
         });
       }
-      const mode = entry.redirectMode || "instant";
-      const consumeOneTime = () => {
-        if (!entry.oneTime) return;
-        if (isFile) {
-          return;
+      if (entry.accessHash) {
+        const cookieToken = readCookie(request, unlockCookieName(slug));
+        const gateAuthed = !!(cookieToken && await verifyUnlockToken(cookieToken, slug, entry.accessHash));
+        if (!gateAuthed) {
+          const acceptLang = request.headers.get("Accept-Language") || "";
+          const showError = url.searchParams.get("e") === "1";
+          return html(redirectPage(entry, acceptLang, cdnHost, slug, showError, false, theme));
         }
-        ctx.waitUntil(env.DATA.delete(slug));
+      }
+      const hadHitCookie = !!readCookie(request, hitCookieName(slug));
+      let shouldSetHitCookie = false;
+      const consumeVisit = () => {
+        if (maxHitsPolicy === 0) return;
+        if (hadHitCookie) return;
+        shouldSetHitCookie = true;
+        ctx.waitUntil((async () => {
+          const newHits = (entry.hits || 0) + 1;
+          if (newHits >= maxHitsPolicy) {
+            if (isFile) {
+              const committedEnd = entry.committedChunkEnd || 0;
+              if (committedEnd > 0) {
+                await upload.deleteAllChunks(env.DATA, slug, 0, committedEnd - 1);
+              }
+            }
+            await env.DATA.delete(slug);
+          } else {
+            const nowSec = Math.floor(Date.now() / 1e3);
+            const updated = clean({ ...entry, hits: newHits });
+            await env.DATA.put(slug, JSON.stringify(updated), computeKvPutOpts(entry, nowSec));
+          }
+        })());
       };
-      if (isFile && mode === "instant" && files.length === 1 && !entry.accessHash) {
+      const withHitCookie = (resp) => {
+        if (!shouldSetHitCookie) return resp;
+        const r2 = new Response(resp.body, resp);
+        r2.headers.append("Set-Cookie", makeHitCookieHeader(slug));
+        return r2;
+      };
+      const mode = entry.redirectMode || "instant";
+      if (isFile && mode === "instant" && files.length === 1) {
         const file = files[0];
         const blob = await upload.readFile(env.DATA, slug, file);
         if (!blob) return notFound(env, url);
-        if (entry.oneTime) {
-          ctx.waitUntil((async () => {
-            const committedEnd = entry.committedChunkEnd || 0;
-            if (committedEnd > 0) {
-              await upload.deleteAllChunks(env.DATA, slug, 0, committedEnd - 1);
-            }
-            await env.DATA.delete(slug);
-          })());
-        }
-        return new Response(blob, {
+        consumeVisit();
+        return withHitCookie(new Response(blob, {
           headers: {
             "Content-Type": file.mime || "application/octet-stream",
             "Content-Disposition": contentDispositionHeader(file.name),
             "Content-Length": String(file.size),
             "Cache-Control": "private, no-store"
           }
-        });
+        }));
       }
       if (mode === "manual" || isFile) {
         const acceptLang = request.headers.get("Accept-Language") || "";
-        const showError = url.searchParams.get("e") === "1";
-        if (entry.accessHash) {
-          if (isFile) {
-            const cookieToken = readCookie(request, unlockCookieName(slug));
-            if (cookieToken && await verifyUnlockToken(cookieToken, slug, entry.accessHash)) {
-              return html(redirectPage(entry, acceptLang, cdnHost, slug, false, true));
-            }
-          }
-          return html(redirectPage(entry, acceptLang, cdnHost, slug, showError, false));
-        }
-        return html(redirectPage(entry, acceptLang, cdnHost, slug, false, false));
+        consumeVisit();
+        return withHitCookie(html(redirectPage(entry, acceptLang, cdnHost, slug, false, true, theme)));
       }
-      consumeOneTime();
-      return Response.redirect(entry.url, entry.permanent === false ? 302 : 301);
+      consumeVisit();
+      const redirectHeaders = new Headers({ "Location": entry.url });
+      return withHitCookie(new Response(null, {
+        status: entry.permanent === false ? 302 : 301,
+        headers: redirectHeaders
+      }));
     }
     if (method === "POST" && slug.startsWith("_a/")) {
       const realSlug = slug.slice(3);
@@ -1889,41 +2068,23 @@ var index_default = {
       const raw = await env.DATA.get(realSlug);
       if (!raw) return notFound(env, url);
       const entry = JSON.parse(raw);
-      if (!entry.accessHash) return Response.redirect(getBaseUrl(env, url) + realSlug, 303);
+      const base = getBaseUrl(env, url);
+      if (!entry.accessHash) return Response.redirect(base + realSlug, 303);
       let pw = "";
       try {
         const fd = await request.formData();
         pw = (fd.get("_pw") || "").toString().trim();
       } catch {
       }
-      const base = getBaseUrl(env, url);
       if (!pw) return Response.redirect(base + realSlug + "?e=1", 303);
       const h = await hashPassword(pw);
       if (!await safeEqual(h, entry.accessHash)) {
         return Response.redirect(base + realSlug + "?e=1", 303);
       }
-      const isFileSlug = entry.type === "files";
-      if (!isFileSlug) {
-        if (entry.oneTime) ctx.waitUntil(env.DATA.delete(realSlug));
-        return Response.redirect(entry.url, entry.permanent === false ? 302 : 301);
-      }
       const token = await makeUnlockToken(realSlug, entry.accessHash);
       const headers = new Headers({ "Location": base + realSlug });
       headers.append("Set-Cookie", makeUnlockCookieHeader(realSlug, token));
       return new Response(null, { status: 303, headers });
-    }
-    if (method === "POST" && slug.startsWith("_ot/")) {
-      const realSlug = slug.slice(4);
-      if (!realSlug) return json4({ ok: false }, 400);
-      const raw = await env.DATA.get(realSlug);
-      if (raw) {
-        const entry = JSON.parse(raw);
-        if (entry.oneTime) {
-          await env.DATA.delete(realSlug);
-          return json4({ ok: true });
-        }
-      }
-      return json4({ ok: true });
     }
     if (method === "POST" && slug === "_u/reserve") return handleUploadReserve(request, env, url);
     if (method === "PUT" && slug.startsWith("_u/chunk/")) return handleUploadChunk(request, env, url, slug.slice("_u/chunk/".length));
@@ -2023,11 +2184,12 @@ var index_default = {
       if (validSlug) {
         const raw = await env.DATA.get(slug);
         if (raw) {
+          const nowSec = Math.floor(Date.now() / 1e3);
           if (isAdmin) {
             const entry2 = JSON.parse(raw);
             const { pwHash: _2, ...safe2 } = entry2;
             if (safe2.accessHash) safe2.accessHash = true;
-            return json4({ slug, ...safe2 });
+            return json4({ slug, ...safe2, ...withRuntimeView(entry2, nowSec) });
           }
           if (!password) return json4({ error: "SLUG_EXISTS" }, 400);
           const entry = JSON.parse(raw);
@@ -2037,7 +2199,7 @@ var index_default = {
           }
           const { pwHash: _, ...safe } = entry;
           if (safe.accessHash) safe.accessHash = true;
-          return json4({ slug, ...safe });
+          return json4({ slug, ...safe, ...withRuntimeView(entry, nowSec) });
         }
         if (password && !hasUrl) return json4({ error: "VERIFY_FAILED" }, 403);
       }
@@ -2089,10 +2251,12 @@ var index_default = {
           return json4({ error: "INVALID_URL" }, 400);
         }
       }
-      const meta = await applyMetadataFields(body, entry, env);
+      const nowSec = Math.floor(Date.now() / 1e3);
+      const meta = await applyMetadataFields(body, entry, env, nowSec);
       if (meta.error) return json4({ error: meta.error }, 400);
+      const { expiresAt: _eXa, hits: _hX, ...entryBase } = entry;
       const updatedEntry = clean({
-        ...entry,
+        ...entryBase,
         ...isFile ? {} : { url: target },
         ...meta.fields,
         updatedAt: (/* @__PURE__ */ new Date()).toISOString()
@@ -2102,13 +2266,13 @@ var index_default = {
         newPassword = generatePassword();
         updatedEntry.pwHash = await hashPassword(newPassword);
       }
-      const putOpts = {};
-      if (meta.fields.ttl > 0) putOpts.expirationTtl = meta.fields.ttl;
+      const putOpts = computeKvPutOpts(meta.fields, nowSec);
       await env.DATA.put(slug, JSON.stringify(updatedEntry), putOpts);
       if (!isAdmin) await incrementRateLimit(env, _rlKey, _rlData);
       const resp = { short_url: getBaseUrl(env, url) + slug, slug, updated: true };
       if (!isFile) resp.target = target;
       if (newPassword) resp.password = newPassword;
+      Object.assign(resp, withRuntimeView(updatedEntry, nowSec));
       if (meta.warnings.length === 1) resp.warn = meta.warnings[0];
       else if (meta.warnings.length > 1) resp.warn = meta.warnings;
       return json4(resp, 200);
