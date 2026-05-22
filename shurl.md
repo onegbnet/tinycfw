@@ -4,23 +4,23 @@ A single-file, zero-dependency Cloudflare Worker URL shortener. One JS file, one
 
 ## Why Shurl?
 
-Most URL shorteners force you to sign up before you can create a link, or give you zero control once the link is made. Shurl takes a different approach: **anyone can create a link and get a one-time modification password** — no account, no login, no cookies. That password is the key to edit or delete the link later, and it works just as well from the web UI as it does from the API.
+Most URL shorteners force you to sign up before you can create a link, or give you zero control once the link is made. Shurl takes a different approach: **anyone can create a link and get a one-time modification password** — no account, no login, no third-party tracking. That password is the key to edit or delete the link later, and it works just as well from the web UI as it does from the API.
 
 ### For end users (clicking short links)
 
-- **Instant redirect** — 301/302 with zero delay by default
-- **Branded interstitial pages** — when the creator chooses manual or countdown redirect, visitors see a polished page with custom title, Markdown body, configurable delay (0–60s), and a themed button — not a generic "click here to continue"
-- **Access-protected links** — creators can set an `accessPassword`; visitors must enter it before proceeding, useful for sharing sensitive content with a select audience. After unlock, auth is held in an HttpOnly cookie — the password never appears in any URL
+- **Direct redirect** — `301` / `302` straight to the target by default; no interstitial
+- **Branded landing pages** — when the creator picks "Use landing page" instead, visitors see a polished landing with custom title, Markdown body, an optional countdown (0–600s), and a themed button — not a generic "click here to continue"
+- **Access-protected links** — set an `accessPassword` to gate any link (URL or file, direct-redirect or with-landing-page, single-file or multi-file). Visitors first see a standalone password page; on success they reach whatever the link normally does — direct goes straight to target, with-landing shows the configured landing page, file slugs serve their files. Auth persists in an HttpOnly cookie so multi-download sessions don't re-prompt; failed attempts don't drain the visit count; the password never appears in any URL
 - **File downloads** — a slug can hold one or more attached files instead of a redirect URL; visitors get a download page (or direct file stream for single-file links)
 - **20 languages, dark / light mode** — the interstitial page auto-adapts to the visitor's browser language and theme preference; theme preference is persisted via cookie (works in 100% of browsers including Strict Tracking Prevention modes)
 
 ### For anonymous link creators (web UI, no account)
 
-- **Create without signup** — open the page, paste a URL, get a short link. No email, no OAuth, no tracking cookies
+- **Create without signup** — open the page, paste a URL, get a short link. No email, no OAuth, no third-party trackers. (First-party functional cookies handle theme / language / unlock tokens / per-visit dedup — see the API doc for the full list.)
 - **One-time modification password** — shown once at creation. Save it and you can view, edit, or delete your link anytime — you own your link without needing an account
-- **Markdown redirect page editor** — toolbar (bold / italic / lists / code / quote / hr / link) + live preview to craft a branded interstitial with custom title, button text, dark/light background, and centered layout
+- **Markdown landing-page editor** — toolbar (bold / italic / lists / code / quote / hr / link) + live preview to craft a branded landing page with custom title, button text, dark/light background, and centered layout
 - **File uploads up to 128 MiB per slug** — drag-and-drop one or more files; the browser chunks them client-side and streams them to KV in 10 MiB pieces, with resumable per-chunk retries
-- **One-time links** — check a box and the link self-destructs after the first successful redirect; deletion happens only when the visitor actually navigates, not when the page is merely viewed
+- **Three orthogonal restriction axes** — every link can layer any of (a) **validity duration** (`ttl`, 60s to 12 months, absolute expiry — modify doesn't slide the window), (b) **visit count limit** (`maxHits`, self-destruct after N visits — `maxHits: 1` is the classic "one-time link"), and (c) **access password** (`accessPassword`, server-side gate before any content). UI groups them under a "Restriction options" panel; pick any combination. Visit counting uses "page-open" semantics with 15-minute per-visitor cookie dedup; failed password attempts don't drain the quota
 - **Rate-limited, not blocked** — a passive fingerprint (IP + UA + TLS, no client storage) enforces a fair daily quota (`LIMIT`, default 10) instead of requiring login
 
 ### For automation & API users
@@ -216,13 +216,14 @@ Create a new short link. Optionally specify a custom slug via `POST /:slug` or i
 | `slug`               | string  | No       | Custom slug; omit for random generation            |
 | `redirectMode`       | string  | No       | `instant` or `manual`; default `instant`           |
 | `permanent`          | boolean | No       | 301 (true) or 302 (false); default `true`          |
-| `countdown`          | integer | No       | Seconds 0–60; default `0`                          |
+| `countdown`          | integer | No       | Countdown seconds (0–600) shown on the landing page (only meaningful in `redirectMode: 'manual'`); default `0` (no countdown) |
 | `redirectPageTitle`  | string  | No       | Custom redirect page title; max 128 chars          |
 | `redirectPageContent`| string  | No       | Redirect page content (Markdown); max 2000 chars   |
 | `manualBtnTitle`     | string  | No       | Custom redirect button text; max 128 chars         |
 | `maxHits`            | integer | No       | Visit count cap (0 = unlimited; 1 = self-destruct after first visit; N = delete on N-th visit). Counter is best-effort under concurrency — see "Hit counter and expiry" below. |
 | `accessPassword`     | string  | No       | Visitor password — works in **all** redirect modes and target types (URL/single-file/multi-file). 3–16 printable non-space chars. Server-side password gate page (separate from the redirect interstitial) runs before any content; visitors must pass the gate before `redirectMode` dispatches. PUT with empty string clears an existing password. |
-| `lightPage`          | boolean | No       | Light background for redirect page; default `true` |
+| `darkBackground`     | boolean | No       | Dark background for the landing page; default `false` (light)                              |
+| `centerContent`      | boolean | No       | Center-align the landing-page body content; default `false` (left-align)                   |
 | `ttl`                | integer | No       | Validity duration in seconds (60–31536000); 0 = permanent. On create, anchors `expiresAt = now + ttl`. |
 
 **Behavior:**
@@ -290,7 +291,6 @@ Retrieve full details of an existing slug by verifying with password.
   "redirectPageTitle": "Please wait...",
   "redirectPageContent": "**Content** in markdown",
   "manualBtnTitle": "Go now",
-  "lightPage": true,
   "ttl": 86400,
   "createdAt": "2026-03-28T12:00:00.000Z",
   "updatedAt": "2026-03-29T08:30:00.000Z"
@@ -419,7 +419,7 @@ Reserves a slug and plans a new upload session. Used for both **create** (no `sl
 | `slug`            | string   | No       | Custom slug (3–10 chars). Required to enter modify flow                           |
 | `removedFileIds`  | int[]    | No       | (Modify only) `id`s of existing files to drop on commit                           |
 | `redirectMode`    | string   | No       | `instant` or `manual`; default `instant`                                          |
-| `countdown` / `redirectPageTitle` / `redirectPageContent` / `manualBtnTitle` / `lightPage` / `maxHits` / `accessPassword` / `ttl` | — | No | Same semantics as URL slug create; applied at commit. **Multi-file slugs silently normalize away** all landing customization (`redirectMode='manual'`, `permanent=true`, `countdown=0`, `manualBtnTitle/redirectPageTitle/redirectPageContent=null`, `darkBackground/centerContent=false`) — the file-list landing is fixed. See "Multi-file landing page" below. |
+| `countdown` / `redirectPageTitle` / `redirectPageContent` / `manualBtnTitle` / `darkBackground` / `centerContent` / `maxHits` / `accessPassword` / `ttl` | — | No | Same semantics as URL slug create; applied at commit. **Multi-file slugs silently normalize away** all landing customization (`redirectMode='manual'`, `permanent=true`, `countdown=0`, `manualBtnTitle/redirectPageTitle/redirectPageContent=null`, `darkBackground/centerContent=false`) — the file-list landing is fixed. See "Multi-file landing page" below. |
 | `resetPassword`   | boolean  | No       | (Modify only) regenerate slug password at commit; default `false`                 |
 
 **Response (201 on create, 200 on modify):**
@@ -511,7 +511,7 @@ Returns the homepage / management UI.
 
 ### GET /:slug — Redirect
 
-Redirects to the target URL using 301 or 302, or shows a countdown/manual redirect page depending on configuration.
+Redirects to the target URL using 301 or 302 (when `redirectMode: 'instant'`), or shows the landing page (when `redirectMode: 'manual'`, with optional countdown) depending on configuration.
 
 If the slug does not exist, redirects (302) to `DEFAULT` URL or the homepage — never returns 404.
 
@@ -525,23 +525,23 @@ For **file slugs**, this endpoint serves the file-list / download page instead o
 
 ## 为什么选择速至短链？
 
-大多数短链接服务要求你先注册才能创建链接，或者创建后完全无法管理。速至短链采用不同的思路：**任何人都可以创建链接并获得一次性修改密码** — 无需账号、无需登录、不设 Cookie。凭这个密码即可随时编辑或删除链接，Web 界面和 API 均可使用。
+大多数短链接服务要求你先注册才能创建链接，或者创建后完全无法管理。速至短链采用不同的思路：**任何人都可以创建链接并获得一次性修改密码** — 无需账号、无需登录、无第三方跟踪。凭这个密码即可随时编辑或删除链接，Web 界面和 API 均可使用。
 
 ### 最终用户（点击短链接的人）
 
-- **即时跳转** — 默认 301/302 零延迟直跳
-- **品牌化中间页** — 创建者选择手动或倒计时跳转时，访客看到的是精心设计的页面：自定义标题、Markdown 正文、可配置延迟（0–60 秒）、主题化按钮 — 而非千篇一律的"点击此处继续"
-- **访问密码保护** — 创建者可设置 `accessPassword`，访客必须输入密码才能继续跳转，适合向特定人群分享敏感内容。解锁后认证由 HttpOnly cookie 承载 —— 密码不会出现在任何 URL 中
+- **直接跳转** — 默认 `301` / `302` 直跳目标，不显示跳转页面
+- **品牌化跳转页面** — 创建者选择"使用跳转页面"时，访客看到的是精心设计的落地页：自定义标题、Markdown 正文、可选倒计时（0–600 秒）、主题化按钮 — 而非千篇一律的"点击此处继续"
+- **访问密码保护** — 为任意链接（URL 或文件，直接跳转或带跳转页面，单文件或多文件）设置 `accessPassword`。访客先看到独立的密码页面，验证通过后才进入链接本身的行为——直接跳转直接 301 到目标、带跳转页面则显示设定的跳转页、文件 slug 直接传文件。验证通过 HttpOnly cookie 持久化（多文件下载会话不会反复要求输入）；失败的密码尝试不消耗有效次数；密码不会出现在任何 URL 中
 - **文件下载** — 短码可承载一到多个附件（替代跳转 URL）；访客看到下载页面（单文件链接直接流式下载文件）
-- **20 种语言 + 亮色/暗色模式** — 中间页自动适配访客的浏览器语言和主题偏好；主题偏好通过 cookie 持久化（在严格跟踪防护模式的浏览器下也工作）
+- **20 种语言 + 亮色/暗色模式** — 跳转页面自动适配访客的浏览器语言和主题偏好；主题偏好通过 cookie 持久化（在严格跟踪防护模式的浏览器下也工作）
 
 ### 匿名链接创建者（Web 界面，无需账号）
 
-- **无需注册即可创建** — 打开页面、粘贴 URL、获得短链接。不要邮箱、不要 OAuth、不设追踪 Cookie
+- **无需注册即可创建** — 打开页面、粘贴 URL、获得短链接。不要邮箱、不要 OAuth、无第三方跟踪。（第一方功能性 cookie 用于持久化主题/语言/解锁令牌/同访客去重——详见 API 文档列表）
 - **一次性修改密码** — 创建时显示一次，保存好它就能随时查看、编辑或删除你的链接 — 不用注册账号也能拥有链接的完整控制权
-- **Markdown 跳转页编辑器** — 工具栏（粗体 / 斜体 / 列表 / 代码 / 引用 / 分隔线 / 链接）+ 实时预览，打造品牌化中间页，自定义标题、按钮文案、亮色/暗色背景、内容居中
+- **Markdown 跳转页编辑器** — 工具栏（粗体 / 斜体 / 列表 / 代码 / 引用 / 分隔线 / 链接）+ 实时预览，打造品牌化跳转页面，自定义标题、按钮文案、亮色/暗色背景、内容居中
 - **每短码最多 128 MiB 文件上传** — 拖拽一到多个文件，浏览器端切成 10 MiB 分片流式写入 KV，每分片独立重试可断点续传
-- **一次性链接** — 勾选即可创建跳转后自动销毁的链接；仅在访客真正完成跳转时才删除，而非仅展示页面时
+- **三个正交的限定选项** — 每个链接可叠加任意组合：(a) **有效时长**（`ttl`，60 秒到 12 个月，绝对过期时间——修改时不会滑动过期窗口）、(b) **有效次数**（`maxHits`，N 次后自毁——`maxHits: 1` 对应经典"一次性链接"）、(c) **访问密码**（`accessPassword`，服务端门禁，访客需通过验证才进入内容）。UI 将三者归入「限定选项」面板，自由组合。次数采用"打开页面"语义 + 15 分钟同访客 cookie 去重；密码门禁失败不消耗配额
 - **限频而非封锁** — 基于被动指纹（IP + UA + TLS，无客户端存储）实施合理的每日配额（`LIMIT`，默认 10 次），代替强制登录
 
 ### 自动化与 API 用户
@@ -551,7 +551,7 @@ For **file slugs**, this endpoint serves the file-list / download page instead o
 - **自定义或随机短码** — 自选（3–10 位）或系统生成
 - **逐链接 TTL** — 每条链接可独立设置过期时间
 - **分片文件上传 API** — 三阶段 reserve / chunk / commit 协议，与短链共用同一个 KV；支持原子修改（增删文件、轮换密码），不打断并发下载
-- **所有页面选项均可通过 API 设置** — 跳转模式、倒计时、标题、Markdown 正文、按钮文案、访问密码、暗色背景 — Web 界面能做的，API 都能做
+- **所有页面选项均可通过 API 设置** — 跳转模式、倒计时（0–600 秒）、标题、Markdown 正文、按钮文案、访问密码、暗色背景 — Web 界面能做的，API 都能做
 
 ### 管理员（持有管理员密钥）
 
@@ -737,13 +737,14 @@ X-Password: slug-password
 | `slug`               | string  | 否   | 自定义短码；留空则随机生成                   |
 | `redirectMode`       | string  | 否   | `instant` 或 `manual`；默认 `instant`        |
 | `permanent`          | boolean | 否   | 301（true）或 302（false）；默认 `true`      |
-| `countdown`          | integer | 否   | 倒计时秒数 0–60；默认 `0`                   |
+| `countdown`          | integer | 否   | 跳转页面倒计时秒数（0–600，仅 `redirectMode: 'manual'` 时有效）；默认 `0`（不显示倒计时） |
 | `redirectPageTitle`  | string  | 否   | 自定义跳转页面标题；最长 128 字符            |
 | `redirectPageContent`| string  | 否   | 跳转页面内容（Markdown）；最长 2000 字符     |
 | `manualBtnTitle`     | string  | 否   | 自定义跳转按钮文案；最长 128 字符            |
 | `maxHits`            | integer | 否   | 有效次数上限（0 = 无限制；1 = 一次后自毁；N = 第 N 次访问后删除）。并发场景下计数器为尽力而为，详见下文“有效次数与有效时长”。 |
 | `accessPassword`     | string  | 否   | 访客密码——在**所有**跳转模式与目标类型（URL/单文件/多文件）下都生效。3–16 个可打印非空格字符。服务端密码门禁页（独立于跳转页）在所有内容之前；访客必须通过门禁后才进入 `redirectMode` 分发逻辑。PUT 传空字符串可清除已设置的密码。 |
-| `lightPage`          | boolean | 否   | 跳转页面使用亮色背景；默认 `true`            |
+| `darkBackground`     | boolean | 否   | 跳转页面使用暗色背景；默认 `false`（亮色）   |
+| `centerContent`      | boolean | 否   | 跳转页面正文居中；默认 `false`（左对齐）     |
 | `ttl`                | integer | 否   | 有效时长（60–31536000 秒）；0 = 永久。创建时锚定 `expiresAt = now + ttl`。 |
 
 **行为说明：**
@@ -811,7 +812,6 @@ X-Password: slug-password
   "redirectPageTitle": "Please wait...",
   "redirectPageContent": "**Content** in markdown",
   "manualBtnTitle": "Go now",
-  "lightPage": true,
   "ttl": 86400,
   "createdAt": "2026-03-28T12:00:00.000Z",
   "updatedAt": "2026-03-29T08:30:00.000Z"
@@ -940,7 +940,7 @@ X-Password: slug-password
 | `slug`            | string   | 否     | 自定义短码（3–10 位）；修改流程必须传                                       |
 | `removedFileIds`  | int[]    | 否     | （仅修改）提交时要删除的现有文件 `id` 列表                                  |
 | `redirectMode`    | string   | 否     | `instant` 或 `manual`；默认 `instant`                                       |
-| `countdown` / `redirectPageTitle` / `redirectPageContent` / `manualBtnTitle` / `lightPage` / `maxHits` / `accessPassword` / `ttl` | — | 否 | 与 URL 短码创建语义相同，提交时应用。 |
+| `countdown` / `redirectPageTitle` / `redirectPageContent` / `manualBtnTitle` / `darkBackground` / `centerContent` / `maxHits` / `accessPassword` / `ttl` | — | 否 | 与 URL 短码创建语义相同，提交时应用。 |
 | `resetPassword`   | boolean  | 否     | （仅修改）提交时重生短码密码；默认 `false`                                  |
 
 **响应（创建 201、修改 200）：**
@@ -1032,7 +1032,7 @@ X-Password: slug-password
 
 ### GET /:slug — 跳转
 
-根据配置使用 301 或 302 跳转至目标 URL，或显示倒计时/手动跳转页面。
+根据配置使用 301 或 302 跳转至目标 URL（`redirectMode: 'instant'`），或显示跳转页面（`redirectMode: 'manual'`，可带倒计时）。
 
 若短码不存在，302 跳转至 `DEFAULT` URL 或首页 —— 不会返回 404。
 
@@ -1046,23 +1046,23 @@ X-Password: slug-password
 
 ## 為什麼選擇速至短鏈？
 
-大多數短連結服務要求你先註冊才能建立連結，或者建立後完全無法管理。速至短鏈採用不同的思路：**任何人都可以建立連結並取得一次性修改密碼** — 無需帳號、無需登入、不設 Cookie。憑這個密碼即可隨時編輯或刪除連結，Web 介面和 API 均可使用。
+大多數短連結服務要求你先註冊才能建立連結，或者建立後完全無法管理。速至短鏈採用不同的思路：**任何人都可以建立連結並取得一次性修改密碼** — 無需帳號、無需登入、無第三方追蹤。憑這個密碼即可隨時編輯或刪除連結，Web 介面和 API 均可使用。
 
 ### 最終使用者（點擊短連結的人）
 
-- **即時跳轉** — 預設 301/302 零延遲直跳
-- **品牌化中間頁** — 建立者選擇手動或倒數跳轉時，訪客看到的是精心設計的頁面：自訂標題、Markdown 正文、可配置延遲（0–60 秒）、主題化按鈕 — 而非千篇一律的「點擊此處繼續」
-- **存取密碼保護** — 建立者可設定 `accessPassword`，訪客必須輸入密碼才能繼續跳轉，適合向特定人群分享敏感內容。解鎖後認證由 HttpOnly cookie 承載 —— 密碼不會出現在任何 URL 中
+- **直接跳轉** — 預設 `301` / `302` 直跳目標，不顯示跳轉頁面
+- **品牌化跳轉頁面** — 建立者選擇「使用跳轉頁面」時，訪客看到的是精心設計的落地頁：自訂標題、Markdown 正文、可選倒數計時（0–600 秒）、主題化按鈕 — 而非千篇一律的「點擊此處繼續」
+- **存取密碼保護** — 為任意連結（URL 或檔案，直接跳轉或帶跳轉頁面，單檔或多檔）設定 `accessPassword`。訪客先看到獨立的密碼頁面，驗證通過後才進入連結本身的行為——直接跳轉直接 301 到目標、帶跳轉頁面則顯示設定的跳轉頁、檔案 slug 直接傳檔案。驗證通過 HttpOnly cookie 持久化（多檔下載工作階段不會反覆要求輸入）；失敗的密碼嘗試不消耗有效次數；密碼不會出現在任何 URL 中
 - **檔案下載** — 短碼可承載一到多個附件（替代跳轉 URL）；訪客看到下載頁面（單檔連結直接串流下載檔案）
-- **20 種語言 + 亮色/暗色模式** — 中間頁自動適配訪客的瀏覽器語言和主題偏好；主題偏好透過 cookie 持久化（在嚴格追蹤防護模式的瀏覽器下也工作）
+- **20 種語言 + 亮色/暗色模式** — 跳轉頁面自動適配訪客的瀏覽器語言和主題偏好；主題偏好透過 cookie 持久化（在嚴格追蹤防護模式的瀏覽器下也工作）
 
 ### 匿名連結建立者（Web 介面，無需帳號）
 
-- **無需註冊即可建立** — 開啟頁面、貼上 URL、取得短連結。不要信箱、不要 OAuth、不設追蹤 Cookie
+- **無需註冊即可建立** — 開啟頁面、貼上 URL、取得短連結。不要信箱、不要 OAuth、無第三方追蹤。（第一方功能性 cookie 用於持久化主題/語言/解鎖權杖/同訪客去重——詳見 API 文件清單）
 - **一次性修改密碼** — 建立時顯示一次，保存好它就能隨時檢視、編輯或刪除你的連結 — 不用註冊帳號也能擁有連結的完整控制權
-- **Markdown 跳轉頁編輯器** — 工具列（粗體 / 斜體 / 清單 / 程式碼 / 引用 / 分隔線 / 連結）+ 即時預覽，打造品牌化中間頁，自訂標題、按鈕文案、亮色/暗色背景、內容置中
+- **Markdown 跳轉頁編輯器** — 工具列（粗體 / 斜體 / 清單 / 程式碼 / 引用 / 分隔線 / 連結）+ 即時預覽，打造品牌化跳轉頁面，自訂標題、按鈕文案、亮色/暗色背景、內容置中
 - **每短碼最多 128 MiB 檔案上傳** — 拖曳一到多個檔案，瀏覽器端切成 10 MiB 分片串流寫入 KV，每分片獨立重試可斷點續傳
-- **一次性連結** — 勾選即可建立跳轉後自動銷毀的連結；僅在訪客真正完成跳轉時才刪除，而非僅展示頁面時
+- **三個正交的限定選項** — 每個連結可疊加任意組合：(a) **有效時長**（`ttl`，60 秒到 12 個月，絕對過期時間——修改時不會滑動過期視窗）、(b) **有效次數**（`maxHits`，N 次後自毀——`maxHits: 1` 對應經典「一次性連結」）、(c) **存取密碼**（`accessPassword`，伺服端門禁，訪客需通過驗證才進入內容）。UI 將三者歸入「限定選項」面板，自由組合。次數採用「打開頁面」語意 + 15 分鐘同訪客 cookie 去重；密碼門禁失敗不消耗配額
 - **限頻而非封鎖** — 基於被動指紋（IP + UA + TLS，無用戶端儲存）實施合理的每日配額（`LIMIT`，預設 10 次），代替強制登入
 
 ### 自動化與 API 使用者
@@ -1072,7 +1072,7 @@ X-Password: slug-password
 - **自訂或隨機短碼** — 自選（3–10 位）或系統產生
 - **逐連結 TTL** — 每條連結可獨立設定過期時間
 - **分片檔案上傳 API** — 三階段 reserve / chunk / commit 協定，與短連結共用同一個 KV；支援原子修改（增刪檔案、輪換密碼），不打斷並行下載
-- **所有頁面選項均可透過 API 設定** — 跳轉模式、倒數、標題、Markdown 正文、按鈕文案、存取密碼、暗色背景 — Web 介面能做的，API 都能做
+- **所有頁面選項均可透過 API 設定** — 跳轉模式、倒數計時（0–600 秒）、標題、Markdown 正文、按鈕文案、存取密碼、暗色背景 — Web 介面能做的，API 都能做
 
 ### 管理員（持有管理員金鑰）
 
@@ -1258,13 +1258,14 @@ X-Password: slug-password
 | `slug`               | string  | 否   | 自訂短碼；留空則隨機產生                     |
 | `redirectMode`       | string  | 否   | `instant` 或 `manual`；預設 `instant`        |
 | `permanent`          | boolean | 否   | 301（true）或 302（false）；預設 `true`      |
-| `countdown`          | integer | 否   | 倒數秒數 0–60；預設 `0`                     |
+| `countdown`          | integer | 否   | 跳轉頁面倒數秒數（0–600，僅 `redirectMode: 'manual'` 時有效）；預設 `0`（不顯示倒數計時） |
 | `redirectPageTitle`  | string  | 否   | 自訂跳轉頁面標題；最長 128 字元              |
 | `redirectPageContent`| string  | 否   | 跳轉頁面內容（Markdown）；最長 2000 字元     |
 | `manualBtnTitle`     | string  | 否   | 自訂跳轉按鈕文案；最長 128 字元              |
 | `maxHits`            | integer | 否   | 有效次數上限（0 = 無限制；1 = 一次後自毀；N = 第 N 次存取後刪除）。並行場景下計數器為盡力而為，詳見上文「有效次數與有效時長」。 |
 | `accessPassword`     | string  | 否   | 訪客密碼——在**所有**跳轉模式與目標類型（URL/單檔/多檔）下都生效。3–16 個可列印非空格字元。伺服端密碼門禁頁（獨立於跳轉頁）在所有內容之前；訪客必須通過門禁後才進入 `redirectMode` 分發邏輯。PUT 傳空字串可清除已設定的密碼。 |
-| `lightPage`          | boolean | 否   | 跳轉頁面使用亮色背景；預設 `true`            |
+| `darkBackground`     | boolean | 否   | 跳轉頁面使用暗色背景；預設 `false`（亮色）   |
+| `centerContent`      | boolean | 否   | 跳轉頁面正文置中；預設 `false`（左對齊）     |
 | `ttl`                | integer | 否   | 有效時長（60–31536000 秒）；0 = 永久。建立時錨定 `expiresAt = now + ttl`。 |
 
 **行為說明：**
@@ -1332,7 +1333,6 @@ X-Password: slug-password
   "redirectPageTitle": "Please wait...",
   "redirectPageContent": "**Content** in markdown",
   "manualBtnTitle": "Go now",
-  "lightPage": true,
   "ttl": 86400,
   "createdAt": "2026-03-28T12:00:00.000Z",
   "updatedAt": "2026-03-29T08:30:00.000Z"
@@ -1461,7 +1461,7 @@ X-Password: slug-password
 | `slug`            | string   | 否     | 自訂短碼（3–10 位）；修改流程必須傳                                         |
 | `removedFileIds`  | int[]    | 否     | （僅修改）提交時要刪除的既有檔案 `id` 清單                                  |
 | `redirectMode`    | string   | 否     | `instant` 或 `manual`；預設 `instant`                                       |
-| `countdown` / `redirectPageTitle` / `redirectPageContent` / `manualBtnTitle` / `lightPage` / `maxHits` / `accessPassword` / `ttl` | — | 否 | 與 URL 短碼建立語意相同，提交時套用。 |
+| `countdown` / `redirectPageTitle` / `redirectPageContent` / `manualBtnTitle` / `darkBackground` / `centerContent` / `maxHits` / `accessPassword` / `ttl` | — | 否 | 與 URL 短碼建立語意相同，提交時套用。 |
 | `resetPassword`   | boolean  | 否     | （僅修改）提交時重新產生短碼密碼；預設 `false`                              |
 
 **回應（建立 201、修改 200）：**
@@ -1553,7 +1553,7 @@ X-Password: slug-password
 
 ### GET /:slug — 跳轉
 
-依據設定使用 301 或 302 跳轉至目標 URL，或顯示倒數計時/手動跳轉頁面。
+依據設定使用 301 或 302 跳轉至目標 URL（`redirectMode: 'instant'`），或顯示跳轉頁面（`redirectMode: 'manual'`，可帶倒數計時）。
 
 若短碼不存在，302 跳轉至 `DEFAULT` URL 或首頁 —— 不會回傳 404。
 
