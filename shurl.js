@@ -213,7 +213,7 @@ var landing_default = `<!DOCTYPE html>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71'/%3E%3C/svg%3E">
 <script src="https://{{CDN_HOST}}/npm/markdown-it@14/dist/markdown-it.min.js"></script>
 <link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/overlay/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@dddd2c32fa150b6c3a8b815ff6a8f2feb408d220/shurl/view.min.css"></head><body><div style="width:100%;max-width:480px"><div class="c">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@6d77ea0177d435bdf836b47ee039f52a7448117e/shurl/view.min.css"></head><body><div style="width:100%;max-width:480px"><div class="c">
 <div class="header">
   <div class="header-left">
     <div class="logo-icon">
@@ -511,8 +511,8 @@ var INITIAL_LANG = "{{LANG}}";
      matching i18n-<lang>.min.js. Exposes window.LangBundle.{initial,
      ready, load} \u2014 client.min.js waits on LangBundle.ready before its
      first applyI18n and uses LangBundle.load for switch-on-demand. -->
-<script>(function(){var b="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@dddd2c32fa150b6c3a8b815ff6a8f2feb408d220/shurl";var s=["en","eo","fr","de","es","it","nl","da","zh-cn","zh-tw","ja","ko","ms","vi","th","ta","my","uk","he","ar"];var d="en";function load(l){return new Promise(function(r,j){var x=document.createElement('script');x.src=b+'/i18n-'+l+'.min.js';x.onload=function(){r(l)};x.onerror=function(){j(new Error('i18n-'+l+' failed'))};document.head.appendChild(x)})}var init=(function(){var g=window["INITIAL_LANG"];if(typeof g==='string'&&s.indexOf(g)>=0)return g;return typeof detectLang==='function'?detectLang(s):d})();if(s.indexOf(init)<0)init=d;window.LangBundle={initial:init,ready:load(init),load:load}})();</script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@dddd2c32fa150b6c3a8b815ff6a8f2feb408d220/shurl/client.min.js"></script></body></html>`;
+<script>(function(){var b="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@6d77ea0177d435bdf836b47ee039f52a7448117e/shurl";var s=["en","eo","fr","de","es","it","nl","da","zh-cn","zh-tw","ja","ko","ms","vi","th","ta","my","uk","he","ar"];var d="en";function load(l){return new Promise(function(r,j){var x=document.createElement('script');x.src=b+'/i18n-'+l+'.min.js';x.onload=function(){r(l)};x.onerror=function(){j(new Error('i18n-'+l+' failed'))};document.head.appendChild(x)})}var init=(function(){var g=window["INITIAL_LANG"];if(typeof g==='string'&&s.indexOf(g)>=0)return g;return typeof detectLang==='function'?detectLang(s):d})();if(s.indexOf(init)<0)init=d;window.LangBundle={initial:init,ready:load(init),load:load}})();</script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@6d77ea0177d435bdf836b47ee039f52a7448117e/shurl/client.min.js"></script></body></html>`;
 
 var SLUG_CHARS = "abcdefghijkmnpqrstuvwxyz23456789";
 var SLUG_MIN = 3;
@@ -1007,7 +1007,7 @@ async function incrementRateLimit(env, key, data) {
   await env.DATA.put(key, JSON.stringify({ count: data.count + 1, lastOp: (/* @__PURE__ */ new Date()).toISOString() }), { expirationTtl: 172800 });
 }
 
-var UNLOCK_TTL_SECONDS = 3600;
+var UNLOCK_TTL_SECONDS = 900;
 function hexToBytes(hex) {
   const out = new Uint8Array(hex.length / 2);
   for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
@@ -1043,24 +1043,31 @@ async function verifyUnlockToken(token, slug, accessHashHex) {
 function unlockCookieName(slug) {
   return "shul_a_" + slug;
 }
-function makeUnlockCookieHeader(slug, token, ttlSeconds = UNLOCK_TTL_SECONDS) {
-  return `${unlockCookieName(slug)}=${token}; Path=/${slug}; Max-Age=${ttlSeconds}; HttpOnly; Secure; SameSite=Lax`;
-}
-function readCookie(request, name) {
-  const c = request.headers.get("Cookie") || "";
-  for (const part of c.split(/;\s*/)) {
-    const eq = part.indexOf("=");
-    if (eq < 0) continue;
-    if (part.slice(0, eq) === name) return part.slice(eq + 1);
-  }
-  return null;
+function makeUnlockCookieHeader(slug, token) {
+  return buildSetCookie(unlockCookieName(slug), token, {
+    path: `/${slug}`,
+    httpOnly: true,
+    sameSite: "Lax"
+    // no maxAge → session-scoped (browser-close invalidates)
+  });
 }
 var HIT_TTL_SECONDS = 900;
 function hitCookieName(slug) {
   return "shul_h_" + slug;
 }
 function makeHitCookieHeader(slug, ttlSeconds = HIT_TTL_SECONDS) {
-  return `${hitCookieName(slug)}=1; Path=/${slug}; Max-Age=${ttlSeconds}; HttpOnly; Secure; SameSite=Lax`;
+  const exp = Date.now() + ttlSeconds * 1e3;
+  return buildSetCookie(hitCookieName(slug), String(exp), {
+    path: `/${slug}`,
+    httpOnly: true,
+    sameSite: "Lax"
+    // no maxAge → session-scoped; embedded exp is the server-side cap
+  });
+}
+function isHitCookieFresh(value) {
+  if (!value) return false;
+  const exp = Number(value);
+  return Number.isFinite(exp) && exp > Date.now();
 }
 
 var LOCK_PAGE_HTML = `<!DOCTYPE html>
@@ -1267,7 +1274,7 @@ var lockModule = makeLockModule({
   lockPageHtml: LOCK_PAGE_HTML
 });
 
-var APP_ASSETS_URL = "gh/onegbnet/tinycfw@dddd2c32fa150b6c3a8b815ff6a8f2feb408d220/shurl";
+var APP_ASSETS_URL = "gh/onegbnet/tinycfw@6d77ea0177d435bdf836b47ee039f52a7448117e/shurl";
 function redirectPage(entry, acceptLang, cdnHost, slug, showError, authed, theme) {
   const isFile = entry.type === "files";
   const files = entry.files || [];
@@ -1974,7 +1981,7 @@ var index_default = {
         if (!file) return notFound(env, url);
         if (entry.accessHash) {
           let authed = false;
-          const cookieToken = readCookie(request, unlockCookieName(slug));
+          const cookieToken = getCookie(request, unlockCookieName(slug));
           if (cookieToken && await verifyUnlockToken(cookieToken, slug, entry.accessHash)) {
             authed = true;
           }
@@ -1999,7 +2006,7 @@ var index_default = {
         });
       }
       if (entry.accessHash) {
-        const cookieToken = readCookie(request, unlockCookieName(slug));
+        const cookieToken = getCookie(request, unlockCookieName(slug));
         const gateAuthed = !!(cookieToken && await verifyUnlockToken(cookieToken, slug, entry.accessHash));
         if (!gateAuthed) {
           const acceptLang = request.headers.get("Accept-Language") || "";
@@ -2007,7 +2014,7 @@ var index_default = {
           return html(redirectPage(entry, acceptLang, cdnHost, slug, showError, false, theme));
         }
       }
-      const hadHitCookie = !!readCookie(request, hitCookieName(slug));
+      const hadHitCookie = isHitCookieFresh(getCookie(request, hitCookieName(slug)));
       let shouldSetHitCookie = false;
       const consumeVisit = () => {
         if (maxHitsPolicy === 0) return;
