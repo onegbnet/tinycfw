@@ -69,7 +69,7 @@ Two independent runtime limits gate every slug:
   - **Interstitial paths** (URL manual mode, file slug with multiple files or with countdown, file-slug post-auth file list): the interstitial render counts as one "open", whether or not the user proceeds to click / download. Bot-style refreshes will drain the cap — the limit measures "page opens", not "actual uses".
   - **Individual file downloads** via `GET /:slug?__f=1&i=N` do NOT count separately. Multi-file slugs see one hit per file-list page open, regardless of how many files the visitor downloads in that session.
   - **Password gate render** (pre-authentication, including failed retry with `?e=1`) does NOT count. `POST /_a/:slug` itself does not count either — it just sets the unlock cookie and 303s to `/:slug`; that subsequent GET is what counts (or doesn't, if the hit-session cookie is set — see below).
-  - **Hit-session cookie** (`shul_h_<slug>`, 15 min, HttpOnly, Path=/<slug>): set on every counted visit. While the cookie is present in the browser, repeat GETs to the same slug do NOT increment hits — same visitor refreshing / using the back button stays as 1 hit within the 15-minute window. After cookie expires, the next GET counts as a new visit. Different browsers / devices each get their own cookie + window. Independent from the unlock cookie (`shul_a_<slug>`).
+  - **Hit-session cookie** (`shul_h_<slug>`, session-scoped + 15-min hard cap encoded in cookie value, HttpOnly, Path=/<slug>): set on every counted visit. While the cookie is present **and not yet at its 15-min expiry**, repeat GETs to the same slug do NOT increment hits — same visitor refreshing / using the back button stays as 1 hit. The cookie has no `Max-Age` so the browser drops it on window close; whichever of (browser-close, 15-min) hits first triggers re-counting. Different browsers / devices each get their own cookie + window. Independent from the unlock cookie (`shul_a_<slug>`).
   - The counter is **best-effort under concurrency** — Cloudflare KV has no atomic increment, so simultaneous visits may collectively under-count. Don't rely on it for security-critical quotas; for fair "share with N friends" use cases it's fine.
 - **`ttl`** (validity duration): when `ttl > 0`, the slug carries an absolute `expiresAt = create_time + ttl`. Modifies preserve this anchor unless you change `ttl` or pass `resetTtl: true`.
 
@@ -497,7 +497,7 @@ Fetches the bytes for file `idx` (zero-based, matches the position in the `files
 **Auth (only when `accessPassword` is set on the slug):**
 
 - API clients: send `X-Password: <accessPassword>`.
-- Browsers: the redirect page sets an HttpOnly cookie after a successful POST `/_a/:slug` form submission. Cookie is `Path=/:slug; HttpOnly; Secure; SameSite=Lax; Max-Age=3600`. (You don't normally call `/_a/:slug` from API code — use `X-Password` instead.)
+- Browsers: the redirect page sets an HttpOnly cookie after a successful POST `/_a/:slug` form submission. Cookie is `Path=/:slug; HttpOnly; Secure; SameSite=Lax` — no `Max-Age`, so it's session-scoped (browser-close invalidates), with an HMAC-signed 15-min expiry baked into the cookie value as the hard server-side cap. Whichever of (browser close, 15 min) hits first prompts the visitor to re-enter the password. (You don't normally call `/_a/:slug` from API code — use `X-Password` instead.)
 
 **Response (200):** Raw file bytes with `Content-Type` (the stored MIME or `application/octet-stream`), `Content-Disposition: attachment; filename=...`, `Content-Length`, and `Cache-Control: private, no-store`.
 
@@ -590,7 +590,7 @@ For **file slugs**, this endpoint serves the file-list / download page instead o
   - **跳转页路径**（URL manual 模式、多文件或带倒计时的文件短码、带访问密码且已认证后的文件列表）：跳转页渲染计一次"打开"，无论用户是否实际点击/下载。爬虫式刷新会消耗配额——此上限计的是"打开次数"，不是"实际使用"。
   - `GET /:slug?__f=1&i=N` 形式的**单文件下载**不单独计数。多文件短码每次打开列表页计一次，与该会话下载多少个文件无关。
   - **访问密码门禁页面**（认证前，含失败重试 `?e=1`）渲染**不**计数。`POST /_a/:slug` 本身也**不**计数——它只 set 解锁 cookie + 303 跳回 `/:slug`，后续 GET 才算（或不算，看下面 hit-session cookie）。
-  - **Hit-session cookie**（`shul_h_<slug>`，15 分钟，HttpOnly，Path=/<slug>）：每次有效计数的访问 set 此 cookie。同一浏览器只要 cookie 还在，重复 GET 同 slug **不**会再加 hits——刷新/回退按钮在 15 分钟窗口内仍算 1 次。Cookie 自然过期后下次 GET 算新会话。不同浏览器/设备各自独立的 cookie 和窗口。与解锁 cookie（`shul_a_<slug>`）互不影响。
+  - **Hit-session cookie**（`shul_h_<slug>`，session 作用域 + cookie 值内嵌 15 分钟硬上限，HttpOnly，Path=/<slug>）：每次有效计数的访问 set 此 cookie。只要 cookie 还在浏览器**且未到 15 分钟过期**，重复 GET 同 slug **不**会再加 hits——刷新/回退按钮在窗口内仍算 1 次。Set-Cookie 头不带 `Max-Age`，所以浏览器关闭即丢；(关浏览器, 15 分钟) 哪个先发生都触发"重新计数"。不同浏览器/设备各自独立的 cookie 和窗口。与解锁 cookie（`shul_a_<slug>`）互不影响。
   - 并发场景下计数器是**尽力而为**——CF KV 无原子 increment，同时发生的访问可能合计少计若干次。**不要用它做安全配额**；用于"分享给 N 个朋友看"这类宽松场景即可。
 - **`ttl`**（有效时长）：当 `ttl > 0`，短码带绝对 `expiresAt = create_time + ttl`。修改时除非显式改 `ttl` 或传 `resetTtl: true`，该锚点保持不变。
 
@@ -1018,7 +1018,7 @@ X-Password: slug-password
 **鉴权（仅当短码设置了 `accessPassword` 时需要）：**
 
 - API 客户端：发送 `X-Password: <accessPassword>`
-- 浏览器：跳转页表单 POST 到 `/_a/:slug` 成功后服务端 set HttpOnly cookie，作用域 `Path=/:slug; HttpOnly; Secure; SameSite=Lax; Max-Age=3600`。（API 代码无需调 `/_a/:slug` —— 用 `X-Password` 即可。）
+- 浏览器：跳转页表单 POST 到 `/_a/:slug` 成功后服务端 set HttpOnly cookie，作用域 `Path=/:slug; HttpOnly; Secure; SameSite=Lax`——**不**带 `Max-Age`，所以是 session 作用域（浏览器关闭即失效），cookie 值里 HMAC 签了 15 分钟过期戳作为服务端硬上限。(关浏览器, 15 分钟) 哪个先发生都需要访客重输密码。（API 代码无需调 `/_a/:slug` —— 用 `X-Password` 即可。）
 
 **响应（200）：** 文件原始字节，附 `Content-Type`（存储时的 MIME 或 `application/octet-stream`）、`Content-Disposition: attachment; filename=...`、`Content-Length`、`Cache-Control: private, no-store`。
 
@@ -1111,7 +1111,7 @@ X-Password: slug-password
   - **跳轉頁路徑**（URL manual 模式、多檔案或帶倒數計時的檔案短碼、帶存取密碼且已認證後的檔案列表）：跳轉頁渲染計一次「打開」，無論使用者是否實際點擊/下載。爬蟲式重新整理會消耗配額——此上限計的是「打開次數」，不是「實際使用」。
   - `GET /:slug?__f=1&i=N` 形式的**單檔下載**不單獨計數。多檔案短碼每次打開列表頁計一次，與該工作階段下載多少個檔案無關。
   - **存取密碼門禁頁面**（認證前，含失敗重試 `?e=1`）渲染**不**計數。`POST /_a/:slug` 本身也**不**計數——它只 set 解鎖 cookie + 303 跳回 `/:slug`，後續 GET 才算（或不算，看下面 hit-session cookie）。
-  - **Hit-session cookie**（`shul_h_<slug>`，15 分鐘，HttpOnly，Path=/<slug>）：每次有效計數的存取 set 此 cookie。同一瀏覽器只要 cookie 還在，重複 GET 同 slug **不**會再加 hits——重新整理/返回按鈕在 15 分鐘視窗內仍算 1 次。Cookie 自然過期後下次 GET 算新工作階段。不同瀏覽器/裝置各自獨立的 cookie 與視窗。與解鎖 cookie（`shul_a_<slug>`）互不影響。
+  - **Hit-session cookie**（`shul_h_<slug>`，session 作用域 + cookie 值內嵌 15 分鐘硬上限，HttpOnly，Path=/<slug>）：每次有效計數的存取 set 此 cookie。只要 cookie 還在瀏覽器**且未到 15 分鐘過期**，重複 GET 同 slug **不**會再加 hits——重新整理/返回按鈕在視窗內仍算 1 次。Set-Cookie 頭不帶 `Max-Age`，所以瀏覽器關閉即丟；(關瀏覽器, 15 分鐘) 哪個先發生都觸發「重新計數」。不同瀏覽器/裝置各自獨立的 cookie 與視窗。與解鎖 cookie（`shul_a_<slug>`）互不影響。
   - 並行場景下計數器是**盡力而為**——CF KV 無原子 increment，同時發生的存取可能合計少計若干次。**不要用它做安全配額**；用於「分享給 N 個朋友看」這類寬鬆場景即可。
 - **`ttl`**（有效時長）：當 `ttl > 0`，短碼帶絕對 `expiresAt = create_time + ttl`。修改時除非顯式改 `ttl` 或傳 `resetTtl: true`，該錨點保持不變。
 
@@ -1539,7 +1539,7 @@ X-Password: slug-password
 **鑑權（僅當短碼設定了 `accessPassword` 時需要）：**
 
 - API 客戶端：發送 `X-Password: <accessPassword>`
-- 瀏覽器：跳轉頁表單 POST 至 `/_a/:slug` 成功後伺服器 set HttpOnly cookie，作用域 `Path=/:slug; HttpOnly; Secure; SameSite=Lax; Max-Age=3600`。（API 程式無需呼叫 `/_a/:slug` —— 用 `X-Password` 即可。）
+- 瀏覽器：跳轉頁表單 POST 至 `/_a/:slug` 成功後伺服器 set HttpOnly cookie，作用域 `Path=/:slug; HttpOnly; Secure; SameSite=Lax`——**不**帶 `Max-Age`，所以是 session 作用域（瀏覽器關閉即失效），cookie 值內 HMAC 簽了 15 分鐘過期戳作為伺服端硬上限。(關瀏覽器, 15 分鐘) 哪個先發生都需要訪客重輸密碼。（API 程式無需呼叫 `/_a/:slug` —— 用 `X-Password` 即可。）
 
 **回應（200）：** 檔案原始位元組，附 `Content-Type`（儲存時的 MIME 或 `application/octet-stream`）、`Content-Disposition: attachment; filename=...`、`Content-Length`、`Cache-Control: private, no-store`。
 
