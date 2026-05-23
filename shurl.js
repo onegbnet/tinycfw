@@ -212,8 +212,8 @@ var landing_default = `<!DOCTYPE html>
 <title>Shurl</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71'/%3E%3C/svg%3E">
 <script src="https://{{CDN_HOST}}/npm/markdown-it@14/dist/markdown-it.min.js"></script>
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/overlay/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@6d77ea0177d435bdf836b47ee039f52a7448117e/shurl/view.min.css"></head><body><div style="width:100%;max-width:480px"><div class="c">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@8ece97cc2e5585de1c8afb23906d8ce0e28d42c4/overlay/style.min.css">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@5dbb6c77de3d855d4873c8bc863263245a5aa9a2/shurl/view.min.css"></head><body><div style="width:100%;max-width:480px"><div class="c">
 <div class="header">
   <div class="header-left">
     <div class="logo-icon">
@@ -364,8 +364,8 @@ var landing_default = `<!DOCTYPE html>
     <span data-i18n="label_require_password"></span>
   </label>
   <div id="access-pw-inputs" class="hidden" style="margin:.4rem 0 0 1.6rem">
-    <input id="accessPassword" type="password" maxlength="16" data-i18n-ph="access_password_placeholder" style="margin:0">
-    <p class="hint" id="h-accessPassword" style="color:#ef4444;display:none;margin:.2rem 0 .4rem"></p>
+    <input id="access" type="password" maxlength="16" data-i18n-ph="access_password_placeholder" style="margin:0">
+    <p class="hint" id="h-access" style="color:#ef4444;display:none;margin:.2rem 0 .4rem"></p>
   </div>
 </div>
 
@@ -469,7 +469,7 @@ var landing_default = `<!DOCTYPE html>
 <div id="r"></div>
 
 </div>
-<footer style="text-align:center;padding:1rem 0;font-size:.75rem;color:var(--footer-color,inherit)">\xA9 <span id="footerYear"></span> <a href="https://go.gb.net/gaobo" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)"><img src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/gaobo.png" alt="" style="height:20px;vertical-align:middle;margin:0 2px;"><span id="footerBrand"></span></a> <span id="footerProd"></span> <a href="https://github.com/onegbnet/tinyutils/blob/master/LICENSE" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)">MIT License</a></footer>
+<footer style="text-align:center;padding:1rem 0;font-size:.75rem;color:var(--footer-color,inherit)">\xA9 <span id="footerYear"></span> <a href="https://go.gb.net/gaobo" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)"><img src="https://{{CDN_HOST}}/gh/onegbnet/ccs@8ece97cc2e5585de1c8afb23906d8ce0e28d42c4/gaobo.png" alt="" style="height:20px;vertical-align:middle;margin:0 2px;"><span id="footerBrand"></span></a> <span id="footerProd"></span> <a href="https://github.com/onegbnet/tinyutils/blob/master/LICENSE" target="_blank" style="color:var(--footer-color,inherit);text-decoration:none;border-bottom:1px dashed var(--footer-border,currentColor)">MIT License</a></footer>
 
 </div>
 <script>
@@ -481,7 +481,7 @@ var landing_default = `<!DOCTYPE html>
 //
 // I18N table is no longer inline \u2014 it's loaded from dist/i18n.min.js
 // (Phase 5b-A self assets) via the <script src> below. jsDelivr 1y cache.
-var KEY_REQUIRED_RAW = "{{KEY_REQUIRED}}";
+var ADMIN_REQUIRED_RAW = "{{ADMIN_REQUIRED}}";
 var IS_ADMIN_RAW = "{{IS_ADMIN}}";
 // Server-injected lang (cookie OR Accept-Language fallback). Bootstrap
 // reads this via initialFromGlobal:'INITIAL_LANG' so reload preserves
@@ -492,27 +492,27 @@ var INITIAL_LANG = "{{LANG}}";
 <!-- CDN-served browser modules \u2014 order: i18n-engine first; action before
      overlay; field separately; theme self-contained (storage-free, reads
      <html data-theme>). {{CDN_HOST}} swapped per-request by handleGet(). -->
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/i18n-engine/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/footer-brand/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/action/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/field/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/overlay/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/theme/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/upload2kv/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@8ece97cc2e5585de1c8afb23906d8ce0e28d42c4/i18n-engine/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@8ece97cc2e5585de1c8afb23906d8ce0e28d42c4/footer-brand/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@8ece97cc2e5585de1c8afb23906d8ce0e28d42c4/action/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@8ece97cc2e5585de1c8afb23906d8ce0e28d42c4/field/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@8ece97cc2e5585de1c8afb23906d8ce0e28d42c4/overlay/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@8ece97cc2e5585de1c8afb23906d8ce0e28d42c4/theme/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@8ece97cc2e5585de1c8afb23906d8ce0e28d42c4/upload2kv/client.min.js"></script>
 
 <!-- markdown-editor (Phase 5b-B): per-app config via inline shim BEFORE
      the CDN <script src> so window.MDE_CONFIG / window.MDE_I18N_OVERRIDES
      are set when the IIFE executes. -->
 <script>window.MDE_CONFIG={"textareaId":"mdPane","trimReturn":true};</script>
 <script>var MDE_I18N = {en:{md_placeholder:"Write markdown here...",md_preview_title:"Preview",md_preview_close:"Close",md_tb_bold:"Bold",md_tb_italic:"Italic",md_tb_h1:"Heading 1",md_tb_h2:"Heading 2",md_tb_h3:"Heading 3",md_tb_ul:"Bullet list",md_tb_ol:"Numbered list",md_tb_blockquote:"Blockquote",md_tb_code:"Inline code",md_tb_link:"Insert link",md_tb_hr:"Horizontal rule",md_tb_preview:"Preview"},eo:{md_placeholder:"Skribu markdown \u0109i tie...",md_preview_title:"Anta\u016Drigardo",md_preview_close:"Fermi",md_tb_bold:"Grasa",md_tb_italic:"Kursiva",md_tb_h1:"Titolo 1",md_tb_h2:"Titolo 2",md_tb_h3:"Titolo 3",md_tb_ul:"Bula listo",md_tb_ol:"Numerita listo",md_tb_blockquote:"Cita\u0135o",md_tb_code:"Enlinia kodo",md_tb_link:"Enmeti ligilon",md_tb_hr:"Horizontala linio",md_tb_preview:"Anta\u016Drigardo"},fr:{md_placeholder:"\xC9crivez du markdown ici...",md_preview_title:"Aper\xE7u",md_preview_close:"Fermer",md_tb_bold:"Gras",md_tb_italic:"Italique",md_tb_h1:"Titre 1",md_tb_h2:"Titre 2",md_tb_h3:"Titre 3",md_tb_ul:"Liste \xE0 puces",md_tb_ol:"Liste num\xE9rot\xE9e",md_tb_blockquote:"Citation",md_tb_code:"Code en ligne",md_tb_link:"Ins\xE9rer un lien",md_tb_hr:"Ligne horizontale",md_tb_preview:"Aper\xE7u"},de:{md_placeholder:"Markdown hier schreiben...",md_preview_title:"Vorschau",md_preview_close:"Schlie\xDFen",md_tb_bold:"Fett",md_tb_italic:"Kursiv",md_tb_h1:"\xDCberschrift 1",md_tb_h2:"\xDCberschrift 2",md_tb_h3:"\xDCberschrift 3",md_tb_ul:"Aufz\xE4hlung",md_tb_ol:"Nummerierte Liste",md_tb_blockquote:"Zitat",md_tb_code:"Inline-Code",md_tb_link:"Link einf\xFCgen",md_tb_hr:"Horizontale Linie",md_tb_preview:"Vorschau"},es:{md_placeholder:"Escribe markdown aqu\xED...",md_preview_title:"Vista previa",md_preview_close:"Cerrar",md_tb_bold:"Negrita",md_tb_italic:"Cursiva",md_tb_h1:"Encabezado 1",md_tb_h2:"Encabezado 2",md_tb_h3:"Encabezado 3",md_tb_ul:"Lista con vi\xF1etas",md_tb_ol:"Lista numerada",md_tb_blockquote:"Cita",md_tb_code:"C\xF3digo en l\xEDnea",md_tb_link:"Insertar enlace",md_tb_hr:"L\xEDnea horizontal",md_tb_preview:"Vista previa"},it:{md_placeholder:"Scrivi markdown qui...",md_preview_title:"Anteprima",md_preview_close:"Chiudi",md_tb_bold:"Grassetto",md_tb_italic:"Corsivo",md_tb_h1:"Titolo 1",md_tb_h2:"Titolo 2",md_tb_h3:"Titolo 3",md_tb_ul:"Elenco puntato",md_tb_ol:"Elenco numerato",md_tb_blockquote:"Citazione",md_tb_code:"Codice in linea",md_tb_link:"Inserisci collegamento",md_tb_hr:"Riga orizzontale",md_tb_preview:"Anteprima"},nl:{md_placeholder:"Schrijf hier markdown...",md_preview_title:"Voorbeeld",md_preview_close:"Sluiten",md_tb_bold:"Vet",md_tb_italic:"Cursief",md_tb_h1:"Kop 1",md_tb_h2:"Kop 2",md_tb_h3:"Kop 3",md_tb_ul:"Opsommingslijst",md_tb_ol:"Genummerde lijst",md_tb_blockquote:"Citaat",md_tb_code:"Inline code",md_tb_link:"Link invoegen",md_tb_hr:"Horizontale lijn",md_tb_preview:"Voorbeeld"},da:{md_placeholder:"Skriv markdown her...",md_preview_title:"Forh\xE5ndsvisning",md_preview_close:"Luk",md_tb_bold:"Fed",md_tb_italic:"Kursiv",md_tb_h1:"Overskrift 1",md_tb_h2:"Overskrift 2",md_tb_h3:"Overskrift 3",md_tb_ul:"Punktliste",md_tb_ol:"Nummereret liste",md_tb_blockquote:"Citat",md_tb_code:"Inline-kode",md_tb_link:"Inds\xE6t link",md_tb_hr:"Vandret linje",md_tb_preview:"Forh\xE5ndsvisning"},"zh-cn":{md_placeholder:"\u5728\u6B64\u7F16\u5199 Markdown...",md_preview_title:"\u9884\u89C8",md_preview_close:"\u5173\u95ED",md_tb_bold:"\u52A0\u7C97",md_tb_italic:"\u659C\u4F53",md_tb_h1:"\u6807\u9898 1",md_tb_h2:"\u6807\u9898 2",md_tb_h3:"\u6807\u9898 3",md_tb_ul:"\u65E0\u5E8F\u5217\u8868",md_tb_ol:"\u6709\u5E8F\u5217\u8868",md_tb_blockquote:"\u5F15\u7528",md_tb_code:"\u884C\u5185\u4EE3\u7801",md_tb_link:"\u63D2\u5165\u94FE\u63A5",md_tb_hr:"\u6C34\u5E73\u7EBF",md_tb_preview:"\u9884\u89C8"},"zh-tw":{md_placeholder:"\u5728\u6B64\u7DE8\u5BEB Markdown...",md_preview_title:"\u9810\u89BD",md_preview_close:"\u95DC\u9589",md_tb_bold:"\u7C97\u9AD4",md_tb_italic:"\u659C\u9AD4",md_tb_h1:"\u6A19\u984C 1",md_tb_h2:"\u6A19\u984C 2",md_tb_h3:"\u6A19\u984C 3",md_tb_ul:"\u7121\u5E8F\u6E05\u55AE",md_tb_ol:"\u6709\u5E8F\u6E05\u55AE",md_tb_blockquote:"\u5F15\u7528",md_tb_code:"\u884C\u5167\u7A0B\u5F0F\u78BC",md_tb_link:"\u63D2\u5165\u9023\u7D50",md_tb_hr:"\u6C34\u5E73\u7DDA",md_tb_preview:"\u9810\u89BD"},ja:{md_placeholder:"Markdown\u3067\u8A18\u8FF0...",md_preview_title:"\u30D7\u30EC\u30D3\u30E5\u30FC",md_preview_close:"\u9589\u3058\u308B",md_tb_bold:"\u592A\u5B57",md_tb_italic:"\u659C\u4F53",md_tb_h1:"\u898B\u51FA\u3057 1",md_tb_h2:"\u898B\u51FA\u3057 2",md_tb_h3:"\u898B\u51FA\u3057 3",md_tb_ul:"\u7B87\u6761\u66F8\u304D",md_tb_ol:"\u756A\u53F7\u4ED8\u304D\u30EA\u30B9\u30C8",md_tb_blockquote:"\u5F15\u7528",md_tb_code:"\u30A4\u30F3\u30E9\u30A4\u30F3\u30B3\u30FC\u30C9",md_tb_link:"\u30EA\u30F3\u30AF\u3092\u633F\u5165",md_tb_hr:"\u6C34\u5E73\u7DDA",md_tb_preview:"\u30D7\u30EC\u30D3\u30E5\u30FC"},ko:{md_placeholder:"\uB9C8\uD06C\uB2E4\uC6B4 \uC791\uC131...",md_preview_title:"\uBBF8\uB9AC\uBCF4\uAE30",md_preview_close:"\uB2EB\uAE30",md_tb_bold:"\uAD75\uAC8C",md_tb_italic:"\uAE30\uC6B8\uC784",md_tb_h1:"\uC81C\uBAA9 1",md_tb_h2:"\uC81C\uBAA9 2",md_tb_h3:"\uC81C\uBAA9 3",md_tb_ul:"\uAE00\uBA38\uB9AC \uAE30\uD638",md_tb_ol:"\uBC88\uD638 \uBAA9\uB85D",md_tb_blockquote:"\uC778\uC6A9",md_tb_code:"\uC778\uB77C\uC778 \uCF54\uB4DC",md_tb_link:"\uB9C1\uD06C \uC0BD\uC785",md_tb_hr:"\uAD6C\uBD84\uC120",md_tb_preview:"\uBBF8\uB9AC\uBCF4\uAE30"},ms:{md_placeholder:"Tulis markdown di sini...",md_preview_title:"Pratonton",md_preview_close:"Tutup",md_tb_bold:"Tebal",md_tb_italic:"Condong",md_tb_h1:"Tajuk 1",md_tb_h2:"Tajuk 2",md_tb_h3:"Tajuk 3",md_tb_ul:"Senarai titik",md_tb_ol:"Senarai bernombor",md_tb_blockquote:"Petikan",md_tb_code:"Kod sebaris",md_tb_link:"Sisip pautan",md_tb_hr:"Garisan mendatar",md_tb_preview:"Pratonton"},vi:{md_placeholder:"Vi\u1EBFt markdown t\u1EA1i \u0111\xE2y...",md_preview_title:"Xem tr\u01B0\u1EDBc",md_preview_close:"\u0110\xF3ng",md_tb_bold:"\u0110\u1EADm",md_tb_italic:"Nghi\xEAng",md_tb_h1:"Ti\xEAu \u0111\u1EC1 1",md_tb_h2:"Ti\xEAu \u0111\u1EC1 2",md_tb_h3:"Ti\xEAu \u0111\u1EC1 3",md_tb_ul:"Danh s\xE1ch",md_tb_ol:"Danh s\xE1ch s\u1ED1",md_tb_blockquote:"Tr\xEDch d\u1EABn",md_tb_code:"M\xE3 n\u1ED9i d\xF2ng",md_tb_link:"Ch\xE8n li\xEAn k\u1EBFt",md_tb_hr:"\u0110\u01B0\u1EDDng k\u1EBB ngang",md_tb_preview:"Xem tr\u01B0\u1EDBc"},th:{md_placeholder:"\u0E40\u0E02\u0E35\u0E22\u0E19 Markdown \u0E17\u0E35\u0E48\u0E19\u0E35\u0E48...",md_preview_title:"\u0E14\u0E39\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07",md_preview_close:"\u0E1B\u0E34\u0E14",md_tb_bold:"\u0E15\u0E31\u0E27\u0E2B\u0E19\u0E32",md_tb_italic:"\u0E15\u0E31\u0E27\u0E40\u0E2D\u0E35\u0E22\u0E07",md_tb_h1:"\u0E2B\u0E31\u0E27\u0E02\u0E49\u0E2D 1",md_tb_h2:"\u0E2B\u0E31\u0E27\u0E02\u0E49\u0E2D 2",md_tb_h3:"\u0E2B\u0E31\u0E27\u0E02\u0E49\u0E2D 3",md_tb_ul:"\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E08\u0E38\u0E14",md_tb_ol:"\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E40\u0E25\u0E02",md_tb_blockquote:"\u0E04\u0E33\u0E1E\u0E39\u0E14",md_tb_code:"\u0E42\u0E04\u0E49\u0E14\u0E43\u0E19\u0E1A\u0E23\u0E23\u0E17\u0E31\u0E14",md_tb_link:"\u0E41\u0E17\u0E23\u0E01\u0E25\u0E34\u0E07\u0E01\u0E4C",md_tb_hr:"\u0E40\u0E2A\u0E49\u0E19\u0E41\u0E19\u0E27\u0E19\u0E2D\u0E19",md_tb_preview:"\u0E14\u0E39\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07"},ta:{md_placeholder:"Markdown \u0B8E\u0BB4\u0BC1\u0BA4\u0BC1\u0B99\u0BCD\u0B95\u0BB3\u0BCD...",md_preview_title:"\u0BAE\u0BC1\u0BA9\u0BCD\u0BA9\u0BCB\u0B9F\u0BCD\u0B9F\u0BAE\u0BCD",md_preview_close:"\u0BAE\u0BC2\u0B9F\u0BC1",md_tb_bold:"\u0BA4\u0B9F\u0BBF\u0BAE\u0BA9\u0BCD",md_tb_italic:"\u0B9A\u0BBE\u0BAF\u0BCD\u0BB5\u0BC1",md_tb_h1:"\u0BA4\u0BB2\u0BC8\u0BAA\u0BCD\u0BAA\u0BC1 1",md_tb_h2:"\u0BA4\u0BB2\u0BC8\u0BAA\u0BCD\u0BAA\u0BC1 2",md_tb_h3:"\u0BA4\u0BB2\u0BC8\u0BAA\u0BCD\u0BAA\u0BC1 3",md_tb_ul:"\u0BAA\u0BC1\u0BB3\u0BCD\u0BB3\u0BBF \u0BAA\u0B9F\u0BCD\u0B9F\u0BBF\u0BAF\u0BB2\u0BCD",md_tb_ol:"\u0B8E\u0BA3\u0BCD \u0BAA\u0B9F\u0BCD\u0B9F\u0BBF\u0BAF\u0BB2\u0BCD",md_tb_blockquote:"\u0BAE\u0BC7\u0BB1\u0BCD\u0B95\u0BCB\u0BB3\u0BCD",md_tb_code:"\u0B87\u0BA9\u0BCD\u0BB2\u0BC8\u0BA9\u0BCD \u0B95\u0BC1\u0BB1\u0BBF\u0BAF\u0BC0\u0B9F\u0BC1",md_tb_link:"\u0B87\u0BA3\u0BC8\u0BAA\u0BCD\u0BAA\u0BC1 \u0B9A\u0BC6\u0BB0\u0BC1\u0B95\u0BC1",md_tb_hr:"\u0B95\u0BBF\u0B9F\u0BC8\u0B95\u0BCD\u0B95\u0BCB\u0B9F\u0BC1",md_tb_preview:"\u0BAE\u0BC1\u0BA9\u0BCD\u0BA9\u0BCB\u0B9F\u0BCD\u0B9F\u0BAE\u0BCD"},my:{md_placeholder:"\u1024\u1014\u1031\u101B\u102C\u1010\u103D\u1004\u103A Markdown \u101B\u1031\u1038\u1015\u102B...",md_preview_title:"\u1000\u103C\u102D\u102F\u1000\u103C\u100A\u1037\u103A",md_preview_close:"\u1015\u102D\u1010\u103A",md_tb_bold:"\u1011\u1030",md_tb_italic:"\u1005\u1031\u102C\u1004\u103A\u1038",md_tb_h1:"\u1001\u1031\u102B\u1004\u103A\u1038\u1005\u1009\u103A \u1041",md_tb_h2:"\u1001\u1031\u102B\u1004\u103A\u1038\u1005\u1009\u103A \u1042",md_tb_h3:"\u1001\u1031\u102B\u1004\u103A\u1038\u1005\u1009\u103A \u1043",md_tb_ul:"\u1021\u1005\u1000\u103A\u1005\u102C\u101B\u1004\u103A\u1038",md_tb_ol:"\u1014\u1036\u1015\u102B\u1010\u103A\u1005\u102C\u101B\u1004\u103A\u1038",md_tb_blockquote:"\u1000\u102D\u102F\u1038\u1000\u102C\u1038",md_tb_code:"\u101C\u102D\u102F\u1004\u103A\u1038\u1010\u103D\u1004\u103A\u1038\u1000\u102F\u1012\u103A",md_tb_link:"\u101C\u1004\u1037\u103A\u1011\u100A\u1037\u103A",md_tb_hr:"\u1019\u103B\u1009\u103A\u1038\u1021\u101C\u103B\u102C\u1038",md_tb_preview:"\u1000\u103C\u102D\u102F\u1000\u103C\u100A\u1037\u103A"},uk:{md_placeholder:"\u041F\u0438\u0448\u0456\u0442\u044C markdown \u0442\u0443\u0442...",md_preview_title:"\u041F\u043E\u043F\u0435\u0440\u0435\u0434\u043D\u0456\u0439 \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434",md_preview_close:"\u0417\u0430\u043A\u0440\u0438\u0442\u0438",md_tb_bold:"\u0416\u0438\u0440\u043D\u0438\u0439",md_tb_italic:"\u041A\u0443\u0440\u0441\u0438\u0432",md_tb_h1:"\u0417\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A 1",md_tb_h2:"\u0417\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A 2",md_tb_h3:"\u0417\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A 3",md_tb_ul:"\u041C\u0430\u0440\u043A\u043E\u0432\u0430\u043D\u0438\u0439 \u0441\u043F\u0438\u0441\u043E\u043A",md_tb_ol:"\u041D\u0443\u043C\u0435\u0440\u043E\u0432\u0430\u043D\u0438\u0439 \u0441\u043F\u0438\u0441\u043E\u043A",md_tb_blockquote:"\u0426\u0438\u0442\u0430\u0442\u0430",md_tb_code:"\u0412\u0431\u0443\u0434\u043E\u0432\u0430\u043D\u0438\u0439 \u043A\u043E\u0434",md_tb_link:"\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u043F\u043E\u0441\u0438\u043B\u0430\u043D\u043D\u044F",md_tb_hr:"\u0413\u043E\u0440\u0438\u0437\u043E\u043D\u0442\u0430\u043B\u044C\u043D\u0430 \u043B\u0456\u043D\u0456\u044F",md_tb_preview:"\u041F\u043E\u043F\u0435\u0440\u0435\u0434\u043D\u0456\u0439 \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434"},he:{md_placeholder:"\u05DB\u05EA\u05D5\u05D1 Markdown \u05DB\u05D0\u05DF...",md_preview_title:"\u05EA\u05E6\u05D5\u05D2\u05D4 \u05DE\u05E7\u05D3\u05D9\u05DE\u05D4",md_preview_close:"\u05E1\u05D2\u05D5\u05E8",md_tb_bold:"\u05DE\u05D5\u05D3\u05D2\u05E9",md_tb_italic:"\u05E0\u05D8\u05D5\u05D9",md_tb_h1:"\u05DB\u05D5\u05EA\u05E8\u05EA 1",md_tb_h2:"\u05DB\u05D5\u05EA\u05E8\u05EA 2",md_tb_h3:"\u05DB\u05D5\u05EA\u05E8\u05EA 3",md_tb_ul:"\u05E8\u05E9\u05D9\u05DE\u05EA \u05EA\u05D1\u05DC\u05D9\u05D8\u05D9\u05DD",md_tb_ol:"\u05E8\u05E9\u05D9\u05DE\u05D4 \u05DE\u05DE\u05D5\u05E1\u05E4\u05E8\u05EA",md_tb_blockquote:"\u05E6\u05D9\u05D8\u05D5\u05D8",md_tb_code:"\u05E7\u05D5\u05D3 \u05D1\u05E9\u05D5\u05E8\u05D4",md_tb_link:"\u05D4\u05DB\u05E0\u05E1 \u05E7\u05D9\u05E9\u05D5\u05E8",md_tb_hr:"\u05E7\u05D5 \u05D0\u05D5\u05E4\u05E7\u05D9",md_tb_preview:"\u05EA\u05E6\u05D5\u05D2\u05D4 \u05DE\u05E7\u05D3\u05D9\u05DE\u05D4"},ar:{md_placeholder:"\u0627\u0643\u062A\u0628 Markdown \u0647\u0646\u0627...",md_preview_title:"\u0645\u0639\u0627\u064A\u0646\u0629",md_preview_close:"\u0625\u063A\u0644\u0627\u0642",md_tb_bold:"\u063A\u0627\u0645\u0642",md_tb_italic:"\u0645\u0627\u0626\u0644",md_tb_h1:"\u0639\u0646\u0648\u0627\u0646 1",md_tb_h2:"\u0639\u0646\u0648\u0627\u0646 2",md_tb_h3:"\u0639\u0646\u0648\u0627\u0646 3",md_tb_ul:"\u0642\u0627\u0626\u0645\u0629 \u0646\u0642\u0637\u064A\u0629",md_tb_ol:"\u0642\u0627\u0626\u0645\u0629 \u0645\u0631\u0642\u0645\u0629",md_tb_blockquote:"\u0627\u0642\u062A\u0628\u0627\u0633",md_tb_code:"\u0643\u0648\u062F \u0633\u0637\u0631\u064A",md_tb_link:"\u0625\u062F\u0631\u0627\u062C \u0631\u0627\u0628\u0637",md_tb_hr:"\u062E\u0637 \u0623\u0641\u0642\u064A",md_tb_preview:"\u0645\u0639\u0627\u064A\u0646\u0629"}};</script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/markdown-editor/client.min.js"></script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@8ece97cc2e5585de1c8afb23906d8ce0e28d42c4/markdown-editor/client.min.js"></script>
 
 <!-- Per-lang i18n loader: detect lang client-side, async-fetch ONLY the
      matching i18n-<lang>.min.js. Exposes window.LangBundle.{initial,
      ready, load} \u2014 client.min.js waits on LangBundle.ready before its
      first applyI18n and uses LangBundle.load for switch-on-demand. -->
-<script>(function(){var b="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@6d77ea0177d435bdf836b47ee039f52a7448117e/shurl";var s=["en","eo","fr","de","es","it","nl","da","zh-cn","zh-tw","ja","ko","ms","vi","th","ta","my","uk","he","ar"];var d="en";function load(l){return new Promise(function(r,j){var x=document.createElement('script');x.src=b+'/i18n-'+l+'.min.js';x.onload=function(){r(l)};x.onerror=function(){j(new Error('i18n-'+l+' failed'))};document.head.appendChild(x)})}var init=(function(){var g=window["INITIAL_LANG"];if(typeof g==='string'&&s.indexOf(g)>=0)return g;return typeof detectLang==='function'?detectLang(s):d})();if(s.indexOf(init)<0)init=d;window.LangBundle={initial:init,ready:load(init),load:load}})();</script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@6d77ea0177d435bdf836b47ee039f52a7448117e/shurl/client.min.js"></script></body></html>`;
+<script>(function(){var b="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@5dbb6c77de3d855d4873c8bc863263245a5aa9a2/shurl";var s=["en","eo","fr","de","es","it","nl","da","zh-cn","zh-tw","ja","ko","ms","vi","th","ta","my","uk","he","ar"];var d="en";function load(l){return new Promise(function(r,j){var x=document.createElement('script');x.src=b+'/i18n-'+l+'.min.js';x.onload=function(){r(l)};x.onerror=function(){j(new Error('i18n-'+l+' failed'))};document.head.appendChild(x)})}var init=(function(){var g=window["INITIAL_LANG"];if(typeof g==='string'&&s.indexOf(g)>=0)return g;return typeof detectLang==='function'?detectLang(s):d})();if(s.indexOf(init)<0)init=d;window.LangBundle={initial:init,ready:load(init),load:load}})();</script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@5dbb6c77de3d855d4873c8bc863263245a5aa9a2/shurl/client.min.js"></script></body></html>`;
 
 var SLUG_CHARS = "abcdefghijkmnpqrstuvwxyz23456789";
 var SLUG_MIN = 3;
@@ -606,14 +606,14 @@ async function applyMetadataFields(body, existing, env, nowSec) {
   const redirectPageContent = (body.redirectPageContent || "").trim().slice(0, DELAY_HTML_MAX);
   const warnings = [];
   let accessHash = existing ? existing.accessHash || null : null;
-  const accessPassword = (body.accessPassword || "").trim();
-  if (accessPassword) {
-    if (/^\S{3,16}$/.test(accessPassword)) {
-      accessHash = await hashPassword(accessPassword);
+  const access = (body.access || "").trim();
+  if (access) {
+    if (/^\S{3,16}$/.test(access)) {
+      accessHash = await hashPassword(access);
     } else {
       warnings.push("ACCESS_PASSWORD_IGNORED");
     }
-  } else if (existing && Object.prototype.hasOwnProperty.call(body, "accessPassword") && !accessPassword) {
+  } else if (existing && Object.prototype.hasOwnProperty.call(body, "access") && !access) {
     accessHash = null;
   }
   const defaultTtl = normalizeTtl(env.TTL || 0);
@@ -911,25 +911,25 @@ async function verifyAdminToken(token, secret, nowMs) {
   return await safeEqual(sig, expected);
 }
 async function handleAdminAuth(request, env) {
-  if (!env.KEY) return json({ error: "NO_AUTH_REQUIRED" }, 400);
+  if (!env.ADMIN) return json({ error: "NO_AUTH_REQUIRED" }, 400);
   let body;
   try {
     body = await request.json();
   } catch {
     return json({ error: "INVALID_JSON" }, 400);
   }
-  const submitted = (body && body.key || "").toString().trim();
+  const submitted = (body && body.admin || "").toString().trim();
   if (!submitted) return json({ error: "UNAUTHORIZED" }, 401);
-  const keys = String(env.KEY).split(",").map((k) => k.trim()).filter(Boolean);
+  const passwords = String(env.ADMIN).split(",").map((p) => p.trim()).filter(Boolean);
   let valid = false;
-  for (const k of keys) {
-    if (await safeEqual(submitted, k)) {
+  for (const p of passwords) {
+    if (await safeEqual(submitted, p)) {
       valid = true;
       break;
     }
   }
   if (!valid) return json({ error: "UNAUTHORIZED" }, 401);
-  const token = await makeAdminToken(keys[0]);
+  const token = await makeAdminToken(passwords[0]);
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
     headers: {
@@ -960,17 +960,17 @@ async function handleAdminLogout() {
 
 var { json: json2 } = makeResponseHelpers({ cors: "*", prettyJson: true });
 async function checkAuth(req, env) {
-  if (!env.KEY) return { isAdmin: true };
-  const keys = String(env.KEY).split(",").map((k) => k.trim()).filter(Boolean);
+  if (!env.ADMIN) return { isAdmin: true };
+  const passwords = String(env.ADMIN).split(",").map((p) => p.trim()).filter(Boolean);
   const cookieToken = getCookie(req, adminCookieName);
-  if (cookieToken && keys.length > 0 && await verifyAdminToken(cookieToken, keys[0])) {
+  if (cookieToken && passwords.length > 0 && await verifyAdminToken(cookieToken, passwords[0])) {
     return { isAdmin: true };
   }
   const auth = req.headers.get("Authorization") || "";
-  const key = req.headers.get("X-Admin-Key") || (auth.startsWith("Bearer ") ? auth.slice(7) : "");
-  if (!key) return { isAdmin: false };
-  for (const k of keys) {
-    if (await safeEqual(key, k)) return { isAdmin: true };
+  const submitted = req.headers.get("X-Admin") || (auth.startsWith("Bearer ") ? auth.slice(7) : "");
+  if (!submitted) return { isAdmin: false };
+  for (const p of passwords) {
+    if (await safeEqual(submitted, p)) return { isAdmin: true };
   }
   return json2({ error: "UNAUTHORIZED" }, 401);
 }
@@ -1258,11 +1258,11 @@ body {
     <div class="lock-err" id="lockErr"></div>
   </form>
 </div>
-<script>window.LOCK_CONFIG={"unlockPath":"/_unlock","appNameI18n":{"en":"Shurl","eo":"Shurl","fr":"Shurl","de":"Shurl","es":"Shurl","it":"Shurl","nl":"Shurl","da":"Shurl","zh-cn":"\u901F\u81F3\u77ED\u94FE","zh-tw":"\u901F\u81F3\u77ED\u93C8","ja":"Shurl","ko":"Shurl","ms":"Shurl","vi":"Shurl","th":"Shurl","ta":"Shurl","my":"Shurl","uk":"Shurl","he":"Shurl","ar":"Shurl"}};</script><script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@7dc49fdf98b68e93e2aa74283b87991cbf44e4be/lock/client.min.js"></script>
+<script>window.LOCK_CONFIG={"unlockPath":"/_unlock","appNameI18n":{"en":"Shurl","eo":"Shurl","fr":"Shurl","de":"Shurl","es":"Shurl","it":"Shurl","nl":"Shurl","da":"Shurl","zh-cn":"\u901F\u81F3\u77ED\u94FE","zh-tw":"\u901F\u81F3\u77ED\u93C8","ja":"Shurl","ko":"Shurl","ms":"Shurl","vi":"Shurl","th":"Shurl","ta":"Shurl","my":"Shurl","uk":"Shurl","he":"Shurl","ar":"Shurl"}};</script><script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@8ece97cc2e5585de1c8afb23906d8ce0e28d42c4/lock/client.min.js"></script>
 </body></html>
 `;
 function hasApiHeader(request) {
-  return !!(request.headers.get("X-Admin-Key") || (request.headers.get("Authorization") || "").startsWith("Bearer "));
+  return !!(request.headers.get("X-Admin") || (request.headers.get("Authorization") || "").startsWith("Bearer "));
 }
 var lockModule = makeLockModule({
   cookieName: "shul_auth",
@@ -1274,7 +1274,7 @@ var lockModule = makeLockModule({
   lockPageHtml: LOCK_PAGE_HTML
 });
 
-var APP_ASSETS_URL = "gh/onegbnet/tinycfw@6d77ea0177d435bdf836b47ee039f52a7448117e/shurl";
+var APP_ASSETS_URL = "gh/onegbnet/tinycfw@5dbb6c77de3d855d4873c8bc863263245a5aa9a2/shurl";
 function redirectPage(entry, acceptLang, cdnHost, slug, showError, authed, theme) {
   const isFile = entry.type === "files";
   const files = entry.files || [];
@@ -1336,7 +1336,7 @@ body{font-family:system-ui,sans-serif;background:${bg};color:${fg};min-height:10
 .file-row .size{color:${muted};font-size:.82rem;font-variant-numeric:tabular-nums}
 </style></head><body><div class="wrap">
 <div class="body-content" id="body-content"></div>
-${needsPw ? `<h2 class="pw-heading" id="pw-heading"></h2>${showError ? '<p class="pw-err" id="pw-err"></p>' : ""}<form id="pw-form" method="POST" action="/_a/${esc(slug)}"><div class="pw-area"><input type="password" name="_pw" id="pw-input" autofocus required></div><div class="skip"><button type="submit" id="pw-btn" style="display:inline-block;padding:12px 32px;background:#3b82f6;color:#fff;border-radius:8px;font-size:1rem;font-weight:600;border:none;cursor:pointer"></button></div></form>` : filesMany ? `<div id="file-list"></div><p class="files-hint" id="files-hint"></p>` : `<div class="countdown" id="count">${seconds}</div>
+${needsPw ? `<h2 class="pw-heading" id="pw-heading"></h2>${showError ? '<p class="pw-err" id="pw-err"></p>' : ""}<form id="pw-form" method="POST" action="/_a/${esc(slug)}"><div class="pw-area"><input type="password" name="access" id="pw-input" autofocus required></div><div class="skip"><button type="submit" id="pw-btn" style="display:inline-block;padding:12px 32px;background:#3b82f6;color:#fff;border-radius:8px;font-size:1rem;font-weight:600;border:none;cursor:pointer"></button></div></form>` : filesMany ? `<div id="file-list"></div><p class="files-hint" id="files-hint"></p>` : `<div class="countdown" id="count">${seconds}</div>
 <div class="bar-track"><div class="bar-fill" id="bar" style="width:100%"></div></div>
 <div class="skip"><a id="go-link" href="${esc(target)}" onclick="consumeAndGo();return false"></a></div>`}
 </div><script src="https://${cdnHost}/${APP_ASSETS_URL}/i18n-${currentLang}.min.js"></script><script>
@@ -1745,7 +1745,7 @@ async function handleUploadChunk(request, env, url, slug) {
   if (!slug || !/^[a-zA-Z0-9]{3,10}$/.test(slug)) {
     return json3({ error: "INVALID_SLUG" }, 400);
   }
-  const token = request.headers.get("X-Upload-Token") || "";
+  const token = request.headers.get("X-Upload") || "";
   const chunkIdxStr = url.searchParams.get("c");
   const chunkIdx = Math.floor(Number(chunkIdxStr));
   if (!Number.isFinite(chunkIdx) || chunkIdx < 0) {
@@ -1775,7 +1775,7 @@ async function handleUploadCommit(request, env, url, slug) {
   if (!slug || !/^[a-zA-Z0-9]{3,10}$/.test(slug)) {
     return json3({ error: "INVALID_SLUG" }, 400);
   }
-  const token = request.headers.get("X-Upload-Token") || "";
+  const token = request.headers.get("X-Upload") || "";
   const raw = await env.DATA.get(slug);
   if (!raw) return json3({ error: "NOT_FOUND" }, 404);
   const entry = JSON.parse(raw);
@@ -1917,7 +1917,7 @@ var index_default = {
         headers: {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Methods": "GET,HEAD,POST,PUT,DELETE,OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type,X-Admin-Key,X-Password,Authorization"
+          "Access-Control-Allow-Headers": "Content-Type,X-Admin,X-Password,X-Upload,Authorization"
         }
       });
     }
@@ -1950,11 +1950,11 @@ var index_default = {
     }
     if (method === "GET") {
       if (!slug) {
-        const keyRequired = env.KEY ? "true" : "false";
+        const adminRequired = env.ADMIN ? "true" : "false";
         const ttlStr = String(normalizeTtl(env.TTL || 0));
         const authPeek = await checkAuth(request, env);
         const isAdmin = authPeek && authPeek.isAdmin === true ? "true" : "false";
-        const page = HTML.replace(/\{\{DEFAULT_TTL\}\}/g, ttlStr).replace(/\{\{KEY_REQUIRED\}\}/g, keyRequired).replace(/\{\{IS_ADMIN\}\}/g, isAdmin).replace(/\{\{THEME\}\}/g, theme).replace(/\{\{LANG\}\}/g, lang).replace(/\{\{CDN_HOST\}\}/g, cdnHost);
+        const page = HTML.replace(/\{\{DEFAULT_TTL\}\}/g, ttlStr).replace(/\{\{ADMIN_REQUIRED\}\}/g, adminRequired).replace(/\{\{IS_ADMIN\}\}/g, isAdmin).replace(/\{\{THEME\}\}/g, theme).replace(/\{\{LANG\}\}/g, lang).replace(/\{\{CDN_HOST\}\}/g, cdnHost);
         return html(page);
       }
       if (slug.includes("/")) return notFound(env, url);
@@ -2081,7 +2081,7 @@ var index_default = {
       let pw = "";
       try {
         const fd = await request.formData();
-        pw = (fd.get("_pw") || "").toString().trim();
+        pw = (fd.get("access") || "").toString().trim();
       } catch {
       }
       if (!pw) return Response.redirect(base + realSlug + "?e=1", 303);
