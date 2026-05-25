@@ -15,6 +15,7 @@ The lifeline CA is **ZeroSSL** (Let's Encrypt is not used because Cloudflare Wor
 - **Robust revocation** — cert-key signing per RFC 8555 §7.6; works even after account rotation
 - **Job state machine** — 1-minute cron ticks, idempotent steps, automatic fallback to the lifeline CA on upstream failure
 - **Danger Zone** — three manual purge scopes: certs only / accounts only / everything. A schema-incompatible upgrade auto-fires an "everything" purge on first boot (avoids a UI-blocking 500 from stale columns)
+- **Certificate Transparency lookup** — public endpoints (no auth required regardless of `LOCK`) that proxy [crt.sh](https://crt.sh) CT search: `GET /{domain}` renders a paginated HTML page listing all CT log entries for the domain and its subdomains (50 per page, sorted by expiry newest first, showing subject, issuer, validity dates, and matching names); `GET /api/ct?domain={domain}` returns the same data as JSON `{ domain, certs: [{ id, url, not_before, not_after, subject, issuer, names }] }`.
 
 ## Setup
 
@@ -51,6 +52,7 @@ The lifeline CA is **ZeroSSL** (Let's Encrypt is not used because Cloudflare Wor
 - **稳健吊销** — 按 RFC 8555 §7.6 用证书私钥签名，账号轮换后仍可吊销历史证书
 - **任务状态机** — 每分钟 cron 推进，幂等步骤，上游 CA 失败时自动回退到生命线 CA
 - **危险区域** — 三种手动清除范围：仅证书 / 仅账号 / 全部。schema 不兼容的升级会在首次启动时自动执行一次"全部"清除（避免旧列查询导致阻塞 UI 的 500）
+- **证书透明度查询** — 公开端点（无论 `LOCK` 是否设置均无需认证），代理 [crt.sh](https://crt.sh) CT 搜索：`GET /{domain}` 渲染分页 HTML 页面，列出该域名及其子域名的所有 CT 日志记录（每页 50 条，按到期时间倒序，显示主题、颁发机构、有效期和匹配域名）；`GET /api/ct?domain={domain}` 以 JSON 形式返回相同数据 `{ domain, certs: [{ id, url, not_before, not_after, subject, issuer, names }] }`。
 
 ## 配置步骤
 
@@ -87,6 +89,7 @@ The lifeline CA is **ZeroSSL** (Let's Encrypt is not used because Cloudflare Wor
 - **穩健吊銷** — 依 RFC 8555 §7.6 以憑證私鑰簽名，帳號輪換後仍可吊銷歷史憑證
 - **任務狀態機** — 每分鐘 cron 推進，冪等步驟，上游 CA 失敗時自動回退至生命線 CA
 - **危險區域** — 三種手動清除範圍：僅憑證 / 僅帳號 / 全部。schema 不相容的升級會在首次啟動時自動執行一次「全部」清除（避免舊欄位查詢導致阻塞 UI 的 500）
+- **憑證透明度查詢** — 公開端點（無論 `LOCK` 是否設定均無需認證），代理 [crt.sh](https://crt.sh) CT 搜尋：`GET /{domain}` 渲染分頁 HTML 頁面，列出該域名及其子域名的所有 CT 日誌記錄（每頁 50 筆，依到期時間倒序，顯示主題、核發機構、有效期與匹配域名）；`GET /api/ct?domain={domain}` 以 JSON 形式回傳相同資料 `{ domain, certs: [{ id, url, not_before, not_after, subject, issuer, names }] }`。
 
 ## 設定步驟
 
