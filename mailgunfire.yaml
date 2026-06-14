@@ -1,0 +1,81 @@
+# mailgunfire — EXAMPLE self-host compose (a starting point; customize freely).
+# Self-host with one command:
+#
+#   1. set your Mailgun domain + API key (two ways, pick either):
+#        A) create a .env file beside this one (DOMAIN=... KEY=...), OR
+#        B) just type the values straight into the `environment:` block below
+#           (replace the ${...} with your value, e.g. DOMAIN: mg.example.com)
+#   2. docker compose up -d
+#   3. open http://localhost:8080
+#
+# Ships the worker + Redis (storage). The browser still loads the UI assets
+# from jsDelivr exactly like the Cloudflare deployment.
+#
+# The ONLY thing you must supply is your own Mailgun account (DOMAIN + KEY) —
+# mailgunfire is a frontend to Mailgun, so it can't send without it.
+#
+# AI compose is OPTIONAL (see the bottom). Leave OLLAMA empty and the AI
+# buttons simply don't appear — everything else works exactly the same.
+
+services:
+  mailgunfire:
+    image: ghcr.io/onegbnet/mailgunfire:latest
+    ports:
+      # host:container. Change the host side (left) to expose a different port.
+      - "${PORT:-8080}:8080"
+    environment:
+      # Each value is `${VAR:-default}`: it takes VAR from .env / your shell if
+      # set, otherwise the default after ":-". To hardcode instead, replace the
+      # whole `${...}` with a literal, e.g.  DOMAIN: mg.example.com
+      #
+      # ── your Mailgun account (required) ──
+      DOMAIN: ${DOMAIN:-}
+      KEY: ${KEY:-}
+      FROM: ${FROM:-noreply}
+      DISPLAY: ${DISPLAY:-}
+      EU: ${EU:-}                # set to "1" if your Mailgun account is EU-region
+      LOCK: ${LOCK:-}            # set a passphrase to password-protect the app
+      TTL: ${TTL:-}             # sent-record retention in seconds; empty = forever
+      # ── storage (required) — the bundled Redis below ──
+      KV: ${KV:-redis://redis:6379}
+      # ── AI (optional) ── empty = feature off. Point at any Ollama endpoint
+      # (your own, e.g. http://192.168.1.10:11434, or the bundled `ollama`
+      # service below via `--profile ai`).
+      OLLAMA: ${OLLAMA:-}
+      MODEL: ${MODEL:-}
+    depends_on:
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  # ── Optional bundled Ollama ──────────────────────────────────────────────
+  # Only starts with:  docker compose --profile ai up -d
+  # Then set OLLAMA=http://ollama:11434 (in .env or the environment block)
+  # and pull a model once (no model is downloaded automatically):
+  #   docker compose exec ollama ollama pull llama3.1
+  # Already have an Ollama elsewhere? Skip this — just point OLLAMA at it.
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["ai"]
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+    # GPU is optional. For an NVIDIA GPU, uncomment:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+volumes:
+  redis-data:
+  ollama-data:
