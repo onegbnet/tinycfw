@@ -21,10 +21,10 @@
 #             hand in the UI) — so set it.
 # Optional: LOCK (password-protect the app).
 #
-# No ZeroSSL EAB needed: the lifeline CA here is Let's Encrypt, auto-registered on
+# No ZeroSSL EAB needed: the built-in CA here is Let's Encrypt, auto-registered on
 # first run with NO credentials (LE is reachable from your own network, unlike
-# from Cloudflare Workers). ZEK/ZEH (the ZeroSSL EAB, required on Cloudflare) are
-# IGNORED in the container; ZeroSSL / Google Trust Services can be added by hand
+# from Cloudflare Workers). ZEK/ZEH (the ZeroSSL EAB, required on Cloudflare) DO
+# NOT EXIST in the container; ZeroSSL / Google Trust Services can be added by hand
 # in the UI as extra CAs.
 
 services:
@@ -46,7 +46,7 @@ services:
       CRON: ${CRON:-}
       # ── optional ──
       LOCK: ${LOCK:-}           # login passphrase; empty = open mode
-      # (no ZeroSSL EAB — the lifeline CA self-hosting is Let's Encrypt, zero-config)
+      # (no ZeroSSL EAB — the built-in CA self-hosting is Let's Encrypt, zero-config)
     depends_on:
       sqld:
         condition: service_started
