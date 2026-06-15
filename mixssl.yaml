@@ -1,0 +1,89 @@
+# mixssl — EXAMPLE self-host compose (a starting point; customize freely).
+# Self-host with one command:
+#
+#   1. set your secrets (two ways, pick either):
+#        A) create a .env file beside this one (see mixssl.env for the template), OR
+#        B) type the values straight into the `environment:` block below
+#           (replace the ${...} with your value).
+#   2. docker compose up -d
+#   3. open http://localhost:8080
+#
+# Ships the worker + libSQL/sqld (the database — replaces Cloudflare D1) + a
+# per-minute cron ticker (replaces the Cloudflare cron trigger). The browser
+# still loads the UI assets from jsDelivr exactly like the Cloudflare deployment.
+#
+# What you must supply:
+#   MASTER  — 32-byte base64 AES-GCM key that encrypts stored DNS/CA credentials.
+#             Generate once:  openssl rand -base64 32
+#   CRON    — any random string. The ticker sends it as a bearer to POST /_cron
+#             so background certificate jobs + renewals actually run. Leave it
+#             empty and nothing auto-ticks (you'd have to drive every issuance by
+#             hand in the UI) — so set it.
+# Optional: LOCK (password-protect the app).
+#
+# No ZeroSSL EAB needed: the lifeline CA here is Let's Encrypt, auto-registered on
+# first run with NO credentials (LE is reachable from your own network, unlike
+# from Cloudflare Workers). ZEK/ZEH (the ZeroSSL EAB, required on Cloudflare) are
+# IGNORED in the container; ZeroSSL / Google Trust Services can be added by hand
+# in the UI as extra CAs.
+
+services:
+  mixssl:
+    image: ghcr.io/onegbnet/mixssl:latest
+    ports:
+      # host:container. Change the host side (left) to expose a different port.
+      - "${PORT:-8080}:8080"
+    environment:
+      # Each value is `${VAR:-default}`: it takes VAR from .env / your shell if
+      # set, otherwise the default after ":-". To hardcode instead, replace the
+      # whole `${...}` with a literal.
+      #
+      # ── database (required) — the bundled sqld below ──
+      DATA: ${DATA:-http://sqld:8080}
+      # ── credential encryption key (required) ── openssl rand -base64 32
+      MASTER: ${MASTER:-}
+      # ── cron token (set it!) — drives background jobs + renewals ──
+      CRON: ${CRON:-}
+      # ── optional ──
+      LOCK: ${LOCK:-}           # login passphrase; empty = open mode
+      # (no ZeroSSL EAB — the lifeline CA self-hosting is Let's Encrypt, zero-config)
+    depends_on:
+      sqld:
+        condition: service_started
+    restart: unless-stopped
+
+  # libSQL server (sqld) — SQLite over an HTTP/Hrana API. This is the self-host
+  # stand-in for Cloudflare D1; the worker's resolveBindings() sees DATA as a URL
+  # (not a D1 binding) and routes every query here. Data persists in the volume.
+  sqld:
+    image: ghcr.io/tursodatabase/libsql-server:latest
+    environment:
+      SQLD_HTTP_LISTEN_ADDR: 0.0.0.0:8080
+    volumes:
+      - sqld-data:/var/lib/sqld
+    restart: unless-stopped
+
+  # Per-minute cron ticker. Independent workerd has no managed cron, so an
+  # external ticker curls the token-gated POST /_cron once a minute; the worker
+  # ticks all due certificate jobs and self-checks midnight UTC for the daily
+  # renewal scan. Swap this for supercronic / ofelia / your host crond / a k8s
+  # CronJob if you already run one — it just needs to hit /_cron per minute with
+  # the CRON bearer. ($$CRON escapes to a literal $ so the shell expands it.)
+  cron:
+    image: curlimages/curl:latest
+    depends_on:
+      mixssl:
+        condition: service_started
+    environment:
+      CRON: ${CRON:-}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        while true; do
+          curl -fsS -X POST -H "Authorization: Bearer $$CRON" http://mixssl:8080/_cron >/dev/null 2>&1 || true
+          sleep 60
+        done
+    restart: unless-stopped
+
+volumes:
+  sqld-data:
