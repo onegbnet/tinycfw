@@ -163,6 +163,132 @@ function detectLangFromAcceptLanguage(headerString, supported) {
   return "en";
 }
 
+function makeD1Binding({ driver } = {}) {
+  if (!driver || typeof driver.query !== "function") {
+    throw new Error("d1-adapter: makeD1Binding needs a driver with query(sql, params)");
+  }
+  function statement(sql, params) {
+    return {
+      bind(...values2) {
+        return statement(sql, values2);
+      },
+      async run() {
+        const r = await driver.query(sql, params);
+        return {
+          success: true,
+          meta: {
+            last_row_id: numify(r && r.lastInsertRowid),
+            changes: numify(r && r.changes)
+          }
+        };
+      },
+      async first() {
+        const r = await driver.query(sql, params);
+        const rows = r && r.rows || [];
+        return rows.length ? rows[0] : null;
+      },
+      async all() {
+        const r = await driver.query(sql, params);
+        return { results: r && r.rows || [] };
+      }
+    };
+  }
+  function prepare(sql) {
+    return statement(sql, []);
+  }
+  return { prepare };
+}
+function numify(v) {
+  if (v == null) return 0;
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function parseConn(url) {
+  const u = new URL(url);
+  const raw = u.password || u.username || "";
+  u.username = "";
+  u.password = "";
+  const base = u.toString().replace(/\/+$/, "");
+  return { base, token: raw ? decodeURIComponent(raw) : "" };
+}
+function encodeArg(v) {
+  if (v == null) return { type: "null" };
+  const t = typeof v;
+  if (t === "number") {
+    return Number.isInteger(v) ? { type: "integer", value: String(v) } : { type: "float", value: v };
+  }
+  if (t === "string") return { type: "text", value: v };
+  if (t === "bigint") return { type: "integer", value: String(v) };
+  if (t === "boolean") return { type: "integer", value: v ? "1" : "0" };
+  throw new Error("d1-sqld-driver: unsupported bind value type: " + t);
+}
+function decodeValue(val) {
+  if (!val || val.type === "null") return null;
+  switch (val.type) {
+    case "integer":
+      return Number(val.value);
+    case "float":
+      return typeof val.value === "number" ? val.value : Number(val.value);
+    case "text":
+      return val.value;
+    case "blob": {
+      const bin = atob(val.base64 || "");
+      const u8 = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      return u8.buffer;
+    }
+    default:
+      throw new Error("d1-sqld-driver: unknown Hrana value type: " + val.type);
+  }
+}
+function makeSqldDriver(config = {}) {
+  const url = typeof config === "string" ? config : config.url;
+  if (!url) throw new Error("d1-sqld-driver: makeSqldDriver needs a url (the env.DATA conn string)");
+  const { base, token } = parseConn(url);
+  const headers = { "content-type": "application/json" };
+  if (token) headers.authorization = "Bearer " + token;
+  async function query(sql, params = []) {
+    const body = JSON.stringify({
+      baton: null,
+      requests: [
+        { type: "execute", stmt: { sql, args: (params || []).map(encodeArg), want_rows: true } },
+        { type: "close" }
+      ]
+    });
+    let resp;
+    try {
+      resp = await fetch(base + "/v2/pipeline", { method: "POST", headers, body });
+    } catch (err) {
+      throw new Error("d1-sqld-driver: request failed: " + (err && err.message || err));
+    }
+    if (!resp.ok) {
+      const text2 = await resp.text().catch(() => "");
+      throw new Error("d1-sqld-driver: HTTP " + resp.status + (text2 ? " " + text2 : ""));
+    }
+    const out = await resp.json();
+    const first = out && out.results && out.results[0];
+    if (!first) throw new Error("d1-sqld-driver: empty pipeline response");
+    if (first.type === "error") {
+      const e = first.error || {};
+      throw new Error(e.message || "d1-sqld-driver: sql error");
+    }
+    const result = first.response && first.response.result || {};
+    const cols = (result.cols || []).map((c) => c.name);
+    const rows = (result.rows || []).map((row) => {
+      const o = {};
+      for (let i = 0; i < cols.length; i++) o[cols[i]] = decodeValue(row[i]);
+      return o;
+    });
+    return {
+      rows,
+      lastInsertRowid: result.last_insert_rowid,
+      changes: result.affected_row_count
+    };
+  }
+  return { query, backend: "sqlite" };
+}
+
 function makeResponseHelpers({
   cors = null,
   prettyJson = false,
@@ -200,7 +326,7 @@ var main_default = `<!DOCTYPE html>
 <link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@8ece97cc2e5585de1c8afb23906d8ce0e28d42c4/overlay/style.min.css">
 <link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@8ece97cc2e5585de1c8afb23906d8ce0e28d42c4/toast/style.min.css">
 <link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@8ece97cc2e5585de1c8afb23906d8ce0e28d42c4/spinner/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@5ef9f7d07a6b445450fa383b809d08bb7d15a6e4/mixssl/view.min.css"></head>
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@df345f0ff39d94e0b7d695d43c05b9c427f54efe/mixssl/view.min.css"></head>
 <body>
 <header>
   <div class="brand">
@@ -406,8 +532,8 @@ var INITIAL_LANG = "{{LANG}}";
      fetches the matching i18n-<lang>.min.js. Exposes window.LangBundle \u2014
      client.min.js waits on LangBundle.ready before applyI18n and uses
      LangBundle.load on lang switch. -->
-<script>(function(){var b="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@5ef9f7d07a6b445450fa383b809d08bb7d15a6e4/mixssl";var s=["en","eo","fr","de","es","it","nl","da","zh-cn","zh-tw","ja","ko","ms","vi","th","ta","my","uk","he","ar"];var d="en";function load(l){return new Promise(function(r,j){var x=document.createElement('script');x.src=b+'/i18n-'+l+'.min.js';x.onload=function(){r(l)};x.onerror=function(){j(new Error('i18n-'+l+' failed'))};document.head.appendChild(x)})}var init=(function(){var g=window["INITIAL_LANG"];if(typeof g==='string'&&s.indexOf(g)>=0)return g;return typeof detectLang==='function'?detectLang(s):d})();if(s.indexOf(init)<0)init=d;window.LangBundle={initial:init,ready:load(init),load:load}})();</script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@5ef9f7d07a6b445450fa383b809d08bb7d15a6e4/mixssl/client.min.js"></script>
+<script>(function(){var b="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@df345f0ff39d94e0b7d695d43c05b9c427f54efe/mixssl";var s=["en","eo","fr","de","es","it","nl","da","zh-cn","zh-tw","ja","ko","ms","vi","th","ta","my","uk","he","ar"];var d="en";function load(l){return new Promise(function(r,j){var x=document.createElement('script');x.src=b+'/i18n-'+l+'.min.js';x.onload=function(){r(l)};x.onerror=function(){j(new Error('i18n-'+l+' failed'))};document.head.appendChild(x)})}var init=(function(){var g=window["INITIAL_LANG"];if(typeof g==='string'&&s.indexOf(g)>=0)return g;return typeof detectLang==='function'?detectLang(s):d})();if(s.indexOf(init)<0)init=d;window.LangBundle={initial:init,ready:load(init),load:load}})();</script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@df345f0ff39d94e0b7d695d43c05b9c427f54efe/mixssl/client.min.js"></script>
 </body></html>`;
 
 var DEFAULT_VALID_THEMES = /* @__PURE__ */ new Set(["light", "dark"]);
@@ -482,6 +608,12 @@ async function sha256(data) {
   const buf = typeof data === "string" ? enc.encode(data) : data;
   return new Uint8Array(await crypto.subtle.digest("SHA-256", buf));
 }
+function timingSafeEqual(a, b2) {
+  if (a.length !== b2.length) return false;
+  let r = 0;
+  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b2.charCodeAt(i);
+  return r === 0;
+}
 async function importMasterKey(env) {
   if (!env.MASTER) throw new Error("MASTER secret not configured");
   const raw = b64uDecode(env.MASTER.replace(/=+$/, ""));
@@ -504,6 +636,166 @@ async function aesDecrypt(env, ciphertextB64u) {
   const ct = buf.slice(12);
   const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ct);
   return dec.decode(pt);
+}
+
+var SCHEMA_SQL = [
+  `CREATE TABLE IF NOT EXISTS acme_accounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    directory_name TEXT NOT NULL,
+    jwk_encrypted TEXT NOT NULL,
+    kid TEXT,
+    conf TEXT,
+    created_at INTEGER NOT NULL,
+    UNIQUE (directory_name)
+  )`,
+  `CREATE TABLE IF NOT EXISTS dns_accounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    credentials_encrypted TEXT NOT NULL,
+    zones_cache_json TEXT,
+    zones_probed_at INTEGER,
+    probe_error TEXT,
+    created_at INTEGER NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS zones (
+    zone TEXT PRIMARY KEY,
+    dns_account_id INTEGER NOT NULL,
+    FOREIGN KEY (dns_account_id) REFERENCES dns_accounts(id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS cert_confs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    domains_json TEXT NOT NULL,
+    primary_acme_directory_name TEXT NOT NULL,
+    fallback_acme_directory_names_json TEXT,
+    key_type TEXT NOT NULL DEFAULT 'ec256',
+    auto_renew_policy TEXT NOT NULL DEFAULT 'manual',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL DEFAULT 0,
+    deleted_at INTEGER
+  )`,
+  `CREATE TABLE IF NOT EXISTS certs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conf_id INTEGER NOT NULL,
+    cert_pem TEXT NOT NULL,
+    chain_pem TEXT NOT NULL,
+    key_pem_encrypted TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    issued_at INTEGER NOT NULL,
+    acme_directory_name TEXT NOT NULL,
+    key_type TEXT,
+    domains_json TEXT,
+    revoked_at INTEGER,
+    FOREIGN KEY (conf_id) REFERENCES cert_confs(id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conf_id INTEGER NOT NULL,
+    acme_directory_name TEXT NOT NULL,
+    acme_account_attempt_index INTEGER NOT NULL DEFAULT 0,
+    state TEXT NOT NULL,
+    step_data_json TEXT,
+    next_tick_at INTEGER NOT NULL,
+    lease_until INTEGER NOT NULL DEFAULT 0,
+    lease_token TEXT,
+    attempt INTEGER NOT NULL DEFAULT 0,
+    error TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (conf_id) REFERENCES cert_confs(id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS job_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id INTEGER NOT NULL,
+    ts INTEGER NOT NULL,
+    level TEXT NOT NULL,
+    message TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_jobs_pending ON jobs(state, next_tick_at, lease_until)`,
+  `CREATE INDEX IF NOT EXISTS idx_certs_conf ON certs(conf_id, expires_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_logs_job ON job_logs(job_id, ts)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_cert_confs_name ON cert_confs(name) WHERE deleted_at IS NULL`
+];
+var ACME_DIRECTORIES = {
+  "ZeroSSL": { url: "https://acme.zerossl.com/v2/DV90", eab: 1 },
+  "Google Trust Services": { url: "https://dv.acme-v02.api.pki.goog/directory", eab: 1 }
+};
+var SELF_HOST_DIRECTORIES = {
+  "Let's Encrypt": { url: "https://acme-v02.api.letsencrypt.org/directory", eab: 0 }
+};
+var KNOWN_DIRECTORIES = { ...ACME_DIRECTORIES, ...SELF_HOST_DIRECTORIES };
+function acmeDirectoryByName(name) {
+  const d = KNOWN_DIRECTORIES[name];
+  if (!d) throw new Error(`unknown ACME directory: ${name}`);
+  return d;
+}
+function availableDirectories(env) {
+  return env && env.__selfHost ? KNOWN_DIRECTORIES : ACME_DIRECTORIES;
+}
+async function ensureSchema(env) {
+  let stale = false;
+  try {
+    const cols = await env.DATA.prepare(`PRAGMA table_info(certs)`).all();
+    const names = (cols.results || []).map((r) => r.name);
+    stale = names.includes("acme_account_id") && !names.includes("acme_directory_name");
+  } catch {
+  }
+  if (stale) {
+    console.warn("stale pre-refactor schema detected \u2014 purging all app tables for rebuild");
+    const tables = ["job_logs", "jobs", "certs", "cert_confs", "zones", "dns_accounts", "acme_accounts"];
+    for (const t of tables) await env.DATA.prepare(`DROP TABLE IF EXISTS ${t}`).run();
+  }
+  for (const sql of SCHEMA_SQL) {
+    await env.DATA.prepare(sql).run();
+  }
+}
+
+async function generateEcKeyPair(curve) {
+  curve = curve || "P-256";
+  const kp = await crypto.subtle.generateKey(
+    { name: "ECDSA", namedCurve: curve },
+    true,
+    ["sign", "verify"]
+  );
+  const privateJwk = await crypto.subtle.exportKey("jwk", kp.privateKey);
+  const publicJwk = { kty: "EC", crv: curve, x: privateJwk.x, y: privateJwk.y };
+  return { privateKey: kp.privateKey, publicKey: kp.publicKey, privateJwk, publicJwk, curve };
+}
+async function importEcPrivateKey(privateJwk) {
+  return crypto.subtle.importKey(
+    "jwk",
+    privateJwk,
+    { name: "ECDSA", namedCurve: "P-256" },
+    true,
+    ["sign"]
+  );
+}
+async function jwkThumbprint(publicJwk) {
+  const canonical = `{"crv":"${publicJwk.crv}","kty":"${publicJwk.kty}","x":"${publicJwk.x}","y":"${publicJwk.y}"}`;
+  return b64uEncode(await sha256(canonical));
+}
+async function jwsSignEs256(privateKey, protectedHeader, payloadObj) {
+  const protectedB64 = b64uEncode(enc.encode(JSON.stringify(protectedHeader)));
+  const payloadB64 = payloadObj === "" || payloadObj === void 0 ? "" : b64uEncode(enc.encode(JSON.stringify(payloadObj)));
+  const signingInput = enc.encode(`${protectedB64}.${payloadB64}`);
+  const sigRaw = new Uint8Array(
+    await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, privateKey, signingInput)
+  );
+  return { protected: protectedB64, payload: payloadB64, signature: b64uEncode(sigRaw) };
+}
+async function jwsSignHs256(rawHmacKey, protectedHeader, payloadObj) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    rawHmacKey,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const protectedB64 = b64uEncode(enc.encode(JSON.stringify(protectedHeader)));
+  const payloadB64 = typeof payloadObj === "string" ? payloadObj : b64uEncode(enc.encode(JSON.stringify(payloadObj)));
+  const signingInput = enc.encode(`${protectedB64}.${payloadB64}`);
+  const sigRaw = new Uint8Array(await crypto.subtle.sign("HMAC", key, signingInput));
+  return { protected: protectedB64, payload: payloadB64, signature: b64uEncode(sigRaw) };
 }
 
 function derLen(n) {
@@ -648,64 +940,12 @@ function toPem(label, der) {
 `;
   return out;
 }
-async function ecPrivateKeyToPkcs8Pem(privateKey) {
-  const pkcs8 = new Uint8Array(await crypto.subtle.exportKey("pkcs8", privateKey));
-  return toPem("PRIVATE KEY", pkcs8);
-}
 function pemBodyToDer(pem) {
   const body = pem.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "");
   const bin = atob(body);
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
-}
-
-async function generateEcKeyPair(curve) {
-  curve = curve || "P-256";
-  const kp = await crypto.subtle.generateKey(
-    { name: "ECDSA", namedCurve: curve },
-    true,
-    ["sign", "verify"]
-  );
-  const privateJwk = await crypto.subtle.exportKey("jwk", kp.privateKey);
-  const publicJwk = { kty: "EC", crv: curve, x: privateJwk.x, y: privateJwk.y };
-  return { privateKey: kp.privateKey, publicKey: kp.publicKey, privateJwk, publicJwk, curve };
-}
-async function importEcPrivateKey(privateJwk) {
-  return crypto.subtle.importKey(
-    "jwk",
-    privateJwk,
-    { name: "ECDSA", namedCurve: "P-256" },
-    true,
-    ["sign"]
-  );
-}
-async function jwkThumbprint(publicJwk) {
-  const canonical = `{"crv":"${publicJwk.crv}","kty":"${publicJwk.kty}","x":"${publicJwk.x}","y":"${publicJwk.y}"}`;
-  return b64uEncode(await sha256(canonical));
-}
-async function jwsSignEs256(privateKey, protectedHeader, payloadObj) {
-  const protectedB64 = b64uEncode(enc.encode(JSON.stringify(protectedHeader)));
-  const payloadB64 = payloadObj === "" || payloadObj === void 0 ? "" : b64uEncode(enc.encode(JSON.stringify(payloadObj)));
-  const signingInput = enc.encode(`${protectedB64}.${payloadB64}`);
-  const sigRaw = new Uint8Array(
-    await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, privateKey, signingInput)
-  );
-  return { protected: protectedB64, payload: payloadB64, signature: b64uEncode(sigRaw) };
-}
-async function jwsSignHs256(rawHmacKey, protectedHeader, payloadObj) {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    rawHmacKey,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const protectedB64 = b64uEncode(enc.encode(JSON.stringify(protectedHeader)));
-  const payloadB64 = typeof payloadObj === "string" ? payloadObj : b64uEncode(enc.encode(JSON.stringify(payloadObj)));
-  const signingInput = enc.encode(`${protectedB64}.${payloadB64}`);
-  const sigRaw = new Uint8Array(await crypto.subtle.sign("HMAC", key, signingInput));
-  return { protected: protectedB64, payload: payloadB64, signature: b64uEncode(sigRaw) };
 }
 
 function parseLenientJson(raw) {
@@ -1050,7 +1290,7 @@ async function cfQueryTxt(creds, fqdn, value) {
 var TC_HOST = "dnspod.tencentcloudapi.com";
 var TC_SERVICE = "dnspod";
 var TC_VERSION = "2021-03-23";
-async function tcSignedCall2(creds, action, payload) {
+async function tcSignedCall(creds, action, payload) {
   const ts = Math.floor(Date.now() / 1e3);
   const date = new Date(ts * 1e3).toISOString().slice(0, 10);
   const payloadJson = JSON.stringify(payload);
@@ -1092,7 +1332,7 @@ async function dpListDomains(creds) {
   const all = [];
   let offset = 0;
   while (true) {
-    const r = await tcSignedCall2(creds, "DescribeDomainList", { Offset: offset, Limit: 100 });
+    const r = await tcSignedCall(creds, "DescribeDomainList", { Offset: offset, Limit: 100 });
     const got = (r.DomainList || []).map((d) => d.Name);
     all.push(...got);
     if (got.length < 100) break;
@@ -1107,7 +1347,7 @@ async function dpResolveDomain(creds, fqdn) {
   for (let take = 2; take <= Math.min(parts.length, 4); take++) {
     const candidate = parts.slice(parts.length - take).join(".");
     try {
-      await tcSignedCall2(creds, "DescribeDomain", { Domain: candidate });
+      await tcSignedCall(creds, "DescribeDomain", { Domain: candidate });
       const sub = parts.slice(0, parts.length - take).join(".") || "@";
       return { domain: candidate, subDomain: sub };
     } catch (e) {
@@ -1128,11 +1368,11 @@ async function dpAddTxt(creds, fqdn, value) {
     TTL: 600
   };
   try {
-    const r = await tcSignedCall2(creds, "CreateRecord", payload);
+    const r = await tcSignedCall(creds, "CreateRecord", payload);
     return { recordId: r.RecordId, domain, subDomain: sub };
   } catch (e) {
     try {
-      const list = await tcSignedCall2(creds, "DescribeRecordList", {
+      const list = await tcSignedCall(creds, "DescribeRecordList", {
         Domain: domain,
         Subdomain: sub,
         RecordType: "TXT"
@@ -1150,7 +1390,7 @@ async function dpAddTxt(creds, fqdn, value) {
 async function dpRemoveTxt(creds, fqdn, value) {
   const { domain, subDomain } = await dpResolveDomain(creds, fqdn);
   const sub = subDomain === "@" ? "_acme-challenge" : `_acme-challenge.${subDomain}`;
-  const list = await tcSignedCall2(creds, "DescribeRecordList", {
+  const list = await tcSignedCall(creds, "DescribeRecordList", {
     Domain: domain,
     Subdomain: sub,
     RecordType: "TXT"
@@ -1161,7 +1401,7 @@ async function dpRemoveTxt(creds, fqdn, value) {
   let removed = 0;
   for (const rec of list.RecordList || []) {
     if (!value || rec.Value === value) {
-      await tcSignedCall2(creds, "DeleteRecord", { Domain: domain, RecordId: rec.RecordId });
+      await tcSignedCall(creds, "DeleteRecord", { Domain: domain, RecordId: rec.RecordId });
       removed++;
     }
   }
@@ -1170,7 +1410,7 @@ async function dpRemoveTxt(creds, fqdn, value) {
 async function dpQueryTxt(creds, fqdn, value) {
   const { domain, subDomain } = await dpResolveDomain(creds, fqdn);
   const sub = subDomain === "@" ? "_acme-challenge" : `_acme-challenge.${subDomain}`;
-  const list = await tcSignedCall2(creds, "DescribeRecordList", {
+  const list = await tcSignedCall(creds, "DescribeRecordList", {
     Domain: domain,
     Subdomain: sub,
     RecordType: "TXT"
@@ -1234,111 +1474,6 @@ async function findDnsAccountForDomain(env, domain) {
     type: best.account.type,
     credentials: JSON.parse(await aesDecrypt(env, best.account.credentials_encrypted))
   };
-}
-
-var SCHEMA_SQL = [
-  `CREATE TABLE IF NOT EXISTS acme_accounts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    directory_name TEXT NOT NULL,
-    jwk_encrypted TEXT NOT NULL,
-    kid TEXT,
-    conf TEXT,
-    created_at INTEGER NOT NULL,
-    UNIQUE (directory_name)
-  )`,
-  `CREATE TABLE IF NOT EXISTS dns_accounts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    type TEXT NOT NULL,
-    credentials_encrypted TEXT NOT NULL,
-    zones_cache_json TEXT,
-    zones_probed_at INTEGER,
-    probe_error TEXT,
-    created_at INTEGER NOT NULL
-  )`,
-  `CREATE TABLE IF NOT EXISTS zones (
-    zone TEXT PRIMARY KEY,
-    dns_account_id INTEGER NOT NULL,
-    FOREIGN KEY (dns_account_id) REFERENCES dns_accounts(id)
-  )`,
-  `CREATE TABLE IF NOT EXISTS cert_confs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    domains_json TEXT NOT NULL,
-    primary_acme_directory_name TEXT NOT NULL,
-    fallback_acme_directory_names_json TEXT,
-    key_type TEXT NOT NULL DEFAULT 'ec256',
-    auto_renew_policy TEXT NOT NULL DEFAULT 'manual',
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL DEFAULT 0,
-    deleted_at INTEGER
-  )`,
-  `CREATE TABLE IF NOT EXISTS certs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    conf_id INTEGER NOT NULL,
-    cert_pem TEXT NOT NULL,
-    chain_pem TEXT NOT NULL,
-    key_pem_encrypted TEXT NOT NULL,
-    expires_at INTEGER NOT NULL,
-    issued_at INTEGER NOT NULL,
-    acme_directory_name TEXT NOT NULL,
-    key_type TEXT,
-    domains_json TEXT,
-    revoked_at INTEGER,
-    FOREIGN KEY (conf_id) REFERENCES cert_confs(id)
-  )`,
-  `CREATE TABLE IF NOT EXISTS jobs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    conf_id INTEGER NOT NULL,
-    acme_directory_name TEXT NOT NULL,
-    acme_account_attempt_index INTEGER NOT NULL DEFAULT 0,
-    state TEXT NOT NULL,
-    step_data_json TEXT,
-    next_tick_at INTEGER NOT NULL,
-    lease_until INTEGER NOT NULL DEFAULT 0,
-    lease_token TEXT,
-    attempt INTEGER NOT NULL DEFAULT 0,
-    error TEXT,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    FOREIGN KEY (conf_id) REFERENCES cert_confs(id)
-  )`,
-  `CREATE TABLE IF NOT EXISTS job_logs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    job_id INTEGER NOT NULL,
-    ts INTEGER NOT NULL,
-    level TEXT NOT NULL,
-    message TEXT NOT NULL
-  )`,
-  `CREATE INDEX IF NOT EXISTS idx_jobs_pending ON jobs(state, next_tick_at, lease_until)`,
-  `CREATE INDEX IF NOT EXISTS idx_certs_conf ON certs(conf_id, expires_at)`,
-  `CREATE INDEX IF NOT EXISTS idx_logs_job ON job_logs(job_id, ts)`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS idx_cert_confs_name ON cert_confs(name) WHERE deleted_at IS NULL`
-];
-var ACME_DIRECTORIES = {
-  "ZeroSSL": { url: "https://acme.zerossl.com/v2/DV90", eab: 1 },
-  "Google Trust Services": { url: "https://dv.acme-v02.api.pki.goog/directory", eab: 1 }
-};
-function acmeDirectoryByName(name) {
-  const d = ACME_DIRECTORIES[name];
-  if (!d) throw new Error(`unknown ACME directory: ${name}`);
-  return d;
-}
-async function ensureSchema(env) {
-  let stale = false;
-  try {
-    const cols = await env.DATA.prepare(`PRAGMA table_info(certs)`).all();
-    const names = (cols.results || []).map((r) => r.name);
-    stale = names.includes("acme_account_id") && !names.includes("acme_directory_name");
-  } catch {
-  }
-  if (stale) {
-    console.warn("stale pre-refactor schema detected \u2014 purging all app tables for rebuild");
-    const tables = ["job_logs", "jobs", "certs", "cert_confs", "zones", "dns_accounts", "acme_accounts"];
-    for (const t of tables) await env.DATA.prepare(`DROP TABLE IF EXISTS ${t}`).run();
-  }
-  for (const sql of SCHEMA_SQL) {
-    await env.DATA.prepare(sql).run();
-  }
 }
 
 function now() {
@@ -1447,20 +1582,21 @@ async function tickJob(env, jobId) {
       await cleanupTxtRecords(env, jobId, sd);
     } catch {
     }
+    const builtinCa = builtinCaName(env);
     const fbRow = await env.DATA.prepare(
       `SELECT 1 FROM acme_accounts WHERE directory_name = ? AND kid IS NOT NULL`
-    ).bind("ZeroSSL").first();
-    const canFallback = fbRow && job.acme_directory_name !== "ZeroSSL" && (job.acme_account_attempt_index || 0) === 0;
+    ).bind(builtinCa).first();
+    const canFallback = fbRow && job.acme_directory_name !== builtinCa && (job.acme_account_attempt_index || 0) === 0;
     if (canFallback) {
       const ok2 = await writeIfOwner(
         `UPDATE jobs SET acme_directory_name=?, acme_account_attempt_index=1, state='new',
            step_data_json=NULL, next_tick_at=?, lease_until=0, lease_token=NULL,
            error=?, updated_at=? WHERE id=? AND lease_token=?`,
-        ["ZeroSSL", t + 3, msg, t, jobId, myToken]
+        [builtinCa, t + 3, msg, t, jobId, myToken]
       );
       if (!ok2) return { skipped: true, reason: "lease-stolen" };
       try {
-        await logJob(env, jobId, "warn", "falling back to ZeroSSL");
+        await logJob(env, jobId, "warn", `falling back to ${builtinCa}`);
       } catch {
       }
       return { ok: false, error: msg, fallback: true };
@@ -1796,22 +1932,26 @@ async function scanAndCreateRenewals(env) {
   }
   return created;
 }
-async function ensureZeroSslAccount(env) {
-  const caName = "ZeroSSL";
+function builtinCaName(env) {
+  return env && env.__selfHost ? "Let's Encrypt" : "ZeroSSL";
+}
+async function ensureBuiltinCaAccount(env) {
+  const caName = builtinCaName(env);
   const pre = await env.DATA.prepare("SELECT id, kid FROM acme_accounts WHERE directory_name = ?").bind(caName).first();
   if (pre && pre.kid) return pre.id;
-  if (!env.ZEK || !env.ZEH) {
-    throw new Error("ZEK / ZEH secrets not configured \u2014 set them in Worker Settings > Variables and redeploy");
+  let confObj = null;
+  if (caName === "ZeroSSL") {
+    if (!env.ZEK || !env.ZEH) {
+      throw new Error("ZEK / ZEH secrets not configured \u2014 set them in Worker Settings > Variables and redeploy");
+    }
+    confObj = { eab_kid: env.ZEK, eab_hmac: env.ZEH };
   }
   const attempt = async () => {
     const existing = await env.DATA.prepare("SELECT id, kid FROM acme_accounts WHERE directory_name = ?").bind(caName).first();
     if (existing && existing.kid) return existing.id;
     const kp = await generateEcKeyPair();
     const jwkEnc = await aesEncrypt(env, JSON.stringify(kp.privateJwk));
-    const confEnc = await aesEncrypt(env, JSON.stringify({
-      eab_kid: env.ZEK,
-      eab_hmac: env.ZEH
-    }));
+    const confEnc = confObj ? await aesEncrypt(env, JSON.stringify(confObj)) : null;
     let id;
     if (existing) {
       id = existing.id;
@@ -1836,16 +1976,14 @@ async function ensureZeroSslAccount(env) {
       return await attempt();
     } catch (e) {
       lastErr = e;
-      console.warn(`ZeroSSL bootstrap attempt ${i + 1}/5 failed:`, e.message || e);
+      console.warn(`${caName} built-in CA bootstrap attempt ${i + 1}/5 failed:`, e.message || e);
     }
     if (i < 4) {
       await new Promise((r) => setTimeout(r, delay));
       delay = Math.min(delay * 2, 8e3);
     }
   }
-  throw new Error(
-    `ZeroSSL bootstrap failed after 5 attempts \u2014 last error: ${lastErr?.message || lastErr}. Verify ZEK and ZEH secrets in Worker Settings > Variables.`
-  );
+  throw new Error(`${caName} built-in CA bootstrap failed after 5 attempts \u2014 last error: ${lastErr?.message || lastErr}.`);
 }
 
 import os from "os";
@@ -4460,22 +4598,20 @@ async function apiDeleteZone(env, zone) {
   await env.DATA.prepare("DELETE FROM zones WHERE zone = ?").bind(zone).run();
   return json({ ok: true });
 }
-async function apiListAcmeDirectories() {
-  const rows = Object.entries(ACME_DIRECTORIES).map(([name, d]) => ({
-    name,
-    directory_url: d.url,
-    eab_required: d.eab
-  }));
+async function apiListAcmeDirectories(env) {
+  const builtinCa = builtinCaName(env);
+  const rows = Object.entries(availableDirectories(env)).map(([name, d]) => ({ name, directory_url: d.url, eab_required: d.eab, builtin: name === builtinCa }));
   return json(rows);
 }
 async function apiListAcmeAccounts(env) {
-  await ensureZeroSslAccount(env);
+  await ensureBuiltinCaAccount(env);
   const rows = (await env.DATA.prepare(
     `SELECT id, directory_name, kid, created_at FROM acme_accounts ORDER BY id`
   ).all()).results || [];
-  const kept = rows.filter((r) => ACME_DIRECTORIES[r.directory_name]);
+  const avail = availableDirectories(env);
+  const kept = rows.filter((r) => avail[r.directory_name]);
   for (const r of kept) {
-    r.eab_required = ACME_DIRECTORIES[r.directory_name].eab;
+    r.eab_required = avail[r.directory_name].eab;
   }
   return json(kept);
 }
@@ -4485,8 +4621,8 @@ function randHex(n) {
   return Array.from(b2, (x) => x.toString(16).padStart(2, "0")).join("");
 }
 async function apiCreateAcmeAccount(env, body) {
-  if (!body.directory_name || !ACME_DIRECTORIES[body.directory_name]) {
-    return json({ error: "directory_name required (must be a known CA)" }, 400);
+  if (!body.directory_name || !availableDirectories(env)[body.directory_name]) {
+    return json({ error: "directory_name required (must be a CA available in this deployment)" }, 400);
   }
   const kp = await generateEcKeyPair();
   const jwkEnc = await aesEncrypt(env, JSON.stringify(kp.privateJwk));
@@ -4539,8 +4675,9 @@ async function apiDeleteAcmeAccount(env, id) {
     `SELECT id, directory_name FROM acme_accounts WHERE id = ?`
   ).bind(id).first();
   if (!a) return json({ error: "not found" }, 404);
-  if ((a.directory_name || "").toLowerCase().includes("zerossl")) {
-    return json({ error: "ZeroSSL is managed automatically and cannot be removed." }, 400);
+  const builtinCa = builtinCaName(env);
+  if (a.directory_name === builtinCa) {
+    return json({ error: `${builtinCa} is the built-in CA, managed automatically and cannot be removed.` }, 400);
   }
   await env.DATA.prepare(
     `UPDATE cert_confs SET primary_acme_directory_name = ?
@@ -4550,7 +4687,7 @@ async function apiDeleteAcmeAccount(env, id) {
            WHERE acme_directory_name = ?
              AND id IN (SELECT MAX(id) FROM certs GROUP BY conf_id)
         )`
-  ).bind("ZeroSSL", a.directory_name).run();
+  ).bind(builtinCa, a.directory_name).run();
   await env.DATA.prepare(
     `UPDATE acme_accounts SET kid = NULL, conf = NULL WHERE id = ?`
   ).bind(id).run();
@@ -4573,7 +4710,7 @@ async function apiCreateCertConf(env, body) {
   if (!body.domains || !body.primary_acme_directory_name) {
     return json({ error: "domains and CA are required" }, 400);
   }
-  if (!ACME_DIRECTORIES[body.primary_acme_directory_name]) {
+  if (!availableDirectories(env)[body.primary_acme_directory_name]) {
     return json({ error: `unknown CA: ${body.primary_acme_directory_name}` }, 400);
   }
   const v = normalizeAndValidateDomains(body.domains);
@@ -4660,7 +4797,7 @@ async function apiUpdateCertConf(env, id, body) {
   }
   if ("primary_acme_directory_name" in body) {
     const name = String(body.primary_acme_directory_name || "");
-    if (!ACME_DIRECTORIES[name]) return json({ error: `unknown CA: ${name}` }, 400);
+    if (!availableDirectories(env)[name]) return json({ error: `unknown CA: ${name}` }, 400);
     sets.push("primary_acme_directory_name = ?");
     params.push(name);
   }
@@ -4703,23 +4840,24 @@ async function apiPurge(env, scope) {
     await env.DATA.prepare("DELETE FROM certs").run();
     await env.DATA.prepare("DELETE FROM cert_confs").run();
   } else if (scope === "accounts") {
+    const builtinCa = builtinCaName(env);
     await env.DATA.prepare("DELETE FROM zones").run();
     await env.DATA.prepare("DELETE FROM dns_accounts").run();
     await env.DATA.prepare("DELETE FROM acme_accounts").run();
     try {
-      await ensureZeroSslAccount(env);
+      await ensureBuiltinCaAccount(env);
     } catch (e) {
-      console.warn("purge: ZeroSSL rebootstrap failed:", e.message || e);
+      console.warn("purge: built-in CA rebootstrap failed:", e.message || e);
     }
     await env.DATA.prepare(
       `UPDATE cert_confs SET primary_acme_directory_name = ?
         WHERE deleted_at IS NULL AND primary_acme_directory_name != ?`
-    ).bind("ZeroSSL", "ZeroSSL").run();
+    ).bind(builtinCa, builtinCa).run();
   } else if (scope === "all") {
     const tables = ["job_logs", "jobs", "certs", "cert_confs", "zones", "dns_accounts", "acme_accounts"];
     for (const t of tables) await env.DATA.prepare(`DROP TABLE IF EXISTS ${t}`).run();
     await ensureSchema(env);
-    await ensureZeroSslAccount(env);
+    await ensureBuiltinCaAccount(env);
   } else {
     return json({ error: "unknown scope" }, 400);
   }
@@ -4743,7 +4881,7 @@ async function apiRevokeConf(env, confId) {
          ORDER BY id DESC LIMIT 1`
     ).bind(confId).first();
     if (!cert) return json({ error: "no active certificate to revoke" }, 404);
-    const dirDef = ACME_DIRECTORIES[cert.acme_directory_name];
+    const dirDef = availableDirectories(env)[cert.acme_directory_name];
     if (!dirDef) return json({ error: `unknown CA: ${cert.acme_directory_name}` }, 400);
     const dir = await acmeFetchDirectory(dirDef.url);
     const keyPem = await aesDecrypt(env, cert.key_pem_encrypted);
@@ -5099,13 +5237,50 @@ function handleLogout() {
     }
   });
 }
+function resolveBindings(rawEnv) {
+  const env = rawEnv || {};
+  if (env.DATA && typeof env.DATA.prepare === "function") return env;
+  if (env.DATA) {
+    return { ...env, DATA: makeD1Binding({ driver: makeSqldDriver({ url: env.DATA }) }), __selfHost: true };
+  }
+  return env;
+}
+async function runCron(env, cronStr) {
+  try {
+    await ensureSchema(env);
+    await ensureBuiltinCaAccount(env);
+  } catch (e) {
+    console.error("cron: schema init failed (includes built-in CA bootstrap)", e);
+    return;
+  }
+  const t = now();
+  const due = await env.DATA.prepare(
+    `SELECT id FROM jobs WHERE state NOT IN ('done','failed')
+       AND next_tick_at < ? AND lease_until < ? ORDER BY next_tick_at LIMIT 10`
+  ).bind(t, t).all();
+  for (const row of due.results || []) {
+    try {
+      await tickJob(env, row.id);
+    } catch (e) {
+      console.error(`tick job ${row.id} failed:`, e);
+    }
+  }
+  if ((cronStr || "").startsWith("0 0 ") || new Date(t * 1e3).getUTCHours() === 0 && new Date(t * 1e3).getUTCMinutes() === 0) {
+    try {
+      await scanAndCreateRenewals(env);
+    } catch (e) {
+      console.error("renewal scan failed", e);
+    }
+  }
+}
 var schemaReady = false;
 var index_default = {
-  async fetch(request, env, _ctx) {
+  async fetch(request, rawEnv, _ctx) {
+    const env = resolveBindings(rawEnv);
     if (!schemaReady) {
       try {
         await ensureSchema(env);
-        await ensureZeroSslAccount(env);
+        await ensureBuiltinCaAccount(env);
         schemaReady = true;
       } catch (e) {
         return new Response("Schema init failed: " + (e.message || e), { status: 500 });
@@ -5116,6 +5291,14 @@ var index_default = {
     const method = request.method;
     if (method === "POST" && path === "/unlock") return lockModule.handleUnlock(request, env);
     if (method === "POST" && path === "/logout") return handleLogout();
+    if (method === "POST" && path === "/_cron") {
+      if (!env.CRON) return new Response("Not Found", { status: 404 });
+      const auth = request.headers.get("Authorization") || "";
+      const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+      if (!timingSafeEqual(token, env.CRON)) return json({ error: lockModule.errorCode }, 401);
+      await runCron(env, "");
+      return json({ ok: true });
+    }
     if (method === "GET" && path === "/api/ct") return handleCt(request);
     {
       const dm = method === "GET" && path.match(/^\/([a-z0-9][a-z0-9.-]*\.[a-z]{2,})$/i);
@@ -5130,7 +5313,7 @@ var index_default = {
     }
     try {
       await ensureSchema(env);
-      await ensureZeroSslAccount(env);
+      await ensureBuiltinCaAccount(env);
     } catch (e) {
       return json({ error: "Schema init failed: " + (e.message || String(e)) }, 500);
     }
@@ -5145,136 +5328,6 @@ var index_default = {
     }
     if (method === "POST" && path === "/api/prefs") {
       return handlePrefs(request);
-    }
-    if (method === "GET" && path === "/api/_debug/csr") {
-      const domains = (url.searchParams.get("domains") || "example.com").split(",");
-      const kp = await generateEcKeyPair();
-      const csrDer = await buildCsrEcdsa(domains, kp.privateKey, kp.publicJwk);
-      const keyPem = await ecPrivateKeyToPkcs8Pem(kp.privateKey);
-      const csrPem = toPem("CERTIFICATE REQUEST", csrDer);
-      return new Response(keyPem + csrPem, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
-    }
-    if (method === "GET" && path === "/api/_debug/directory") {
-      const u = url.searchParams.get("url");
-      if (!u) return json({ ok: false, error: "url query param required" }, 400);
-      try {
-        const dir = await acmeFetchDirectory(u);
-        const nonce = await acmeNewNonce(dir);
-        return json({ ok: true, dir, nonce_sample_len: nonce.length });
-      } catch (e) {
-        return json({ ok: false, error: e.message || String(e) }, 500);
-      }
-    }
-    if (method === "GET" && path === "/api/_debug/newaccount") {
-      const u = url.searchParams.get("url");
-      if (!u) return json({ ok: false, error: "url query param required" }, 400);
-      try {
-        const dir = await acmeFetchDirectory(u);
-        const kp = await generateEcKeyPair();
-        const account = { privateKey: kp.privateKey, publicJwk: kp.publicJwk, kid: null, nonce: null };
-        const contactParam = url.searchParams.get("contact") || "mailto:test@gb.net";
-        const eabKid = url.searchParams.get("eab_kid");
-        const eabHmac = url.searchParams.get("eab_hmac");
-        let eab = null;
-        if (eabKid && eabHmac) {
-          eab = await buildEab(eabKid, eabHmac, kp.publicJwk, dir.newAccount);
-        }
-        const kid = await acmeNewAccount(dir, account, [contactParam], eab);
-        return json({ ok: true, kid });
-      } catch (e) {
-        return json({ ok: false, error: e.message || String(e) }, 500);
-      }
-    }
-    if (method === "POST" && path === "/api/_debug/dns-add") {
-      const body = await request.json();
-      try {
-        const r = await providerAddTxt(body.type, body.credentials, body.fqdn, body.value);
-        return json({ ok: true, result: r });
-      } catch (e) {
-        return json({ ok: false, error: e.message || String(e) }, 500);
-      }
-    }
-    if (method === "POST" && path === "/api/_debug/dns-remove") {
-      const body = await request.json();
-      try {
-        const r = await providerRemoveTxt(body.type, body.credentials, body.fqdn, body.value);
-        return json({ ok: true, result: r });
-      } catch (e) {
-        return json({ ok: false, error: e.message || String(e) }, 500);
-      }
-    }
-    if (method === "POST" && path === "/api/_debug/gts-mint") {
-      const body = await request.json();
-      try {
-        return json({ ok: true, ...await gcpMintPublicCaEab(body.sa_json) });
-      } catch (e) {
-        return json({ ok: false, error: e.message || String(e) }, 500);
-      }
-    }
-    if (method === "POST" && path === "/api/_debug/seed") {
-      const b2 = await request.json();
-      const t = now();
-      const dnsMap = {};
-      for (const d of b2.dnsAccounts || []) {
-        const enc2 = await aesEncrypt(env, JSON.stringify(d.credentials));
-        const r = await env.DATA.prepare(
-          "INSERT INTO dns_accounts (type, credentials_encrypted, created_at) VALUES (?,?,?)"
-        ).bind(d.type, enc2, t).run();
-        dnsMap[d.key] = r.meta.last_row_id;
-      }
-      for (const z of b2.zones || []) {
-        await env.DATA.prepare("INSERT OR REPLACE INTO zones (zone, dns_account_id) VALUES (?, ?)").bind(z.zone, dnsMap[z.dns_key]).run();
-      }
-      const acmeMap = {};
-      for (const a of b2.acmeAccounts || []) {
-        if (!ACME_DIRECTORIES[a.directory_name]) throw new Error(`directory ${a.directory_name} not recognized`);
-        const kp = await generateEcKeyPair();
-        const jwkEnc = await aesEncrypt(env, JSON.stringify(kp.privateJwk));
-        const confObj = {};
-        if (a.eab_kid) confObj.eab_kid = a.eab_kid;
-        if (a.eab_hmac) confObj.eab_hmac = a.eab_hmac;
-        if (a.gcp_sa_json) confObj.gcp_sa_json = typeof a.gcp_sa_json === "string" ? a.gcp_sa_json : JSON.stringify(a.gcp_sa_json);
-        const confEnc = Object.keys(confObj).length ? await aesEncrypt(env, JSON.stringify(confObj)) : null;
-        const r = await env.DATA.prepare(
-          `INSERT INTO acme_accounts (directory_name, jwk_encrypted, conf, created_at)
-           VALUES (?,?,?,?)`
-        ).bind(a.directory_name, jwkEnc, confEnc, t).run();
-        acmeMap[a.directory_name] = r.meta.last_row_id;
-      }
-      const confMap = {};
-      for (const s of b2.certSpecs || []) {
-        const fallbackNames = (s.fallback_acme_directories || []).filter((n) => ACME_DIRECTORIES[n]);
-        const r = await env.DATA.prepare(
-          `INSERT INTO cert_confs (name, domains_json, primary_acme_directory_name, fallback_acme_directory_names_json, auto_renew_policy, created_at)
-           VALUES (?,?,?,?,?,?)`
-        ).bind(
-          s.name,
-          JSON.stringify(s.domains),
-          s.primary_acme_directory,
-          fallbackNames.length ? JSON.stringify(fallbackNames) : null,
-          s.auto_renew_policy || "days:30",
-          t
-        ).run();
-        confMap[s.name] = r.meta.last_row_id;
-      }
-      return json({ ok: true, dnsMap, acmeMap, confMap });
-    }
-    if (method === "POST" && path === "/api/_debug/dnspod-list") {
-      const body = await request.json();
-      try {
-        const r = await tcSignedCall(body.credentials, "DescribeDomainList", { Offset: 0, Limit: 20 });
-        return json({ ok: true, domains: (r.DomainList || []).map((d) => d.Name) });
-      } catch (e) {
-        return json({ ok: false, error: e.message || String(e) }, 500);
-      }
-    }
-    if (method === "GET" && path === "/api/_debug/jws") {
-      const kp = await generateEcKeyPair();
-      const thumb = await jwkThumbprint(kp.publicJwk);
-      const jws = await jwsSignEs256(kp.privateKey, { alg: "ES256", jwk: kp.publicJwk, nonce: "test", url: "https://example.com/" }, { test: "payload" });
-      const keyAuth = await keyAuthorization("sample-token", kp.publicJwk);
-      const txt = await dnsChallengeTxtValue(keyAuth);
-      return json({ thumbprint: thumb, jws, keyAuth, dns_txt: txt });
     }
     if (method === "GET" && path === "/api/status") return apiStatus(env);
     let m;
@@ -5321,7 +5374,7 @@ var index_default = {
     if (method === "POST" && path === "/api/_admin/purge/certs") return apiPurge(env, "certs");
     if (method === "POST" && path === "/api/_admin/purge/accounts") return apiPurge(env, "accounts");
     if (method === "POST" && path === "/api/_admin/purge/all") return apiPurge(env, "all");
-    if (method === "GET" && path === "/api/acme-directories") return apiListAcmeDirectories();
+    if (method === "GET" && path === "/api/acme-directories") return apiListAcmeDirectories(env);
     if (method === "GET" && path === "/api/acme-accounts") return apiListAcmeAccounts(env);
     if (method === "POST" && path === "/api/acme-accounts") return apiCreateAcmeAccount(env, await request.json());
     if ((m = path.match(/^\/api\/acme-accounts\/(\d+)$/)) && method === "DELETE") {
@@ -5348,34 +5401,8 @@ var index_default = {
     }
     return new Response("Not Found", { status: 404 });
   },
-  async scheduled(event, env, _ctx) {
-    try {
-      await ensureSchema(env);
-      await ensureZeroSslAccount(env);
-    } catch (e) {
-      console.error("scheduled: schema init failed (includes ZeroSSL bootstrap)", e);
-      return;
-    }
-    const t = now();
-    const due = await env.DATA.prepare(
-      `SELECT id FROM jobs WHERE state NOT IN ('done','failed')
-         AND next_tick_at < ? AND lease_until < ? ORDER BY next_tick_at LIMIT 10`
-    ).bind(t, t).all();
-    for (const row of due.results || []) {
-      try {
-        await tickJob(env, row.id);
-      } catch (e) {
-        console.error(`tick job ${row.id} failed:`, e);
-      }
-    }
-    const cronStr = event && event.cron || "";
-    if (cronStr.startsWith("0 0 ") || new Date(t * 1e3).getUTCHours() === 0 && new Date(t * 1e3).getUTCMinutes() === 0) {
-      try {
-        await scanAndCreateRenewals(env);
-      } catch (e) {
-        console.error("renewal scan failed", e);
-      }
-    }
+  async scheduled(event, rawEnv, _ctx) {
+    await runCron(resolveBindings(rawEnv), event && event.cron || "");
   }
 };
 export {
