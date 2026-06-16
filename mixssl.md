@@ -59,7 +59,7 @@ Everything else — mixing DNS accounts/registrars and CAs in one certificate, a
 
 ---
 
-# MixSSL（简体中文）
+# 混搭证书（MixSSL）
 
 单文件 SSL 证书签发器，基于 ACME DNS-01，作为 Cloudflare Worker 运行。最核心的差异化：同一张证书可跨同一 DNS 管理机构下的多个账号（例如两个 Cloudflare 账号：个人 + 工作），也可以跨多个管理机构、并从 ZeroSSL / Google Trust Services 中任选一个签发 CA。这样无论是分散在同一家管理机构不同账号下的 zone，还是一半在 Cloudflare（国际）、一半在 DNSPod.cn（中国大陆）的 zone，都可以合到同一张终端证书里。系统指定一个**内置 CA**：首次运行时自动注册，不可删除，其他 CA 失败时默认兜底。
 
@@ -120,7 +120,7 @@ docker compose up -d
 
 ---
 
-# MixSSL（繁體中文）
+# 混搭憑證（MixSSL）
 
 單檔案 SSL 憑證簽發器，基於 ACME DNS-01，作為 Cloudflare Worker 執行。最核心的差異化：同一張憑證可跨同一 DNS 管理機構下的多個帳號（例如兩個 Cloudflare 帳號：個人 + 工作），也可以跨多個管理機構、並從 ZeroSSL / Google Trust Services 中任選一個簽發 CA。這樣無論是分散在同一家管理機構不同帳號下的 zone，還是一半在 Cloudflare（國際）、一半在 DNSPod.cn（中國大陸）的 zone，都可以合到同一張終端憑證裡。系統指定一個**內建 CA**：首次執行時自動註冊，不可刪除，其他 CA 失敗時預設兜底。
 
