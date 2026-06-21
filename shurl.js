@@ -213,7 +213,7 @@ var landing_default = `<!DOCTYPE html>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71'/%3E%3C/svg%3E">
 <script src="https://{{CDN_HOST}}/npm/markdown-it@14/dist/markdown-it.min.js"></script>
 <link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@8ece97cc2e5585de1c8afb23906d8ce0e28d42c4/overlay/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@0b87feab043275a7062fdc8615fa35d67e7a291c/shurl/view.min.css"></head><body><div style="width:100%;max-width:480px"><div class="c">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@a753b42e8a2b550a744c8413fd0e7714965d48b7/shurl/view.min.css"></head><body><div style="width:100%;max-width:480px"><div class="c">
 <div class="header">
   <div class="header-left">
     <div class="logo-icon">
@@ -522,8 +522,8 @@ var FILE_BILLING_RAW = "{{FILE_BILLING}}";
      matching i18n-<lang>.min.js. Exposes window.LangBundle.{initial,
      ready, load} \u2014 client.min.js waits on LangBundle.ready before its
      first applyI18n and uses LangBundle.load for switch-on-demand. -->
-<script>(function(){var b="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@0b87feab043275a7062fdc8615fa35d67e7a291c/shurl";var s=["en","eo","fr","de","es","it","nl","da","zh-cn","zh-tw","ja","ko","ms","vi","th","ta","my","uk","he","ar"];var d="en";function load(l){return new Promise(function(r,j){var x=document.createElement('script');x.src=b+'/i18n-'+l+'.min.js';x.onload=function(){r(l)};x.onerror=function(){j(new Error('i18n-'+l+' failed'))};document.head.appendChild(x)})}var init=(function(){var g=window["INITIAL_LANG"];if(typeof g==='string'&&s.indexOf(g)>=0)return g;return typeof detectLang==='function'?detectLang(s):d})();if(s.indexOf(init)<0)init=d;window.LangBundle={initial:init,ready:load(init),load:load}})();</script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@0b87feab043275a7062fdc8615fa35d67e7a291c/shurl/client.min.js"></script></body></html>`;
+<script>(function(){var b="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@a753b42e8a2b550a744c8413fd0e7714965d48b7/shurl";var s=["en","eo","fr","de","es","it","nl","da","zh-cn","zh-tw","ja","ko","ms","vi","th","ta","my","uk","he","ar"];var d="en";function load(l){return new Promise(function(r,j){var x=document.createElement('script');x.src=b+'/i18n-'+l+'.min.js';x.onload=function(){r(l)};x.onerror=function(){j(new Error('i18n-'+l+' failed'))};document.head.appendChild(x)})}var init=(function(){var g=window["INITIAL_LANG"];if(typeof g==='string'&&s.indexOf(g)>=0)return g;return typeof detectLang==='function'?detectLang(s):d})();if(s.indexOf(init)<0)init=d;window.LangBundle={initial:init,ready:load(init),load:load}})();</script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@a753b42e8a2b550a744c8413fd0e7714965d48b7/shurl/client.min.js"></script></body></html>`;
 
 var SLUG_CHARS = "abcdefghijkmnpqrstuvwxyz23456789";
 var SLUG_MIN = 3;
@@ -1286,7 +1286,7 @@ var lockModule = makeLockModule({
   lockPageHtml: LOCK_PAGE_HTML
 });
 
-var APP_ASSETS_URL = "gh/onegbnet/tinycfw@0b87feab043275a7062fdc8615fa35d67e7a291c/shurl";
+var APP_ASSETS_URL = "gh/onegbnet/tinycfw@a753b42e8a2b550a744c8413fd0e7714965d48b7/shurl";
 function redirectPage(entry, acceptLang, cdnHost, slug, showError, authed, theme) {
   const isFile = entry.type === "files";
   const files = entry.files || [];
@@ -1643,7 +1643,11 @@ function makeR2Blob({ bucket }) {
         prefix: opts.prefix || "",
         cursor: opts.cursor || void 0,
         limit: opts.limit || 1e3,
-        include: ["customMetadata"]
+        // customMetadata is NOT fetched by default — a generic list returns only
+        // keys/sizes (objects come back with customMetadata: undefined, same as the
+        // S3 driver). A consumer that uses the metadata — e.g. shurl's reclaim, which
+        // reads an advisory `exp` hint — opts in with includeCustomMetadata:true.
+        include: opts.includeCustomMetadata ? ["customMetadata"] : []
       });
       return {
         objects: (r.objects || []).map((o) => ({ key: o.key, customMetadata: o.customMetadata, size: o.size })),
@@ -2453,7 +2457,11 @@ async function runReclaim(env, { full = false, cursor = null, maxKeys = 400 } = 
     const page = await blob.list({
       prefix: "",
       cursor: cur,
-      limit: Math.min(1e3, maxKeys - scannedThisCall)
+      limit: Math.min(1e3, maxKeys - scannedThisCall),
+      // ccs blob-adapter list() defaults to keys-only; opt in to the advisory
+      // customMetadata.exp so the CF targeted pass can pre-filter (the only leg
+      // that reads it — S3/MinIO list never returns it; kv-slab isn't swept).
+      includeCustomMetadata: true
     });
     for (const obj of page.objects || []) {
       scanned++;
