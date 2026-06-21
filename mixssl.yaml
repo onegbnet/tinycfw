@@ -54,13 +54,13 @@ services:
 
   # libSQL server (sqld) — SQLite over an HTTP/Hrana API. This is the self-host
   # stand-in for Cloudflare D1; the worker's resolveBindings() sees DATA as a URL
-  # (not a D1 binding) and routes every query here. Data persists in the volume.
+  # (not a D1 binding) and routes every query here. Data persists on the host at ${DATA_DIR:-./data}/sqld.
   sqld:
     image: ghcr.io/tursodatabase/libsql-server:latest
     environment:
       SQLD_HTTP_LISTEN_ADDR: 0.0.0.0:8080
     volumes:
-      - sqld-data:/var/lib/sqld
+      - ${DATA_DIR:-./data}/sqld:/var/lib/sqld
     restart: unless-stopped
 
   # Per-minute cron ticker. Independent workerd has no managed cron, so an
@@ -84,6 +84,3 @@ services:
           sleep 60
         done
     restart: unless-stopped
-
-volumes:
-  sqld-data:

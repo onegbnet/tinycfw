@@ -52,7 +52,7 @@ services:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
-      - redis-data:/data
+      - ${DATA_DIR:-./data}/redis:/data
     restart: unless-stopped
 
   # ── Optional bundled Ollama ──────────────────────────────────────────────
@@ -65,7 +65,7 @@ services:
     image: ollama/ollama:latest
     profiles: ["ai"]
     volumes:
-      - ollama-data:/root/.ollama
+      - ${DATA_DIR:-./data}/ollama:/root/.ollama
     restart: unless-stopped
     # GPU is optional. For an NVIDIA GPU, uncomment:
     # deploy:
@@ -75,7 +75,3 @@ services:
     #         - driver: nvidia
     #           count: all
     #           capabilities: [gpu]
-
-volumes:
-  redis-data:
-  ollama-data:

@@ -53,7 +53,7 @@ services:
     restart: unless-stopped
 
   # Redis — the short-link / file-pointer store (replaces Cloudflare KV). Data
-  # persists in the volume (appendonly). MUST be non-evicting: the blob-reclaim
+  # persists on the host at ${DATA_DIR:-./data}/redis (appendonly). MUST be non-evicting: the blob-reclaim
   # sweep treats a missing pointer as "link is dead, delete its file blobs", so
   # an evicted-but-still-referenced pointer would let it delete a LIVE link's
   # files (permanent 404). --maxmemory-policy noeviction makes Redis refuse
@@ -62,11 +62,11 @@ services:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
     volumes:
-      - redis-data:/data
+      - ${DATA_DIR:-./data}/redis:/data
     restart: unless-stopped
 
   # MinIO — the file BLOB store (S3-compatible; replaces Cloudflare R2). Data
-  # persists in the volume. Console on :9001 (optional; expose if you want it).
+  # persists on the host at ${DATA_DIR:-./data}/minio. Console on :9001 (optional).
   minio:
     image: minio/minio
     command: ["server", "/data", "--console-address", ":9001"]
@@ -74,7 +74,7 @@ services:
       MINIO_ROOT_USER: ${MINIO_USER:-shurl}
       MINIO_ROOT_PASSWORD: ${MINIO_PASS:-shurlsecret}
     volumes:
-      - minio-data:/data
+      - ${DATA_DIR:-./data}/minio:/data
     restart: unless-stopped
 
   # One-shot: create the bucket the worker writes blobs to, then exit. The
@@ -117,7 +117,3 @@ services:
           sleep 300
         done
     restart: unless-stopped
-
-volumes:
-  redis-data:
-  minio-data:
