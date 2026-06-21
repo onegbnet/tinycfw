@@ -17,7 +17,7 @@
 #
 # Short links work with just Redis; FILE SHARING also needs the blob store (MinIO
 # here). To point at Cloudflare R2 (or any S3) instead of the bundled MinIO, set
-# BOS to that endpoint's S3 URL and drop the minio / minio-init services.
+# BOS to that endpoint's S3 URL and drop the minio service.
 #
 # NOTE: if you change MINIO_USER / MINIO_PASS / BUCKET, update BOS to match.
 
@@ -48,8 +48,8 @@ services:
     depends_on:
       redis:
         condition: service_started
-      minio-init:
-        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
     restart: unless-stopped
 
   # Redis — the short-link / file-pointer store (replaces Cloudflare KV). Data
@@ -67,33 +67,42 @@ services:
 
   # MinIO — the file BLOB store (S3-compatible; replaces Cloudflare R2). Data
   # persists on the host at ${DATA_DIR:-./data}/minio. Console on :9001 (optional).
+  #
+  # MinIO creates its OWN blob bucket on startup with the mc client bundled in its
+  # image (see command below) — the same out-of-band provisioning as the R2 bucket
+  # on Cloudflare (made in the dashboard). So the worker provisions nothing in
+  # either form, and there's no separate one-shot init container left as Exited(0).
   minio:
     image: minio/minio
-    command: ["server", "/data", "--console-address", ":9001"]
     environment:
       MINIO_ROOT_USER: ${MINIO_USER:-shurl}
       MINIO_ROOT_PASSWORD: ${MINIO_PASS:-shurlsecret}
+      BUCKET: ${BUCKET:-shurl}              # blob bucket; MUST match BOS's path above
     volumes:
       - ${DATA_DIR:-./data}/minio:/data
-    restart: unless-stopped
-
-  # One-shot: create the bucket the worker writes blobs to, then exit. The
-  # shurl service waits for this to complete successfully.
-  minio-init:
-    image: minio/mc
-    depends_on:
-      minio:
-        condition: service_started
-    environment:
-      MINIO_USER: ${MINIO_USER:-shurl}
-      MINIO_PASS: ${MINIO_PASS:-shurlsecret}
-      BUCKET: ${BUCKET:-shurl}
+    # Run the server, then create the bucket once it answers. `$$` escapes to a
+    # literal `$` so the shell (not compose) expands these. The trap forwards
+    # SIGTERM so `docker compose down` stops MinIO cleanly.
     entrypoint: ["sh", "-c"]
     command:
       - |
-        until mc alias set local http://minio:9000 "$$MINIO_USER" "$$MINIO_PASS"; do sleep 1; done
-        mc mb --ignore-existing "local/$$BUCKET"
-    restart: "no"
+        minio server /data --console-address :9001 &
+        pid=$$!
+        trap 'kill -TERM $$pid 2>/dev/null' TERM INT
+        until mc alias set local http://localhost:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" >/dev/null 2>&1; do sleep 1; done
+        mc mb --ignore-existing "local/$$BUCKET" >/dev/null 2>&1 || true
+        wait $$pid
+    # Healthy only once the bucket exists, so `shurl` (which waits for
+    # service_healthy) never starts before its blob store is ready.
+    healthcheck:
+      test: >-
+        mc alias set local http://localhost:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" >/dev/null 2>&1
+        && mc ls local/"$$BUCKET" >/dev/null 2>&1
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    restart: unless-stopped
 
   # Reclaim ticker. Independent workerd has no managed cron, so an external
   # ticker curls the token-gated POST /_cron periodically; the worker then sweeps
