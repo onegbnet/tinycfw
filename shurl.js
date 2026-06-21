@@ -26,21 +26,21 @@ function isValidLock(val) {
 }
 async function hashToken(prefix, pw) {
   const data = new TextEncoder().encode(prefix + pw);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  const hash2 = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash2)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 async function safeEqual(a, b) {
-  const enc = new TextEncoder();
+  const enc3 = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
-    enc.encode("_cmp_"),
+    enc3.encode("_cmp_"),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
   );
   const [sa, sb] = await Promise.all([
-    crypto.subtle.sign("HMAC", key, enc.encode(String(a || ""))),
-    crypto.subtle.sign("HMAC", key, enc.encode(String(b || "")))
+    crypto.subtle.sign("HMAC", key, enc3.encode(String(a || ""))),
+    crypto.subtle.sign("HMAC", key, enc3.encode(String(b || "")))
   ]);
   const ua = new Uint8Array(sa), ub = new Uint8Array(sb);
   let d = 0;
@@ -213,7 +213,7 @@ var landing_default = `<!DOCTYPE html>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71'/%3E%3C/svg%3E">
 <script src="https://{{CDN_HOST}}/npm/markdown-it@14/dist/markdown-it.min.js"></script>
 <link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/ccs@8ece97cc2e5585de1c8afb23906d8ce0e28d42c4/overlay/style.min.css">
-<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@5dbb6c77de3d855d4873c8bc863263245a5aa9a2/shurl/view.min.css"></head><body><div style="width:100%;max-width:480px"><div class="c">
+<link rel="stylesheet" href="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@0b87feab043275a7062fdc8615fa35d67e7a291c/shurl/view.min.css"></head><body><div style="width:100%;max-width:480px"><div class="c">
 <div class="header">
   <div class="header-left">
     <div class="logo-icon">
@@ -302,7 +302,12 @@ var landing_default = `<!DOCTYPE html>
     <div id="file-drop-hint" data-i18n="file_picker_hint" style="color:var(--s-text-muted);font-size:.88rem"></div>
   </div>
   <div id="file-list" style="margin-bottom:.6rem"></div>
-  <div id="file-totals" class="hint" style="margin-bottom:.8rem"></div>
+  <div id="file-totals" class="hint" style="margin-bottom:.4rem"></div>
+  <!-- Limit / availability line: fixed-mode cap, or self-host remaining-storage
+       (turns red when low). Text set per-mode by client.mjs applyFileLimitUI(). -->
+  <div id="file-limit-note" class="hint" style="display:none;font-size:.82rem;margin-bottom:.4rem"></div>
+  <!-- CF-only advisory: large uploads may exceed the free storage tier \u2192 billing. -->
+  <div id="file-billing-note" class="hint" style="display:none;font-size:.82rem;color:var(--s-text-muted);margin-bottom:.8rem"></div>
 </div>
 
 <div id="renew-pw-section" class="hidden" style="margin-bottom:.8rem">
@@ -487,6 +492,13 @@ var IS_ADMIN_RAW = "{{IS_ADMIN}}";
 // reads this via initialFromGlobal:'INITIAL_LANG' so reload preserves
 // the user's last LangSelect choice (persisted via POST /api/prefs).
 var INITIAL_LANG = "{{LANG}}";
+// File-size limit UI mode (free vars so esbuild can't constant-fold the IIFE's
+// comparisons): FILE_LIMIT_MODE_RAW \u2208 'fixed'|'uncapped'|'quota'; FILE_MAX_BYTES_RAW
+// = the fixed-mode byte cap (else "0"); FILE_BILLING_RAW = 'true' on CF (free-tier
+// overage advisory). Self-host 'quota' mode fetches live remaining via /_u/space.
+var FILE_LIMIT_MODE_RAW = "{{FILE_LIMIT_MODE}}";
+var FILE_MAX_BYTES_RAW = "{{FILE_MAX_BYTES}}";
+var FILE_BILLING_RAW = "{{FILE_BILLING}}";
 </script>
 
 <!-- CDN-served browser modules \u2014 order: i18n-engine first; action before
@@ -498,7 +510,6 @@ var INITIAL_LANG = "{{LANG}}";
 <script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@8ece97cc2e5585de1c8afb23906d8ce0e28d42c4/field/client.min.js"></script>
 <script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@8ece97cc2e5585de1c8afb23906d8ce0e28d42c4/overlay/client.min.js"></script>
 <script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@8ece97cc2e5585de1c8afb23906d8ce0e28d42c4/theme/client.min.js"></script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/ccs@8ece97cc2e5585de1c8afb23906d8ce0e28d42c4/upload2kv/client.min.js"></script>
 
 <!-- markdown-editor (Phase 5b-B): per-app config via inline shim BEFORE
      the CDN <script src> so window.MDE_CONFIG / window.MDE_I18N_OVERRIDES
@@ -511,8 +522,8 @@ var INITIAL_LANG = "{{LANG}}";
      matching i18n-<lang>.min.js. Exposes window.LangBundle.{initial,
      ready, load} \u2014 client.min.js waits on LangBundle.ready before its
      first applyI18n and uses LangBundle.load for switch-on-demand. -->
-<script>(function(){var b="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@5dbb6c77de3d855d4873c8bc863263245a5aa9a2/shurl";var s=["en","eo","fr","de","es","it","nl","da","zh-cn","zh-tw","ja","ko","ms","vi","th","ta","my","uk","he","ar"];var d="en";function load(l){return new Promise(function(r,j){var x=document.createElement('script');x.src=b+'/i18n-'+l+'.min.js';x.onload=function(){r(l)};x.onerror=function(){j(new Error('i18n-'+l+' failed'))};document.head.appendChild(x)})}var init=(function(){var g=window["INITIAL_LANG"];if(typeof g==='string'&&s.indexOf(g)>=0)return g;return typeof detectLang==='function'?detectLang(s):d})();if(s.indexOf(init)<0)init=d;window.LangBundle={initial:init,ready:load(init),load:load}})();</script>
-<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@5dbb6c77de3d855d4873c8bc863263245a5aa9a2/shurl/client.min.js"></script></body></html>`;
+<script>(function(){var b="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@0b87feab043275a7062fdc8615fa35d67e7a291c/shurl";var s=["en","eo","fr","de","es","it","nl","da","zh-cn","zh-tw","ja","ko","ms","vi","th","ta","my","uk","he","ar"];var d="en";function load(l){return new Promise(function(r,j){var x=document.createElement('script');x.src=b+'/i18n-'+l+'.min.js';x.onload=function(){r(l)};x.onerror=function(){j(new Error('i18n-'+l+' failed'))};document.head.appendChild(x)})}var init=(function(){var g=window["INITIAL_LANG"];if(typeof g==='string'&&s.indexOf(g)>=0)return g;return typeof detectLang==='function'?detectLang(s):d})();if(s.indexOf(init)<0)init=d;window.LangBundle={initial:init,ready:load(init),load:load}})();</script>
+<script src="https://{{CDN_HOST}}/gh/onegbnet/tinycfw@0b87feab043275a7062fdc8615fa35d67e7a291c/shurl/client.min.js"></script></body></html>`;
 
 var SLUG_CHARS = "abcdefghijkmnpqrstuvwxyz23456789";
 var SLUG_MIN = 3;
@@ -525,8 +536,9 @@ var DELAY_TITLE_MAX = 128;
 var TTL_MIN = 60;
 var TTL_MAX = 31536e3;
 var MAX_HITS_MAX = Number.MAX_SAFE_INTEGER;
-var CHUNK_SIZE = 10 * 1024 * 1024;
+var PART_SIZE = 26214400;
 var TOTAL_MAX = 128 * 1024 * 1024;
+var MAX_PARTS = 1e4;
 var RESERVE_TTL = 3600;
 var UPLOAD_TOKEN_LEN = 24;
 var FILE_NAME_MAX = 255;
@@ -880,15 +892,15 @@ var { json } = makeResponseHelpers({ cors: "*", prettyJson: true });
 var adminCookieName = "shul_admin";
 var TOKEN_AGE_SEC = 86400 * 7;
 async function hmacSignHex(secret, message) {
-  const enc = new TextEncoder();
+  const enc3 = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
-    enc.encode(secret),
+    enc3.encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
   );
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(message));
+  const sig = await crypto.subtle.sign("HMAC", key, enc3.encode(message));
   return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 async function makeAdminToken(secret) {
@@ -1274,7 +1286,7 @@ var lockModule = makeLockModule({
   lockPageHtml: LOCK_PAGE_HTML
 });
 
-var APP_ASSETS_URL = "gh/onegbnet/tinycfw@5dbb6c77de3d855d4873c8bc863263245a5aa9a2/shurl";
+var APP_ASSETS_URL = "gh/onegbnet/tinycfw@0b87feab043275a7062fdc8615fa35d67e7a291c/shurl";
 function redirectPage(entry, acceptLang, cdnHost, slug, showError, authed, theme) {
   const isFile = entry.type === "files";
   const files = entry.files || [];
@@ -1447,157 +1459,723 @@ function detectLang(acceptLang) {
   return "en";
 }
 
-function makeUploadModule({
-  chunkSize = 10 * 1024 * 1024,
-  // 10 MiB
-  totalMax,
-  fileNameMax = 255,
-  fileMimeMax = 128
+var CF_KV_VALUE_MAX = 26214400;
+function makeMultipartitioner({
+  store,
+  prefix = "m",
+  redis = false,
+  cfKvValueMax = CF_KV_VALUE_MAX,
+  maxBlobBytes,
+  maxSlabs = 8,
+  pendingTtl = 3600
 } = {}) {
-  if (typeof totalMax !== "number" || !Number.isFinite(totalMax) || totalMax <= 0) {
-    throw new Error("upload2kv: totalMax must be a positive number");
+  if (!store || typeof store.get !== "function" || typeof store.put !== "function") {
+    throw new Error("multipartitioner: needs a CF-KV-shaped store (get/put/delete/list)");
   }
-  if (!Number.isInteger(chunkSize) || chunkSize <= 0) {
-    throw new Error("upload2kv: chunkSize must be a positive integer");
+  if (!(maxBlobBytes > 0)) {
+    throw new Error("multipartitioner: maxBlobBytes (whole-blob budget) is required");
   }
-  function chunkKey(uploadKey, chunkIdx) {
-    return uploadKey + ":c" + chunkIdx;
+  const slabKey = (id, n) => prefix + ":" + id + ":" + n;
+  const slabSize = () => redis ? maxBlobBytes : cfKvValueMax;
+  function genId() {
+    const b = new Uint8Array(18);
+    crypto.getRandomValues(b);
+    return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
   }
-  function planFiles(filesIn, { startOffset = 0, startId = 0 } = {}) {
-    if (!Array.isArray(filesIn)) return { error: "INVALID_FILES" };
-    if (!Number.isInteger(startOffset) || startOffset < 0) return { error: "INVALID_OFFSET" };
-    const planned = [];
-    let nextId = startId;
-    let offset = startOffset;
-    for (const f of filesIn) {
-      const name = String(f && f.name || "").trim().slice(0, fileNameMax);
-      const sizeRaw = f && f.size;
-      const size = Math.floor(Number(sizeRaw));
-      if (!name) return { error: "INVALID_FILE" };
-      if (!Number.isFinite(size) || size < 0) return { error: "INVALID_FILE" };
-      const mime = String(f && f.mime || "application/octet-stream").trim().slice(0, fileMimeMax);
-      planned.push({ id: nextId++, name, size, mime, offset });
-      offset += size;
-    }
-    return {
-      files: planned,
-      nextId,
-      sessionStart: startOffset,
-      sessionBytes: offset - startOffset,
-      sessionEnd: offset
-    };
+  const isId = (s) => typeof s === "string" && /^[a-f0-9]{20,}$/.test(s);
+  function toU8(bytes) {
+    if (bytes instanceof Uint8Array) return bytes;
+    if (bytes instanceof ArrayBuffer) return new Uint8Array(bytes);
+    return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   }
-  function chunkRange(byteStart, byteEnd) {
-    if (byteEnd <= byteStart) return null;
-    return {
-      firstChunk: Math.floor(byteStart / chunkSize),
-      lastChunk: Math.floor((byteEnd - 1) / chunkSize)
-    };
-  }
-  function sessionChunks(sessionStart, sessionBytes) {
-    return chunkRange(sessionStart, sessionStart + sessionBytes);
-  }
-  function nextSessionStart(currentSessionEnd) {
-    return Math.ceil(currentSessionEnd / chunkSize) * chunkSize;
-  }
-  function sessionChunkPlan(sessionStart, sessionBytes) {
-    const range = sessionChunks(sessionStart, sessionBytes);
-    if (!range) return [];
-    const list = [];
-    for (let c = range.firstChunk; c <= range.lastChunk; c++) {
-      list.push({ idx: c, size: expectedChunkSize(c, sessionStart, sessionBytes) });
-    }
-    return list;
-  }
-  function expectedChunkSize(chunkIdx, sessionStart, sessionBytes) {
-    const range = sessionChunks(sessionStart, sessionBytes);
-    if (!range) return null;
-    if (chunkIdx < range.firstChunk || chunkIdx > range.lastChunk) return null;
-    if (chunkIdx < range.lastChunk) {
-      return chunkSize;
-    }
-    const chunkBase = chunkIdx * chunkSize;
-    return sessionStart + sessionBytes - chunkBase;
-  }
-  async function writeChunk(kv, uploadKey, chunkIdx, body, { expectedSize, ttl } = {}) {
-    if (!Number.isInteger(chunkIdx) || chunkIdx < 0) {
-      return { error: "INVALID_CHUNK_INDEX" };
-    }
-    const len = body && body.byteLength;
-    if (!Number.isFinite(len)) return { error: "CHUNK_BODY_INVALID" };
-    if (typeof expectedSize === "number") {
-      if (len !== expectedSize) return { error: "CHUNK_SIZE_MISMATCH", expected: expectedSize, got: len };
-    } else {
-      if (len <= 0 || len > chunkSize) {
-        return { error: "CHUNK_SIZE_INVALID", expected: "1.." + chunkSize, got: len };
-      }
-    }
+  async function putSlab(id, n, bytes, { ttl = pendingTtl, metadata } = {}) {
     const opts = {};
-    if (typeof ttl === "number" && ttl > 0) opts.expirationTtl = ttl;
-    await kv.put(chunkKey(uploadKey, chunkIdx), body, opts);
-    return { ok: true };
+    if (ttl > 0) opts.expirationTtl = ttl;
+    if (metadata != null) opts.metadata = metadata;
+    await store.put(slabKey(id, n), toU8(bytes), opts);
   }
-  async function verifyAllChunks(kv, uploadKey, firstChunk, lastChunk) {
-    const missing = [];
-    for (let c = firstChunk; c <= lastChunk; c++) {
-      const has = await kv.get(chunkKey(uploadKey, c), "arrayBuffer");
-      if (!has) missing.push(c);
+  async function readBytes(id) {
+    const parts = [];
+    let total = 0;
+    for (let n = 0; n < maxSlabs; n++) {
+      const ab = await store.get(slabKey(id, n), "arrayBuffer");
+      if (ab == null) break;
+      const u = new Uint8Array(ab);
+      parts.push(u);
+      total += u.byteLength;
     }
-    return missing;
+    if (parts.length === 0) return null;
+    const out = new Uint8Array(total);
+    let off = 0;
+    for (const p of parts) {
+      out.set(p, off);
+      off += p.byteLength;
+    }
+    return out;
   }
-  async function readFile(kv, uploadKey, file) {
-    if (!file || file.size === 0) return new Uint8Array(0);
-    const fileStart = file.offset;
-    const fileEnd = file.offset + file.size;
-    const range = chunkRange(fileStart, fileEnd);
-    const out = new Uint8Array(file.size);
-    let written = 0;
-    for (let c = range.firstChunk; c <= range.lastChunk; c++) {
-      const buf = await kv.get(chunkKey(uploadKey, c), "arrayBuffer");
-      if (!buf) return null;
-      const bytes = new Uint8Array(buf);
-      const chunkBase = c * chunkSize;
-      const sliceStart = Math.max(0, fileStart - chunkBase);
-      const sliceEnd = Math.min(bytes.length, fileEnd - chunkBase);
-      if (sliceEnd <= sliceStart) return null;
-      out.set(bytes.subarray(sliceStart, sliceEnd), written);
-      written += sliceEnd - sliceStart;
-    }
-    return written === file.size ? out : null;
+  async function openStream(id) {
+    const first = await store.get(slabKey(id, 0), "arrayBuffer");
+    if (first == null) return null;
+    let n = 1;
+    let head = new Uint8Array(first);
+    return new ReadableStream({
+      async pull(controller) {
+        if (head != null) {
+          controller.enqueue(head);
+          head = null;
+          return;
+        }
+        if (n >= maxSlabs) {
+          controller.close();
+          return;
+        }
+        const ab = await store.get(slabKey(id, n), "arrayBuffer");
+        if (ab == null) {
+          controller.close();
+          return;
+        }
+        controller.enqueue(new Uint8Array(ab));
+        n++;
+      }
+    });
   }
-  async function deleteAllChunks(kv, uploadKey, firstChunk, lastChunk) {
-    const ops = [];
-    for (let c = firstChunk; c <= lastChunk; c++) {
-      ops.push(kv.delete(chunkKey(uploadKey, c)));
+  async function finalize(id, { source, meta, ttl = 0 } = {}) {
+    const ss = slabSize();
+    if (source != null) {
+      const src = toU8(source);
+      const total = src.byteLength;
+      let off = 0, n2 = 0;
+      while (off < total) {
+        const slab = src.subarray(off, Math.min(off + ss, total));
+        const opts = {};
+        if (ttl > 0) opts.expirationTtl = ttl;
+        if (n2 === 0 && meta != null) opts.metadata = meta;
+        await store.put(slabKey(id, n2), slab, opts);
+        off += slab.byteLength;
+        n2++;
+      }
+      for (let k = n2; k < maxSlabs; k++) await store.delete(slabKey(id, k));
+      return n2;
     }
-    await Promise.all(ops);
+    let n = 0;
+    for (; n < maxSlabs; n++) {
+      const ab = await store.get(slabKey(id, n), "arrayBuffer");
+      if (ab == null) break;
+      const opts = {};
+      if (ttl > 0) opts.expirationTtl = ttl;
+      if (n === 0 && meta != null) opts.metadata = meta;
+      await store.put(slabKey(id, n), new Uint8Array(ab), opts);
+    }
+    return n;
+  }
+  async function remove(id) {
+    for (let n = 0; n < maxSlabs; n++) await store.delete(slabKey(id, n));
+  }
+  async function list({ limit = 50, cursor } = {}) {
+    const r = await store.list({ prefix: prefix + ":", limit: Math.min(limit * 3, 1e3), cursor });
+    const head = new RegExp("^" + prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ":([a-f0-9]+):0$");
+    const items = [];
+    for (const key of r.keys || []) {
+      const m = head.exec(key.name);
+      if (!m) continue;
+      items.push({ id: m[1], meta: key.metadata || {} });
+    }
+    return { items, cursor: r.list_complete ? null : r.cursor || null };
   }
   return {
-    chunkSize,
-    totalMax,
-    fileNameMax,
-    fileMimeMax,
-    chunkKey,
-    planFiles,
-    chunkRange,
-    sessionChunks,
-    sessionChunkPlan,
-    nextSessionStart,
-    expectedChunkSize,
-    writeChunk,
-    verifyAllChunks,
-    readFile,
-    deleteAllChunks
+    prefix,
+    maxSlabs,
+    slabKey,
+    slabSize,
+    genId,
+    isId,
+    putSlab,
+    readBytes,
+    openStream,
+    finalize,
+    remove,
+    list
   };
 }
 
+async function toBytes(body) {
+  if (body instanceof Uint8Array) return body;
+  if (body instanceof ArrayBuffer) return new Uint8Array(body);
+  if (typeof body === "string") return new TextEncoder().encode(body);
+  return new Uint8Array(await new Response(body).arrayBuffer());
+}
+function makeR2Blob({ bucket }) {
+  if (!bucket || typeof bucket.createMultipartUpload !== "function") {
+    throw new Error("makeR2Blob: needs an R2 bucket binding");
+  }
+  return {
+    async createUpload(key, opts = {}) {
+      const u = opts.customMetadata ? await bucket.createMultipartUpload(key, { customMetadata: opts.customMetadata }) : await bucket.createMultipartUpload(key);
+      return { uploadId: u.uploadId };
+    },
+    async uploadPart(key, uploadId, n, body) {
+      const u = bucket.resumeMultipartUpload(key, uploadId);
+      const p = await u.uploadPart(n, body);
+      return { partNumber: p.partNumber, etag: p.etag };
+    },
+    async completeUpload(key, uploadId, parts, _opts = {}) {
+      const u = bucket.resumeMultipartUpload(key, uploadId);
+      await u.complete(parts.map((p) => ({ partNumber: p.partNumber, etag: p.etag })));
+      return { key };
+    },
+    async abortUpload(key, uploadId) {
+      const u = bucket.resumeMultipartUpload(key, uploadId);
+      await u.abort();
+    },
+    async put(key, body, opts = {}) {
+      if (opts.customMetadata) await bucket.put(key, body, { customMetadata: opts.customMetadata });
+      else await bucket.put(key, body);
+    },
+    async get(key) {
+      const o = await bucket.get(key);
+      return o ? o.body : null;
+    },
+    async delete(key) {
+      await bucket.delete(key);
+    },
+    async list(opts = {}) {
+      const r = await bucket.list({
+        prefix: opts.prefix || "",
+        cursor: opts.cursor || void 0,
+        limit: opts.limit || 1e3,
+        include: ["customMetadata"]
+      });
+      return {
+        objects: (r.objects || []).map((o) => ({ key: o.key, customMetadata: o.customMetadata, size: o.size })),
+        cursor: r.truncated ? r.cursor : null,
+        truncated: !!r.truncated
+      };
+    }
+  };
+}
+function makeKvSlabBlob({ store, prefix = "b", maxBlobBytes, cfKvValueMax, redis = false, maxSlabs = 8, pendingTtl = 3600 }) {
+  const mp = makeMultipartitioner({ store, prefix, maxBlobBytes, cfKvValueMax, redis, maxSlabs, pendingTtl });
+  const kvSlabMeta = (cm) => cm && Object.keys(cm).length ? cm : void 0;
+  return {
+    async createUpload(key, _opts = {}) {
+      return { uploadId: key };
+    },
+    // no server-side multipart; slabs are storage
+    async uploadPart(key, _uploadId, n, body) {
+      await mp.putSlab(key, n - 1, await toBytes(body));
+      return { partNumber: n, etag: "s" + n };
+    },
+    async completeUpload(key, _uploadId, _parts, opts = {}) {
+      await mp.finalize(key, { ttl: opts.ttl || 0, meta: kvSlabMeta(opts.customMetadata) });
+      return { key };
+    },
+    async abortUpload(key) {
+      await mp.remove(key);
+    },
+    async put(key, body, opts = {}) {
+      const bytes = await toBytes(body);
+      const meta = kvSlabMeta(opts.customMetadata);
+      if (bytes.byteLength === 0) {
+        await mp.putSlab(key, 0, bytes, { ttl: opts.ttl || 0, metadata: meta });
+        return;
+      }
+      await mp.finalize(key, { source: bytes, ttl: opts.ttl || 0, meta });
+    },
+    async get(key) {
+      return mp.openStream(key);
+    },
+    async delete(key) {
+      await mp.remove(key);
+    },
+    async list(opts = {}) {
+      const r = await mp.list({ limit: opts.limit || 1e3, cursor: opts.cursor });
+      return {
+        objects: (r.items || []).map((it) => ({ key: it.id, customMetadata: it.meta || {}, size: void 0 })),
+        cursor: r.cursor || null,
+        truncated: r.cursor != null
+      };
+    }
+  };
+}
+
+var encoder = new TextEncoder();
+var HOST_SERVICES = {
+  appstream2: "appstream",
+  cloudhsmv2: "cloudhsm",
+  email: "ses",
+  marketplace: "aws-marketplace",
+  mobile: "AWSMobileHubService",
+  pinpoint: "mobiletargeting",
+  queue: "sqs",
+  "git-codecommit": "codecommit",
+  "mturk-requester-sandbox": "mturk-requester",
+  "personalize-runtime": "personalize"
+};
+var UNSIGNABLE_HEADERS = /* @__PURE__ */ new Set([
+  "authorization",
+  "content-type",
+  "content-length",
+  "user-agent",
+  "presigned-expires",
+  "expect",
+  "x-amzn-trace-id",
+  "range",
+  "connection"
+]);
+var AwsClient = class {
+  constructor({ accessKeyId, secretAccessKey, sessionToken, service, region, cache, retries, initRetryMs }) {
+    if (accessKeyId == null) throw new TypeError("accessKeyId is a required option");
+    if (secretAccessKey == null) throw new TypeError("secretAccessKey is a required option");
+    this.accessKeyId = accessKeyId;
+    this.secretAccessKey = secretAccessKey;
+    this.sessionToken = sessionToken;
+    this.service = service;
+    this.region = region;
+    this.cache = cache || /* @__PURE__ */ new Map();
+    this.retries = retries != null ? retries : 10;
+    this.initRetryMs = initRetryMs || 50;
+  }
+  async sign(input, init) {
+    if (input instanceof Request) {
+      const { method, url, headers, body } = input;
+      init = Object.assign({ method, url, headers }, init);
+      if (init.body == null && headers.has("Content-Type")) {
+        init.body = body != null && headers.has("X-Amz-Content-Sha256") ? body : await input.clone().arrayBuffer();
+      }
+      input = url;
+    }
+    const signer = new AwsV4Signer(Object.assign({ url: input.toString() }, init, this, init && init.aws));
+    const signed = Object.assign({}, init, await signer.sign());
+    delete signed.aws;
+    try {
+      return new Request(signed.url.toString(), signed);
+    } catch (e) {
+      if (e instanceof TypeError) {
+        return new Request(signed.url.toString(), Object.assign({ duplex: "half" }, signed));
+      }
+      throw e;
+    }
+  }
+  async fetch(input, init) {
+    for (let i = 0; i <= this.retries; i++) {
+      const fetched = fetch(await this.sign(input, init));
+      if (i === this.retries) {
+        return fetched;
+      }
+      const res = await fetched;
+      if (res.status < 500 && res.status !== 429) {
+        return res;
+      }
+      await new Promise((resolve) => setTimeout(resolve, Math.random() * this.initRetryMs * Math.pow(2, i)));
+    }
+    throw new Error("An unknown error occurred, ensure retries is not negative");
+  }
+};
+var AwsV4Signer = class {
+  constructor({ method, url, headers, body, accessKeyId, secretAccessKey, sessionToken, service, region, cache, datetime, signQuery, appendSessionToken, allHeaders, singleEncode }) {
+    if (url == null) throw new TypeError("url is a required option");
+    if (accessKeyId == null) throw new TypeError("accessKeyId is a required option");
+    if (secretAccessKey == null) throw new TypeError("secretAccessKey is a required option");
+    this.method = method || (body ? "POST" : "GET");
+    this.url = new URL(url);
+    this.headers = new Headers(headers || {});
+    this.body = body;
+    this.accessKeyId = accessKeyId;
+    this.secretAccessKey = secretAccessKey;
+    this.sessionToken = sessionToken;
+    let guessedService, guessedRegion;
+    if (!service || !region) {
+      [guessedService, guessedRegion] = guessServiceRegion(this.url, this.headers);
+    }
+    this.service = service || guessedService || "";
+    this.region = region || guessedRegion || "us-east-1";
+    this.cache = cache || /* @__PURE__ */ new Map();
+    this.datetime = datetime || (/* @__PURE__ */ new Date()).toISOString().replace(/[:-]|\.\d{3}/g, "");
+    this.signQuery = signQuery;
+    this.appendSessionToken = appendSessionToken || this.service === "iotdevicegateway";
+    this.headers.delete("Host");
+    if (this.service === "s3" && !this.signQuery && !this.headers.has("X-Amz-Content-Sha256")) {
+      this.headers.set("X-Amz-Content-Sha256", "UNSIGNED-PAYLOAD");
+    }
+    const params = this.signQuery ? this.url.searchParams : this.headers;
+    params.set("X-Amz-Date", this.datetime);
+    if (this.sessionToken && !this.appendSessionToken) {
+      params.set("X-Amz-Security-Token", this.sessionToken);
+    }
+    this.signableHeaders = ["host", ...this.headers.keys()].filter((header) => allHeaders || !UNSIGNABLE_HEADERS.has(header)).sort();
+    this.signedHeaders = this.signableHeaders.join(";");
+    this.canonicalHeaders = this.signableHeaders.map((header) => header + ":" + (header === "host" ? this.url.host : (this.headers.get(header) || "").replace(/\s+/g, " "))).join("\n");
+    this.credentialString = [this.datetime.slice(0, 8), this.region, this.service, "aws4_request"].join("/");
+    if (this.signQuery) {
+      if (this.service === "s3" && !params.has("X-Amz-Expires")) {
+        params.set("X-Amz-Expires", "86400");
+      }
+      params.set("X-Amz-Algorithm", "AWS4-HMAC-SHA256");
+      params.set("X-Amz-Credential", this.accessKeyId + "/" + this.credentialString);
+      params.set("X-Amz-SignedHeaders", this.signedHeaders);
+    }
+    if (this.service === "s3") {
+      try {
+        this.encodedPath = decodeURIComponent(this.url.pathname.replace(/\+/g, " "));
+      } catch (e) {
+        this.encodedPath = this.url.pathname;
+      }
+    } else {
+      this.encodedPath = this.url.pathname.replace(/\/+/g, "/");
+    }
+    if (!singleEncode) {
+      this.encodedPath = encodeURIComponent(this.encodedPath).replace(/%2F/g, "/");
+    }
+    this.encodedPath = encodeRfc3986(this.encodedPath);
+    const seenKeys = /* @__PURE__ */ new Set();
+    this.encodedSearch = [...this.url.searchParams].filter(([k]) => {
+      if (!k) return false;
+      if (this.service === "s3") {
+        if (seenKeys.has(k)) return false;
+        seenKeys.add(k);
+      }
+      return true;
+    }).map((pair) => pair.map((p) => encodeRfc3986(encodeURIComponent(p)))).sort(([k1, v1], [k2, v2]) => k1 < k2 ? -1 : k1 > k2 ? 1 : v1 < v2 ? -1 : v1 > v2 ? 1 : 0).map((pair) => pair.join("=")).join("&");
+  }
+  async sign() {
+    if (this.signQuery) {
+      this.url.searchParams.set("X-Amz-Signature", await this.signature());
+      if (this.sessionToken && this.appendSessionToken) {
+        this.url.searchParams.set("X-Amz-Security-Token", this.sessionToken);
+      }
+    } else {
+      this.headers.set("Authorization", await this.authHeader());
+    }
+    return {
+      method: this.method,
+      url: this.url,
+      headers: this.headers,
+      body: this.body
+    };
+  }
+  async authHeader() {
+    return [
+      "AWS4-HMAC-SHA256 Credential=" + this.accessKeyId + "/" + this.credentialString,
+      "SignedHeaders=" + this.signedHeaders,
+      "Signature=" + await this.signature()
+    ].join(", ");
+  }
+  async signature() {
+    const date = this.datetime.slice(0, 8);
+    const cacheKey = [this.secretAccessKey, date, this.region, this.service].join();
+    let kCredentials = this.cache.get(cacheKey);
+    if (!kCredentials) {
+      const kDate = await hmac("AWS4" + this.secretAccessKey, date);
+      const kRegion = await hmac(kDate, this.region);
+      const kService = await hmac(kRegion, this.service);
+      kCredentials = await hmac(kService, "aws4_request");
+      this.cache.set(cacheKey, kCredentials);
+    }
+    return buf2hex(await hmac(kCredentials, await this.stringToSign()));
+  }
+  async stringToSign() {
+    return [
+      "AWS4-HMAC-SHA256",
+      this.datetime,
+      this.credentialString,
+      buf2hex(await hash(await this.canonicalString()))
+    ].join("\n");
+  }
+  async canonicalString() {
+    return [
+      this.method.toUpperCase(),
+      this.encodedPath,
+      this.encodedSearch,
+      this.canonicalHeaders + "\n",
+      this.signedHeaders,
+      await this.hexBodyHash()
+    ].join("\n");
+  }
+  async hexBodyHash() {
+    let hashHeader = this.headers.get("X-Amz-Content-Sha256") || (this.service === "s3" && this.signQuery ? "UNSIGNED-PAYLOAD" : null);
+    if (hashHeader == null) {
+      if (this.body && typeof this.body !== "string" && !("byteLength" in this.body)) {
+        throw new Error("body must be a string, ArrayBuffer or ArrayBufferView, unless you include the X-Amz-Content-Sha256 header");
+      }
+      hashHeader = buf2hex(await hash(this.body || ""));
+    }
+    return hashHeader;
+  }
+};
+async function hmac(key, string) {
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    typeof key === "string" ? encoder.encode(key) : key,
+    { name: "HMAC", hash: { name: "SHA-256" } },
+    false,
+    ["sign"]
+  );
+  return crypto.subtle.sign("HMAC", cryptoKey, encoder.encode(string));
+}
+async function hash(content) {
+  return crypto.subtle.digest("SHA-256", typeof content === "string" ? encoder.encode(content) : content);
+}
+var HEX_CHARS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f"];
+function buf2hex(arrayBuffer) {
+  const buffer = new Uint8Array(arrayBuffer);
+  let out = "";
+  for (let idx = 0; idx < buffer.length; idx++) {
+    const n = buffer[idx];
+    out += HEX_CHARS[n >>> 4 & 15];
+    out += HEX_CHARS[n & 15];
+  }
+  return out;
+}
+function encodeRfc3986(urlEncodedStr) {
+  return urlEncodedStr.replace(/[!'()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase());
+}
+function guessServiceRegion(url, headers) {
+  const { hostname, pathname } = url;
+  if (hostname.endsWith(".on.aws")) {
+    const match2 = hostname.match(/^[^.]{1,63}\.lambda-url\.([^.]{1,63})\.on\.aws$/);
+    return match2 != null ? ["lambda", match2[1] || ""] : ["", ""];
+  }
+  if (hostname.endsWith(".r2.cloudflarestorage.com")) {
+    return ["s3", "auto"];
+  }
+  if (hostname.endsWith(".backblazeb2.com")) {
+    const match2 = hostname.match(/^(?:[^.]{1,63}\.)?s3\.([^.]{1,63})\.backblazeb2\.com$/);
+    return match2 != null ? ["s3", match2[1] || ""] : ["", ""];
+  }
+  const match = hostname.replace("dualstack.", "").match(/([^.]{1,63})\.(?:([^.]{0,63})\.)?amazonaws\.com(?:\.cn)?$/);
+  let service = match && match[1] || "";
+  let region = match && match[2];
+  if (region === "us-gov") {
+    region = "us-gov-west-1";
+  } else if (region === "s3" || region === "s3-accelerate") {
+    region = "us-east-1";
+    service = "s3";
+  } else if (service === "iot") {
+    if (hostname.startsWith("iot.")) {
+      service = "execute-api";
+    } else if (hostname.startsWith("data.jobs.iot.")) {
+      service = "iot-jobs-data";
+    } else {
+      service = pathname === "/mqtt" ? "iotdevicegateway" : "iotdata";
+    }
+  } else if (service === "autoscaling") {
+    const targetPrefix = (headers.get("X-Amz-Target") || "").split(".")[0];
+    if (targetPrefix === "AnyScaleFrontendService") {
+      service = "application-autoscaling";
+    } else if (targetPrefix === "AnyScaleScalingPlannerFrontendService") {
+      service = "autoscaling-plans";
+    }
+  } else if (region == null && service.startsWith("s3-")) {
+    region = service.slice(3).replace(/^fips-|^external-1/, "");
+    service = "s3";
+  } else if (service.endsWith("-fips")) {
+    service = service.slice(0, -5);
+  } else if (region && /-\d$/.test(service) && !/-\d$/.test(region)) {
+    [service, region] = [region, service];
+  }
+  return [HOST_SERVICES[service] || service, region || ""];
+}
+
+async function toBytes2(body) {
+  if (body instanceof Uint8Array) return body;
+  if (body instanceof ArrayBuffer) return new Uint8Array(body);
+  if (typeof body === "string") return new TextEncoder().encode(body);
+  return new Uint8Array(await new Response(body).arrayBuffer());
+}
+function xml1(s, tag) {
+  const m = s.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">"));
+  return m ? m[1] : null;
+}
+function xmlBlocks(s, tag) {
+  const out = [];
+  const re = new RegExp("<" + tag + ">([\\s\\S]*?)</" + tag + ">", "g");
+  let m;
+  while ((m = re.exec(s)) !== null) out.push(m[1]);
+  return out;
+}
+function makeS3Blob({ endpoint, bucket, accessKeyId, secretAccessKey, region = "us-east-1" }) {
+  if (!endpoint || !bucket || !accessKeyId || !secretAccessKey) {
+    throw new Error("makeS3Blob: needs endpoint, bucket, accessKeyId, secretAccessKey");
+  }
+  const aws = new AwsClient({ accessKeyId, secretAccessKey, region, service: "s3" });
+  const base = endpoint.replace(/\/+$/, "") + "/" + encodeURIComponent(bucket);
+  const objUrl = (key) => base + "/" + key.split("/").map(encodeURIComponent).join("/");
+  return {
+    // _opts ignored on S3: the container leg uses Redis (not blob metadata) for
+    // reclaim, so customMetadata is never threaded; TTL is store lifecycle, not per-key.
+    async createUpload(key, _opts = {}) {
+      const r = await aws.fetch(objUrl(key) + "?uploads=", { method: "POST" });
+      const txt = await r.text();
+      if (!r.ok) throw new Error("S3 createUpload " + r.status + " " + txt.slice(0, 200));
+      return { uploadId: xml1(txt, "UploadId") };
+    },
+    async uploadPart(key, uploadId, n, body) {
+      const url = objUrl(key) + "?partNumber=" + n + "&uploadId=" + encodeURIComponent(uploadId);
+      const r = await aws.fetch(url, { method: "PUT", body: await toBytes2(body) });
+      if (!r.ok) throw new Error("S3 uploadPart " + r.status + " " + (await r.text()).slice(0, 200));
+      return { partNumber: n, etag: r.headers.get("etag") };
+    },
+    async completeUpload(key, uploadId, parts, _opts = {}) {
+      const xml = "<CompleteMultipartUpload>" + parts.map((p) => "<Part><PartNumber>" + p.partNumber + "</PartNumber><ETag>" + p.etag + "</ETag></Part>").join("") + "</CompleteMultipartUpload>";
+      const r = await aws.fetch(objUrl(key) + "?uploadId=" + encodeURIComponent(uploadId), { method: "POST", body: xml });
+      const txt = await r.text();
+      if (!r.ok || txt.includes("<Error>")) throw new Error("S3 completeUpload " + r.status + " " + txt.slice(0, 200));
+      return { key };
+    },
+    async abortUpload(key, uploadId) {
+      await aws.fetch(objUrl(key) + "?uploadId=" + encodeURIComponent(uploadId), { method: "DELETE" });
+    },
+    async put(key, body, _opts = {}) {
+      const r = await aws.fetch(objUrl(key), { method: "PUT", body: await toBytes2(body) });
+      if (!r.ok) throw new Error("S3 put " + r.status);
+    },
+    async get(key) {
+      const r = await aws.fetch(objUrl(key), { method: "GET" });
+      if (r.status === 404) return null;
+      if (!r.ok) throw new Error("S3 get " + r.status);
+      return r.body;
+    },
+    async delete(key) {
+      const r = await aws.fetch(objUrl(key), { method: "DELETE" });
+      if (!r.ok && r.status !== 404) throw new Error("S3 delete " + r.status);
+    },
+    async list(opts = {}) {
+      const url = base + "?list-type=2&prefix=" + encodeURIComponent(opts.prefix || "") + (opts.cursor ? "&continuation-token=" + encodeURIComponent(opts.cursor) : "") + "&max-keys=" + (opts.limit || 1e3);
+      const r = await aws.fetch(url, { method: "GET" });
+      const txt = await r.text();
+      if (!r.ok) throw new Error("S3 list " + r.status + " " + txt.slice(0, 200));
+      const objects = [];
+      for (const block of xmlBlocks(txt, "Contents")) {
+        const key = xml1(block, "Key");
+        if (key == null) continue;
+        const sizeStr = xml1(block, "Size");
+        objects.push({ key, customMetadata: void 0, size: sizeStr == null ? void 0 : Number(sizeStr) });
+      }
+      const trunc = /<IsTruncated>\s*true\s*<\/IsTruncated>/i.test(txt);
+      const next = xml1(txt, "NextContinuationToken");
+      return { objects, cursor: trunc ? next : null, truncated: trunc };
+    }
+  };
+}
+
+var CF_KV_VALUE_MAX2 = 26214400;
+var KV_SLAB_MAX = 5;
+var KV_FILE_CAP = Math.min(TOTAL_MAX, KV_SLAB_MAX * PART_SIZE);
+var OBJ_FILE_CAP = MAX_PARTS * PART_SIZE;
+var NO_TOTAL_CAP = Number.MAX_SAFE_INTEGER;
+function resolveBlob(env) {
+  const bos = env.BOS;
+  if (bos && typeof bos === "object" && typeof bos.createMultipartUpload === "function") {
+    return { blob: makeR2Blob({ bucket: bos }), kind: "r2", maxFileBytes: OBJ_FILE_CAP, maxTotalBytes: NO_TOTAL_CAP };
+  }
+  if (typeof bos === "string" && bos.trim()) {
+    const u = new URL(bos.trim());
+    return {
+      kind: "s3",
+      maxFileBytes: OBJ_FILE_CAP,
+      maxTotalBytes: NO_TOTAL_CAP,
+      blob: makeS3Blob({
+        endpoint: `${u.protocol}//${u.host}`,
+        bucket: u.pathname.replace(/^\/+|\/+$/g, ""),
+        accessKeyId: decodeURIComponent(u.username),
+        secretAccessKey: decodeURIComponent(u.password),
+        region: u.searchParams.get("region") || "us-east-1"
+      })
+    };
+  }
+  return {
+    kind: "kv-slab",
+    maxFileBytes: KV_FILE_CAP,
+    maxTotalBytes: TOTAL_MAX,
+    blob: makeKvSlabBlob({
+      store: env.DATA,
+      prefix: "b",
+      maxBlobBytes: KV_FILE_CAP,
+      cfKvValueMax: CF_KV_VALUE_MAX2,
+      maxSlabs: KV_SLAB_MAX,
+      pendingTtl: RESERVE_TTL
+    })
+  };
+}
+
+function s3FromBos(bos) {
+  if (typeof bos !== "string" || !bos.trim()) return null;
+  let u;
+  try {
+    u = new URL(bos.trim());
+  } catch {
+    return null;
+  }
+  return {
+    endpoint: `${u.protocol}//${u.host}`,
+    aws: new AwsClient({
+      accessKeyId: decodeURIComponent(u.username),
+      secretAccessKey: decodeURIComponent(u.password),
+      region: u.searchParams.get("region") || "us-east-1",
+      service: "s3"
+    })
+  };
+}
+async function getStorageInfo(env) {
+  if (!env || !env.__selfHost) return null;
+  const s3 = s3FromBos(env.BOS);
+  if (!s3) return null;
+  try {
+    const r = await s3.aws.fetch(s3.endpoint + "/minio/admin/v3/info", { method: "GET" });
+    if (!r.ok) return null;
+    const j = await r.json();
+    let total = 0, available = 0;
+    for (const srv of j.servers || []) {
+      for (const d of srv.drives || []) {
+        if (d.state && d.state !== "ok") continue;
+        total += Number(d.totalspace || 0);
+        available += Number(d.availspace != null ? d.availspace : d.availablespace || 0);
+      }
+    }
+    if (!(total > 0)) return null;
+    const used = Math.max(0, total - available);
+    return { total, available, used };
+  } catch {
+    return null;
+  }
+}
+
 var { json: json3 } = makeResponseHelpers({ cors: "*", prettyJson: true, htmlCache: "no-store" });
-var upload = makeUploadModule({
-  chunkSize: CHUNK_SIZE,
-  totalMax: TOTAL_MAX,
-  fileNameMax: FILE_NAME_MAX,
-  fileMimeMax: FILE_MIME_MAX
-});
+var SLUG_RE = /^[a-zA-Z0-9]{3,10}$/;
+var partCountFor = (size) => Math.max(1, Math.ceil(size / PART_SIZE));
+async function checkContainerSpace(env, addBytes) {
+  if (!env.__selfHost) return null;
+  const info = await getStorageInfo(env);
+  if (!info || !(info.available >= 0)) return null;
+  if (addBytes > info.available) {
+    return json3({ error: "STORAGE_FULL", available: info.available, needed: addBytes }, 507);
+  }
+  return null;
+}
+function planFiles(filesIn, { slug, startId, maxFileBytes }) {
+  const out = [];
+  let id = startId;
+  let totalBytes = 0;
+  for (const f of filesIn) {
+    const name = String(f && f.name || "").trim().slice(0, FILE_NAME_MAX);
+    const mime = String(f && f.mime || "application/octet-stream").trim().slice(0, FILE_MIME_MAX);
+    const size = Math.floor(Number(f && f.size));
+    if (!name) return { error: "FILE_NAME_REQUIRED" };
+    if (!Number.isFinite(size) || size < 0) return { error: "FILE_SIZE_INVALID" };
+    if (size > maxFileBytes) return { error: "FILE_TOO_BIG", name };
+    const fid = id++;
+    out.push({ id: fid, name, size, mime, blobKey: slug + "/" + fid, partCount: partCountFor(size) });
+    totalBytes += size;
+  }
+  return { files: out, nextId: id, totalBytes };
+}
+async function startUploads(blob, files, expHint) {
+  const customMetadata = { exp: String(expHint || 0) };
+  for (const f of files) {
+    if (f.partCount > 1) f.uploadId = (await blob.createUpload(f.blobKey, { customMetadata })).uploadId;
+  }
+}
+var clientPlan = (files) => files.map((f) => ({ id: f.id, name: f.name, size: f.size, partCount: f.partCount }));
 async function handleUploadReserve(request, env, url) {
   const auth = await checkAuth(request, env);
   if (auth instanceof Response) return auth;
@@ -1609,7 +2187,7 @@ async function handleUploadReserve(request, env, url) {
     return json3({ error: "INVALID_JSON" }, 400);
   }
   const customSlug = (body.slug || "").trim();
-  const validCustomSlug = customSlug && /^[a-zA-Z0-9]{3,10}$/.test(customSlug);
+  const validCustomSlug = customSlug && SLUG_RE.test(customSlug);
   const filesIn = Array.isArray(body.files) ? body.files : [];
   const removedFileIds = Array.isArray(body.removedFileIds) ? body.removedFileIds.map((x) => Math.floor(Number(x))).filter((n) => !isNaN(n)) : [];
   let existingEntry = null;
@@ -1618,6 +2196,7 @@ async function handleUploadReserve(request, env, url) {
     if (raw) existingEntry = JSON.parse(raw);
   }
   const isModify = existingEntry && existingEntry.type === "files";
+  const { blob, maxFileBytes, maxTotalBytes } = resolveBlob(env);
   if (isModify) {
     if (existingEntry.pending) return json3({ error: "SLUG_IN_USE" }, 409);
     if (existingEntry.uploadToken) return json3({ error: "UPLOAD_IN_PROGRESS" }, 409);
@@ -1625,9 +2204,7 @@ async function handleUploadReserve(request, env, url) {
     if (!isAdmin) {
       if (!password) return json3({ error: "VERIFY_FAILED" }, 403);
       const pwHash2 = await hashPassword(password);
-      if (!await safeEqual(existingEntry.pwHash, pwHash2)) {
-        return json3({ error: "VERIFY_FAILED" }, 403);
-      }
+      if (!await safeEqual(existingEntry.pwHash, pwHash2)) return json3({ error: "VERIFY_FAILED" }, 403);
       const rl = await checkRateLimit(env, request);
       if (rl instanceof Response) return rl;
       await incrementRateLimit(env, rl.key, rl.data);
@@ -1636,29 +2213,26 @@ async function handleUploadReserve(request, env, url) {
     for (const id of removedFileIds) {
       if (!existingIds.has(id)) return json3({ error: "UNKNOWN_FILE_ID", id }, 400);
     }
-    const sessionStart = (existingEntry.committedChunkEnd || 0) * upload.chunkSize;
-    const plan2 = upload.planFiles(filesIn, {
-      startOffset: sessionStart,
-      startId: existingEntry.nextFileId || 0
-    });
-    if (plan2.error) return json3({ error: plan2.error }, 400);
+    const plan2 = planFiles(filesIn, { slug: customSlug, startId: existingEntry.nextFileId || 0, maxFileBytes });
+    if (plan2.error) return json3(plan2, 400);
     const keptFiles = (existingEntry.files || []).filter((f) => !removedFileIds.includes(f.id));
-    const projectedTotal = keptFiles.reduce((s, f) => s + f.size, 0) + plan2.sessionBytes;
-    if (projectedTotal > upload.totalMax) return json3({ error: "TOTAL_TOO_BIG" }, 400);
-    if (keptFiles.length === 0 && plan2.files.length === 0) {
-      return json3({ error: "MODIFY_REMOVES_ALL" }, 400);
-    }
+    const projectedTotal = keptFiles.reduce((s, f) => s + f.size, 0) + plan2.totalBytes;
+    if (projectedTotal > maxTotalBytes) return json3({ error: "TOTAL_TOO_BIG", max: maxTotalBytes }, 400);
+    const modifySpaceErr = await checkContainerSpace(env, plan2.totalBytes);
+    if (modifySpaceErr) return modifySpaceErr;
+    if (keptFiles.length === 0 && plan2.files.length === 0) return json3({ error: "MODIFY_REMOVES_ALL" }, 400);
     const nowSec2 = Math.floor(Date.now() / 1e3);
     const meta2 = await applyMetadataFields(body, existingEntry, env, nowSec2);
     if (meta2.error) return json3({ error: meta2.error }, 400);
     if (keptFiles.length + plan2.files.length > 1) normalizeMultifile(meta2.fields);
+    const expAt2 = meta2.fields.expiresAt && meta2.fields.expiresAt > 0 ? meta2.fields.expiresAt : 0;
+    await startUploads(blob, plan2.files, expAt2);
     const uploadToken2 = generateUploadToken();
     const updated = clean({
       ...existingEntry,
       nextFileId: plan2.nextId,
       pendingAdds: plan2.files.length ? plan2.files : void 0,
       pendingRemoveIds: removedFileIds.length ? removedFileIds : void 0,
-      pendingSession: { sessionStart, sessionBytes: plan2.sessionBytes },
       pendingMeta: meta2.fields,
       pendingWarns: meta2.warnings.length ? meta2.warnings : void 0,
       pendingResetPw: body.resetPassword === true ? true : void 0,
@@ -1670,9 +2244,8 @@ async function handleUploadReserve(request, env, url) {
       slug: customSlug,
       uploadKey: customSlug,
       uploadToken: uploadToken2,
-      chunkSize: upload.chunkSize,
-      chunks: upload.sessionChunkPlan(sessionStart, plan2.sessionBytes),
-      files: plan2.files,
+      partSize: PART_SIZE,
+      files: clientPlan(plan2.files),
       short_url: getBaseUrl(env, url) + customSlug
     });
   }
@@ -1698,9 +2271,11 @@ async function handleUploadReserve(request, env, url) {
     } while (await env.DATA.get(newSlug) !== null && tries < 5);
     if (await env.DATA.get(newSlug) !== null) return json3({ error: "SLUG_COLLISION" }, 500);
   }
-  const plan = upload.planFiles(filesIn, { startOffset: 0, startId: 0 });
-  if (plan.error) return json3({ error: plan.error }, 400);
-  if (plan.sessionBytes > upload.totalMax) return json3({ error: "TOTAL_TOO_BIG" }, 400);
+  const plan = planFiles(filesIn, { slug: newSlug, startId: 0, maxFileBytes });
+  if (plan.error) return json3(plan, 400);
+  if (plan.totalBytes > maxTotalBytes) return json3({ error: "TOTAL_TOO_BIG", max: maxTotalBytes }, 400);
+  const createSpaceErr = await checkContainerSpace(env, plan.totalBytes);
+  if (createSpaceErr) return createSpaceErr;
   const nowSec = Math.floor(Date.now() / 1e3);
   const meta = await applyMetadataFields(body, null, env, nowSec);
   if (meta.error) return json3({ error: meta.error }, 400);
@@ -1710,16 +2285,16 @@ async function handleUploadReserve(request, env, url) {
   const pwHash = await hashPassword(generatedPassword);
   const uploadToken = generateUploadToken();
   const now = (/* @__PURE__ */ new Date()).toISOString();
+  const expAt = meta.fields.expiresAt && meta.fields.expiresAt > 0 ? meta.fields.expiresAt : 0;
+  await startUploads(blob, plan.files, expAt);
   const newEntry = clean({
     type: "files",
     files: [],
     nextFileId: plan.nextId,
-    totalSize: plan.sessionBytes,
-    committedChunkEnd: 0,
+    totalSize: plan.totalBytes,
     pending: true,
     uploadToken,
     pendingAdds: plan.files,
-    pendingSession: { sessionStart: 0, sessionBytes: plan.sessionBytes },
     pwHash,
     ...meta.fields,
     createdAt: now,
@@ -1731,9 +2306,8 @@ async function handleUploadReserve(request, env, url) {
     slug: newSlug,
     uploadKey: newSlug,
     uploadToken,
-    chunkSize: upload.chunkSize,
-    chunks: upload.sessionChunkPlan(0, plan.sessionBytes),
-    files: plan.files,
+    partSize: PART_SIZE,
+    files: clientPlan(plan.files),
     short_url: getBaseUrl(env, url) + newSlug,
     password: generatedPassword
   };
@@ -1741,61 +2315,90 @@ async function handleUploadReserve(request, env, url) {
   else if (warnings.length > 1) resp.warn = warnings;
   return json3(resp, 201);
 }
-async function handleUploadChunk(request, env, url, slug) {
-  if (!slug || !/^[a-zA-Z0-9]{3,10}$/.test(slug)) {
-    return json3({ error: "INVALID_SLUG" }, 400);
-  }
+async function loadPending(request, env, slug) {
+  if (!SLUG_RE.test(slug || "")) return { err: json3({ error: "INVALID_SLUG" }, 400) };
   const token = request.headers.get("X-Upload") || "";
-  const chunkIdxStr = url.searchParams.get("c");
-  const chunkIdx = Math.floor(Number(chunkIdxStr));
-  if (!Number.isFinite(chunkIdx) || chunkIdx < 0) {
-    return json3({ error: "INVALID_CHUNK_INDEX" }, 400);
-  }
   const raw = await env.DATA.get(slug);
-  if (!raw) return json3({ error: "NOT_FOUND" }, 404);
+  if (!raw) return { err: json3({ error: "NOT_FOUND" }, 404) };
   const entry = JSON.parse(raw);
-  if (entry.type !== "files") return json3({ error: "NOT_FILE_SLUG" }, 400);
+  if (entry.type !== "files") return { err: json3({ error: "NOT_FILE_SLUG" }, 400) };
   if (!entry.uploadToken || !await safeEqual(entry.uploadToken, token)) {
-    return json3({ error: "UPLOAD_TOKEN_INVALID" }, 403);
+    return { err: json3({ error: "UPLOAD_TOKEN_INVALID" }, 403) };
   }
-  const ps = entry.pendingSession;
-  if (!ps) return json3({ error: "NO_PENDING_SESSION" }, 400);
-  const expected = upload.expectedChunkSize(chunkIdx, ps.sessionStart, ps.sessionBytes);
-  if (expected === null) return json3({ error: "CHUNK_OUT_OF_RANGE" }, 400);
-  const buf = await request.arrayBuffer();
-  const effTtl = entry.ttl > 0 ? Math.max(entry.ttl, RESERVE_TTL) : void 0;
-  const r = await upload.writeChunk(env.DATA, slug, chunkIdx, buf, {
-    expectedSize: expected,
-    ttl: effTtl
-  });
-  if (r.error) return json3(r, 400);
+  return { entry };
+}
+async function handleUploadPart(request, env, url, slug) {
+  const { entry, err } = await loadPending(request, env, slug);
+  if (err) return err;
+  const fileId = Math.floor(Number(url.searchParams.get("f")));
+  const n = Math.floor(Number(url.searchParams.get("n")));
+  if (!Number.isInteger(fileId) || !Number.isInteger(n) || n < 1) return json3({ error: "INVALID_PART" }, 400);
+  const f = (entry.pendingAdds || []).find((x) => x.id === fileId);
+  if (!f) return json3({ error: "UNKNOWN_FILE_ID" }, 400);
+  if (f.partCount <= 1 || !f.uploadId) return json3({ error: "NOT_MULTIPART_FILE" }, 400);
+  if (n > f.partCount) return json3({ error: "PART_OUT_OF_RANGE" }, 400);
+  const { blob } = resolveBlob(env);
+  const r = await blob.uploadPart(f.blobKey, f.uploadId, n, await request.arrayBuffer());
+  return json3({ partNumber: n, etag: r.etag });
+}
+async function handleUploadPut(request, env, url, slug) {
+  const { entry, err } = await loadPending(request, env, slug);
+  if (err) return err;
+  const fileId = Math.floor(Number(url.searchParams.get("f")));
+  if (!Number.isInteger(fileId)) return json3({ error: "INVALID_PART" }, 400);
+  const f = (entry.pendingAdds || []).find((x) => x.id === fileId);
+  if (!f) return json3({ error: "UNKNOWN_FILE_ID" }, 400);
+  if (f.partCount > 1) return json3({ error: "NOT_SINGLE_FILE" }, 400);
+  const expAt = entry.pendingMeta && entry.pendingMeta.expiresAt || entry.expiresAt || 0;
+  const { blob, kind } = resolveBlob(env);
+  const opts = { customMetadata: { exp: String(expAt) } };
+  if (kind === "kv-slab") opts.ttl = RESERVE_TTL;
+  await blob.put(f.blobKey, await request.arrayBuffer(), opts);
   return json3({ ok: true });
 }
 async function handleUploadCommit(request, env, url, slug) {
-  if (!slug || !/^[a-zA-Z0-9]{3,10}$/.test(slug)) {
-    return json3({ error: "INVALID_SLUG" }, 400);
+  const { entry, err } = await loadPending(request, env, slug);
+  if (err) return err;
+  let input = {};
+  try {
+    input = await request.json();
+  } catch {
   }
-  const token = request.headers.get("X-Upload") || "";
-  const raw = await env.DATA.get(slug);
-  if (!raw) return json3({ error: "NOT_FOUND" }, 404);
-  const entry = JSON.parse(raw);
-  if (entry.type !== "files") return json3({ error: "NOT_FILE_SLUG" }, 400);
-  if (!entry.uploadToken || !await safeEqual(entry.uploadToken, token)) {
-    return json3({ error: "UPLOAD_TOKEN_INVALID" }, 403);
-  }
-  const ps = entry.pendingSession;
-  if (!ps) return json3({ error: "NO_PENDING_SESSION" }, 400);
-  const range = upload.sessionChunks(ps.sessionStart, ps.sessionBytes);
-  if (range) {
-    const missing = await upload.verifyAllChunks(env.DATA, slug, range.firstChunk, range.lastChunk);
-    if (missing.length) return json3({ error: "COMMIT_INCOMPLETE", missing }, 400);
-  }
+  const clientFiles = Array.isArray(input.files) ? input.files : [];
+  const partsById = new Map(clientFiles.map((cf) => [Math.floor(Number(cf.id)), Array.isArray(cf.parts) ? cf.parts : []]));
+  const { blob, kind } = resolveBlob(env);
   const pendingAdds = entry.pendingAdds || [];
+  const nowSec = Math.floor(Date.now() / 1e3);
+  const stashedMeta = entry.pendingMeta || null;
+  const ttlSource = stashedMeta ? { ttl: stashedMeta.ttl, expiresAt: stashedMeta.expiresAt } : { ttl: entry.ttl || 0, expiresAt: entry.expiresAt || 0 };
+  const finalExpiresAt = ttlSource.expiresAt && ttlSource.expiresAt > 0 ? ttlSource.expiresAt : 0;
+  const slabTtl = finalExpiresAt > nowSec ? Math.max(60, finalExpiresAt - nowSec) : 0;
+  const cm = { customMetadata: { exp: String(finalExpiresAt) } };
+  for (const f of pendingAdds) {
+    if (f.partCount <= 1) continue;
+    const parts = (partsById.get(f.id) || []).map((p) => ({ partNumber: Math.floor(Number(p.partNumber)), etag: String(p.etag || "") })).filter((p) => Number.isInteger(p.partNumber) && p.etag).sort((a, b) => a.partNumber - b.partNumber);
+    if (parts.length !== f.partCount) {
+      return json3({ error: "COMMIT_INCOMPLETE", id: f.id, expected: f.partCount, got: parts.length }, 400);
+    }
+    await blob.completeUpload(f.blobKey, f.uploadId, parts, { ttl: slabTtl, ...cm });
+  }
+  if (kind === "kv-slab") {
+    for (const f of pendingAdds) {
+      if (f.partCount > 1) continue;
+      await blob.completeUpload(f.blobKey, f.blobKey, [], { ttl: slabTtl, ...cm });
+    }
+  }
   const pendingRemoveIds = entry.pendingRemoveIds || [];
+  for (const rf of (entry.files || []).filter((x) => pendingRemoveIds.includes(x.id))) {
+    try {
+      await blob.delete(rf.blobKey);
+    } catch {
+    }
+  }
   const keptFiles = (entry.files || []).filter((f) => !pendingRemoveIds.includes(f.id));
-  const newFiles = keptFiles.concat(pendingAdds);
+  const addedFiles = pendingAdds.map((f) => ({ id: f.id, name: f.name, size: f.size, mime: f.mime, blobKey: f.blobKey }));
+  const newFiles = keptFiles.concat(addedFiles);
   const newTotalSize = newFiles.reduce((s, f) => s + f.size, 0);
-  const newCommittedChunkEnd = upload.nextSessionStart(ps.sessionStart + ps.sessionBytes) / upload.chunkSize;
   const {
     pending: _p,
     uploadToken: _u,
@@ -1804,13 +2407,11 @@ async function handleUploadCommit(request, env, url, slug) {
     pendingMeta: _pm,
     pendingWarns: _pw,
     pendingResetPw: _prp,
-    pendingSession: _ps,
     expiresAt: _exa,
     hits: _hX,
     ...rest
   } = entry;
   const isCreateCommit = !!entry.pending;
-  const stashedMeta = entry.pendingMeta || null;
   if (stashedMeta && newFiles.length > 1) normalizeMultifile(stashedMeta);
   let newPassword = null;
   const pwOverride = {};
@@ -1824,11 +2425,8 @@ async function handleUploadCommit(request, env, url, slug) {
     ...pwOverride,
     files: newFiles,
     totalSize: newTotalSize,
-    committedChunkEnd: newCommittedChunkEnd,
     updatedAt: isCreateCommit ? null : (/* @__PURE__ */ new Date()).toISOString()
   });
-  const nowSec = Math.floor(Date.now() / 1e3);
-  const ttlSource = stashedMeta ? { ttl: stashedMeta.ttl, expiresAt: stashedMeta.expiresAt } : { ttl: entry.ttl || 0, expiresAt: entry.expiresAt || 0 };
   await env.DATA.put(slug, JSON.stringify(finalEntry), computeKvPutOpts(ttlSource, nowSec));
   const resp = {
     ok: true,
@@ -1842,6 +2440,338 @@ async function handleUploadCommit(request, env, url, slug) {
   if (warns.length === 1) resp.warn = warns[0];
   else if (warns.length > 1) resp.warn = warns;
   return json3(resp);
+}
+
+async function runReclaim(env, { full = false, cursor = null, maxKeys = 400 } = {}) {
+  const { blob } = resolveBlob(env);
+  const nowSec = Math.floor(Date.now() / 1e3);
+  const aliveCache = /* @__PURE__ */ new Map();
+  let scanned = 0, deleted = 0, scannedThisCall = 0;
+  let cur = cursor;
+  let done = false;
+  while (scannedThisCall < maxKeys) {
+    const page = await blob.list({
+      prefix: "",
+      cursor: cur,
+      limit: Math.min(1e3, maxKeys - scannedThisCall)
+    });
+    for (const obj of page.objects || []) {
+      scanned++;
+      scannedThisCall++;
+      const slug = String(obj.key).split("/")[0];
+      if (!slug) continue;
+      if (!full && !env.__selfHost) {
+        const exp = obj.customMetadata && obj.customMetadata.exp;
+        if (exp != null && Number(exp) > nowSec) continue;
+      }
+      let alive;
+      if (aliveCache.has(slug)) {
+        alive = aliveCache.get(slug);
+      } else {
+        alive = await env.DATA.get(slug) !== null;
+        aliveCache.set(slug, alive);
+      }
+      if (alive) continue;
+      try {
+        await blob.delete(obj.key);
+        deleted++;
+      } catch (e) {
+        console.error("reclaim delete", obj.key, e && e.message || e);
+      }
+    }
+    cur = page.cursor;
+    if (!page.truncated || cur == null) {
+      done = true;
+      break;
+    }
+  }
+  return { scanned, deleted, cursor: done ? null : cur, done };
+}
+
+var enc = new TextEncoder();
+var dec = new TextDecoder();
+var META_PREFIX = "\0kvmeta\0";
+function toBytes3(value) {
+  if (typeof value === "string") return enc.encode(value);
+  if (value instanceof Uint8Array) return value;
+  if (value instanceof ArrayBuffer) return new Uint8Array(value);
+  if (ArrayBuffer.isView(value)) {
+    return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  }
+  return enc.encode(typeof value === "object" ? JSON.stringify(value) : String(value));
+}
+function readType(typeOrOpts) {
+  if (typeof typeOrOpts === "string") return typeOrOpts;
+  if (typeOrOpts && typeof typeOrOpts === "object") return typeOrOpts.type || "text";
+  return "text";
+}
+function isComplete(cursor) {
+  return cursor === "" || cursor === "0" || cursor == null;
+}
+function makeKvBinding({ driver } = {}) {
+  if (!driver || typeof driver.get !== "function") {
+    throw new Error("kv-adapter: makeKvBinding needs a driver with get/set/del/scan");
+  }
+  async function get(key, typeOrOpts) {
+    const bytes = await driver.get(key);
+    if (bytes == null) return null;
+    const type = readType(typeOrOpts);
+    if (type === "arrayBuffer") {
+      return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    }
+    const str = dec.decode(bytes);
+    if (type === "json") {
+      try {
+        return JSON.parse(str);
+      } catch {
+        return null;
+      }
+    }
+    return str;
+  }
+  async function put(key, value, opts = {}) {
+    const ttl = opts && Number(opts.expirationTtl) || 0;
+    await driver.set(key, toBytes3(value), ttl > 0 ? ttl : 0);
+    if (opts && opts.metadata != null) {
+      await driver.set(META_PREFIX + key, enc.encode(JSON.stringify(opts.metadata)), ttl > 0 ? ttl : 0);
+    }
+  }
+  async function del(key) {
+    await driver.del(key);
+    await driver.del(META_PREFIX + key);
+  }
+  async function list({ prefix = "", cursor = "", limit = 1e3 } = {}) {
+    const r = await driver.scan(prefix, cursor || "", limit);
+    const rawNames = Array.isArray(r && r.names) ? r.names : [];
+    const names = rawNames.filter((n) => !n.startsWith(META_PREFIX));
+    const keys = [];
+    for (const name of names) {
+      const entry = { name };
+      const metaBytes = await driver.get(META_PREFIX + name);
+      if (metaBytes != null) {
+        try {
+          entry.metadata = JSON.parse(dec.decode(metaBytes));
+        } catch {
+        }
+      }
+      keys.push(entry);
+    }
+    const next = r && r.cursor;
+    const complete = isComplete(next);
+    const out = { keys, list_complete: complete };
+    if (!complete) out.cursor = next;
+    return out;
+  }
+  return { get, put, delete: del, list };
+}
+
+import { connect } from "cloudflare:sockets";
+
+var enc2 = new TextEncoder();
+var dec2 = new TextDecoder();
+var CRLF = enc2.encode("\r\n");
+function encodeCommand(args) {
+  const parts = [enc2.encode("*" + args.length + "\r\n")];
+  for (const a of args) {
+    const bytes = a instanceof Uint8Array ? a : enc2.encode(String(a));
+    parts.push(enc2.encode("$" + bytes.byteLength + "\r\n"));
+    parts.push(bytes);
+    parts.push(CRLF);
+  }
+  let total = 0;
+  for (const p of parts) total += p.byteLength;
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const p of parts) {
+    out.set(p, off);
+    off += p.byteLength;
+  }
+  return out;
+}
+function makeByteReader(reader) {
+  let chunks = [];
+  let head = 0;
+  let avail = 0;
+  async function pull() {
+    const { value, done } = await reader.read();
+    if (done) throw new Error("redis: connection closed");
+    chunks.push(value);
+    avail += value.byteLength;
+  }
+  function readByteSync() {
+    const c = chunks[0];
+    const b = c[head++];
+    avail--;
+    if (head >= c.byteLength) {
+      chunks.shift();
+      head = 0;
+    }
+    return b;
+  }
+  async function readN(n) {
+    while (avail < n) await pull();
+    const out = new Uint8Array(n);
+    let written = 0;
+    while (written < n) {
+      const c = chunks[0];
+      const take = Math.min(c.byteLength - head, n - written);
+      out.set(c.subarray(head, head + take), written);
+      written += take;
+      head += take;
+      avail -= take;
+      if (head >= c.byteLength) {
+        chunks.shift();
+        head = 0;
+      }
+    }
+    return out;
+  }
+  async function readLine() {
+    const bytes = [];
+    for (; ; ) {
+      while (avail < 1) await pull();
+      const b = readByteSync();
+      if (b === 13) {
+        while (avail < 1) await pull();
+        readByteSync();
+        return Uint8Array.from(bytes);
+      }
+      bytes.push(b);
+    }
+  }
+  return { readN, readLine };
+}
+async function parseReply(br) {
+  const line = await br.readLine();
+  const type = line[0];
+  const rest = dec2.decode(line.subarray(1));
+  switch (type) {
+    case 43:
+      return { status: rest };
+    case 45:
+      throw new Error("redis: " + rest);
+    case 58:
+      return Number(rest);
+    case 36: {
+      const len = Number(rest);
+      if (len < 0) return null;
+      const data = await br.readN(len);
+      await br.readN(2);
+      return data;
+    }
+    case 42: {
+      const count = Number(rest);
+      if (count < 0) return null;
+      const arr = [];
+      for (let i = 0; i < count; i++) arr.push(await parseReply(br));
+      return arr;
+    }
+    default:
+      throw new Error("redis: bad reply type 0x" + (type || 0).toString(16));
+  }
+}
+
+var dec3 = new TextDecoder();
+function escapeGlob(s) {
+  return String(s).replace(/[\\*?[\]]/g, (c) => "\\" + c);
+}
+function parseConn({ url, hostname, port, password, db } = {}) {
+  let tls = false;
+  if (url) {
+    const u = new URL(url);
+    tls = u.protocol === "rediss:";
+    hostname = hostname || u.hostname;
+    port = port || (u.port ? Number(u.port) : 6379);
+    password = password || (u.password ? decodeURIComponent(u.password) : "");
+    const path = u.pathname.replace(/^\//, "");
+    if (db == null && path) db = Number(path);
+  }
+  return {
+    hostname: hostname || "localhost",
+    port: port || 6379,
+    password: password || "",
+    db: db || 0,
+    tls
+  };
+}
+function makeRedisDriver(config = {}) {
+  const conn = parseConn(config);
+  const keyPrefix = config.keyPrefix || "";
+  let socket = null;
+  let writer = null;
+  let br = null;
+  let chain = Promise.resolve();
+  async function open() {
+    socket = connect(
+      { hostname: conn.hostname, port: conn.port },
+      conn.tls ? { secureTransport: "on" } : void 0
+    );
+    writer = socket.writable.getWriter();
+    br = makeByteReader(socket.readable.getReader());
+    if (conn.password) await rawCommand(["AUTH", conn.password]);
+    if (conn.db) await rawCommand(["SELECT", String(conn.db)]);
+  }
+  async function rawCommand(args) {
+    await writer.write(encodeCommand(args));
+    return parseReply(br);
+  }
+  function reset() {
+    try {
+      if (writer) writer.releaseLock();
+    } catch {
+    }
+    try {
+      if (socket) socket.close();
+    } catch {
+    }
+    socket = null;
+    writer = null;
+    br = null;
+  }
+  function command(args) {
+    const run = (async () => {
+      try {
+        if (!socket) await open();
+        return await rawCommand(args);
+      } catch (err) {
+        reset();
+        await open();
+        return rawCommand(args);
+      }
+    });
+    const result = chain.then(run, run);
+    chain = result.then(() => {
+    }, () => {
+    });
+    return result;
+  }
+  const k = (key) => keyPrefix + key;
+  async function get(key) {
+    const r = await command(["GET", k(key)]);
+    return r == null ? null : r;
+  }
+  async function set(key, bytes, ttlSec) {
+    const args = ["SET", k(key), bytes];
+    if (ttlSec && ttlSec > 0) {
+      args.push("EX", String(Math.floor(ttlSec)));
+    }
+    await command(args);
+  }
+  async function del(key) {
+    await command(["DEL", k(key)]);
+  }
+  async function scan(prefix, cursor, n) {
+    const match = escapeGlob(keyPrefix + (prefix || "")) + "*";
+    const reply = await command(["SCAN", cursor || "0", "MATCH", match, "COUNT", String(n || 1e3)]);
+    const nextCursor = reply[0] instanceof Uint8Array ? dec3.decode(reply[0]) : String(reply[0]);
+    const rawKeys = Array.isArray(reply[1]) ? reply[1] : [];
+    const names = rawKeys.map((b) => {
+      const full = b instanceof Uint8Array ? dec3.decode(b) : String(b);
+      return keyPrefix && full.startsWith(keyPrefix) ? full.slice(keyPrefix.length) : full;
+    });
+    return { names, cursor: nextCursor };
+  }
+  return { get, set, del, scan, backend: "redis" };
 }
 
 var DEFAULT_VALID_THEMES = /* @__PURE__ */ new Set(["light", "dark"]);
@@ -1897,6 +2827,26 @@ function jsonResponse(body, status) {
 }
 
 var { json: json4, html } = makeResponseHelpers({ cors: "*", prettyJson: true, htmlCache: "no-store" });
+async function deleteEntryBlobs(env, entry) {
+  if (!entry || entry.type !== "files") return;
+  const { blob } = resolveBlob(env);
+  for (const f of entry.files || []) {
+    if (f.blobKey) {
+      try {
+        await blob.delete(f.blobKey);
+      } catch {
+      }
+    }
+  }
+  for (const f of entry.pendingAdds || []) {
+    if (!f.blobKey) continue;
+    try {
+      if (f.partCount > 1 && f.uploadId) await blob.abortUpload(f.blobKey, f.uploadId);
+      else await blob.delete(f.blobKey);
+    } catch {
+    }
+  }
+}
 var HTML = landing_default;
 function withRuntimeView(entry, nowSec) {
   const out = {};
@@ -1908,8 +2858,20 @@ function withRuntimeView(entry, nowSec) {
   }
   return out;
 }
+function resolveBindings(env) {
+  if (env.DATA && typeof env.DATA.get === "function") return env;
+  if (typeof env.DATA === "string" && env.DATA) {
+    return {
+      ...env,
+      DATA: makeKvBinding({ driver: makeRedisDriver({ url: env.DATA, keyPrefix: env.PREFIX }) }),
+      __selfHost: true
+    };
+  }
+  return env;
+}
 var index_default = {
   async fetch(request, env, ctx) {
+    env = resolveBindings(env);
     const url = new URL(request.url);
     const path = url.pathname;
     if (request.method === "OPTIONS") {
@@ -1937,6 +2899,14 @@ var index_default = {
     if (method === "POST" && slug === "api/prefs") {
       return handlePrefs(request);
     }
+    if (method === "POST" && slug === "_cron") {
+      if (!env.CRON) return new Response("Not Found", { status: 404 });
+      const authz = request.headers.get("Authorization") || "";
+      const token = authz.startsWith("Bearer ") ? authz.slice(7) : "";
+      if (!await safeEqual(token, env.CRON)) return json4({ error: "UNAUTHORIZED" }, 401);
+      ctx.waitUntil(runReclaim(env, { full: true }));
+      return json4({ ok: true });
+    }
     if (method === "POST" && slug === "_unlock") {
       return lockModule.handleUnlock(request, env);
     }
@@ -1949,12 +2919,20 @@ var index_default = {
       }
     }
     if (method === "GET") {
+      if (slug === "_u/space") {
+        const info = await getStorageInfo(env);
+        return json4(info ? { mode: "quota", total: info.total, available: info.available, used: info.used } : { mode: env.__selfHost ? "quota" : "none" });
+      }
       if (!slug) {
         const adminRequired = env.ADMIN ? "true" : "false";
         const ttlStr = String(normalizeTtl(env.TTL || 0));
         const authPeek = await checkAuth(request, env);
         const isAdmin = authPeek && authPeek.isAdmin === true ? "true" : "false";
-        const page = HTML.replace(/\{\{DEFAULT_TTL\}\}/g, ttlStr).replace(/\{\{ADMIN_REQUIRED\}\}/g, adminRequired).replace(/\{\{IS_ADMIN\}\}/g, isAdmin).replace(/\{\{THEME\}\}/g, theme).replace(/\{\{LANG\}\}/g, lang).replace(/\{\{CDN_HOST\}\}/g, cdnHost);
+        const { kind, maxTotalBytes } = resolveBlob(env);
+        const fileLimitMode = env.__selfHost ? "quota" : kind === "kv-slab" ? "fixed" : "uncapped";
+        const fileMaxBytes = fileLimitMode === "fixed" ? String(maxTotalBytes) : "0";
+        const fileBilling = env.__selfHost ? "false" : "true";
+        const page = HTML.replace(/\{\{DEFAULT_TTL\}\}/g, ttlStr).replace(/\{\{ADMIN_REQUIRED\}\}/g, adminRequired).replace(/\{\{IS_ADMIN\}\}/g, isAdmin).replace(/\{\{THEME\}\}/g, theme).replace(/\{\{LANG\}\}/g, lang).replace(/\{\{FILE_LIMIT_MODE\}\}/g, fileLimitMode).replace(/\{\{FILE_MAX_BYTES\}\}/g, fileMaxBytes).replace(/\{\{FILE_BILLING\}\}/g, fileBilling).replace(/\{\{CDN_HOST\}\}/g, cdnHost);
         return html(page);
       }
       if (slug.includes("/")) return notFound(env, url);
@@ -1966,12 +2944,7 @@ var index_default = {
       const files = entry.files || [];
       const maxHitsPolicy = entry.maxHits || 0;
       if (maxHitsPolicy > 0 && (entry.hits || 0) >= maxHitsPolicy) {
-        if (isFile) {
-          const committedEnd = entry.committedChunkEnd || 0;
-          if (committedEnd > 0) {
-            ctx.waitUntil(upload.deleteAllChunks(env.DATA, slug, 0, committedEnd - 1));
-          }
-        }
+        if (isFile) ctx.waitUntil(deleteEntryBlobs(env, entry));
         ctx.waitUntil(env.DATA.delete(slug));
         return notFound(env, url);
       }
@@ -1994,9 +2967,10 @@ var index_default = {
           }
           if (!authed) return new Response("Unauthorized", { status: 403 });
         }
-        const blob = await upload.readFile(env.DATA, slug, file);
-        if (!blob) return notFound(env, url);
-        return new Response(blob, {
+        const { blob: store } = resolveBlob(env);
+        const stream = await store.get(file.blobKey);
+        if (!stream) return notFound(env, url);
+        return new Response(stream, {
           headers: {
             "Content-Type": file.mime || "application/octet-stream",
             "Content-Disposition": contentDispositionHeader(file.name),
@@ -2023,12 +2997,7 @@ var index_default = {
         ctx.waitUntil((async () => {
           const newHits = (entry.hits || 0) + 1;
           if (newHits >= maxHitsPolicy) {
-            if (isFile) {
-              const committedEnd = entry.committedChunkEnd || 0;
-              if (committedEnd > 0) {
-                await upload.deleteAllChunks(env.DATA, slug, 0, committedEnd - 1);
-              }
-            }
+            if (isFile) await deleteEntryBlobs(env, entry);
             await env.DATA.delete(slug);
           } else {
             const nowSec = Math.floor(Date.now() / 1e3);
@@ -2046,10 +3015,11 @@ var index_default = {
       const mode = entry.redirectMode || "instant";
       if (isFile && mode === "instant" && files.length === 1) {
         const file = files[0];
-        const blob = await upload.readFile(env.DATA, slug, file);
-        if (!blob) return notFound(env, url);
+        const { blob: store } = resolveBlob(env);
+        const stream = await store.get(file.blobKey);
+        if (!stream) return notFound(env, url);
         consumeVisit();
-        return withHitCookie(new Response(blob, {
+        return withHitCookie(new Response(stream, {
           headers: {
             "Content-Type": file.mime || "application/octet-stream",
             "Content-Disposition": contentDispositionHeader(file.name),
@@ -2095,48 +3065,14 @@ var index_default = {
       return new Response(null, { status: 303, headers });
     }
     if (method === "POST" && slug === "_u/reserve") return handleUploadReserve(request, env, url);
-    if (method === "PUT" && slug.startsWith("_u/chunk/")) return handleUploadChunk(request, env, url, slug.slice("_u/chunk/".length));
+    if (method === "PUT" && slug.startsWith("_u/part/")) return handleUploadPart(request, env, url, slug.slice("_u/part/".length));
+    if (method === "PUT" && slug.startsWith("_u/put/")) return handleUploadPut(request, env, url, slug.slice("_u/put/".length));
     if (method === "POST" && slug.startsWith("_u/commit/")) return handleUploadCommit(request, env, url, slug.slice("_u/commit/".length));
     if (method === "POST" && slug === "_cleanup") {
       const auth = await checkAuth(request, env);
       if (auth instanceof Response) return auth;
       if (!auth.isAdmin) return json4({ error: "UNAUTHORIZED" }, 401);
-      let deleted = 0;
-      let cursor = null;
-      do {
-        const list = await env.DATA.list({ cursor, limit: 1e3 });
-        for (const k of list.keys) {
-          const m = k.name.match(/^([a-zA-Z0-9]{3,10}):c(\d+)$/);
-          if (!m) continue;
-          const [, chunkSlug, chunkIdxStr] = m;
-          const chunkIdx = parseInt(chunkIdxStr, 10);
-          const raw = await env.DATA.get(chunkSlug);
-          if (!raw) {
-            await env.DATA.delete(k.name);
-            deleted++;
-            continue;
-          }
-          const entry = JSON.parse(raw);
-          if (entry.type !== "files") {
-            await env.DATA.delete(k.name);
-            deleted++;
-            continue;
-          }
-          const committedEnd = entry.committedChunkEnd || 0;
-          let live = chunkIdx < committedEnd;
-          if (!live && entry.pendingSession) {
-            const ps = entry.pendingSession;
-            const r = upload.sessionChunks(ps.sessionStart, ps.sessionBytes);
-            if (r && chunkIdx >= r.firstChunk && chunkIdx <= r.lastChunk) live = true;
-          }
-          if (!live) {
-            await env.DATA.delete(k.name);
-            deleted++;
-          }
-        }
-        cursor = list.list_complete ? null : list.cursor;
-      } while (cursor);
-      return json4({ deleted });
+      return json4({ deleted: 0, note: "no-op: blob lifecycle handles orphans" });
     }
     if (method === "HEAD") {
       const auth = await checkAuth(request, env);
@@ -2304,22 +3240,11 @@ var index_default = {
         return json4({ purged: deleted });
       }
       if (slug.includes("/")) return json4({ error: "VERIFY_FAILED" }, 403);
-      const sweepChunks = async (s, e) => {
-        const committedEnd = e.committedChunkEnd || 0;
-        if (committedEnd > 0) {
-          await upload.deleteAllChunks(env.DATA, s, 0, committedEnd - 1);
-        }
-        if (e.pendingSession) {
-          const ps = e.pendingSession;
-          const r = upload.sessionChunks(ps.sessionStart, ps.sessionBytes);
-          if (r) await upload.deleteAllChunks(env.DATA, s, r.firstChunk, r.lastChunk);
-        }
-      };
       if (isAdmin) {
         const raw2 = await env.DATA.get(slug);
         if (!raw2) return json4({ error: "VERIFY_FAILED" }, 403);
         const entry2 = JSON.parse(raw2);
-        if (entry2.type === "files") await sweepChunks(slug, entry2);
+        if (entry2.type === "files") await deleteEntryBlobs(env, entry2);
         await env.DATA.delete(slug);
         return json4({ deleted: slug });
       }
@@ -2332,11 +3257,27 @@ var index_default = {
       if (!await safeEqual(entry.pwHash, pwHash)) {
         return json4({ error: "VERIFY_FAILED" }, 403);
       }
-      if (entry.type === "files") await sweepChunks(slug, entry);
+      if (entry.type === "files") await deleteEntryBlobs(env, entry);
       await env.DATA.delete(slug);
       return json4({ deleted: slug });
     }
     return notFound(env, url);
+  },
+  // Cloudflare cron trigger (wrangler.toml [triggers] → "0 3 * * *", daily 03:00
+  // UTC). Drives the background blob reclaim. Every OTHER day (epoch-day parity)
+  // the run is a FULL pointer-check sweep (every object — catches a shortened or
+  // deleted link whose original advisory exp is still in the future, which the
+  // targeted pre-filter skips); on the in-between days it's a targeted pass (the
+  // customMetadata.exp pre-filter skips not-yet-expired blobs without a pointer
+  // read). Full every 2 days bounds that straggler over-retention to <=48h. The
+  // cadence is decided here from the scheduled date, not a second cron string —
+  // CF rejects "* * 0"-style weekly cron expressions (code 10100). A single tick
+  // processes up to maxKeys objects (see reclaim.mjs's deferred cursor-resume
+  // note). The container has no managed cron and instead curls POST /_cron (always full).
+  async scheduled(event, env, ctx) {
+    env = resolveBindings(env);
+    const full = Math.floor((event && event.scheduledTime || Date.now()) / 864e5) % 2 === 0;
+    ctx.waitUntil(runReclaim(env, { full }));
   }
 };
 export {
