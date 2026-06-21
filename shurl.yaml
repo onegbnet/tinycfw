@@ -1,0 +1,123 @@
+# shurl — EXAMPLE self-host compose (a starting point; customize freely).
+# Self-host with one command:
+#
+#   1. set ADMIN and CRON (and, if you change the MinIO creds, BOS) — two ways,
+#      pick one:
+#        A) create a .env file beside this one (see shurl.env for the template), OR
+#        B) type the values straight into the `environment:` block below.
+#      Set CRON to any random string so expired-link file blobs get reclaimed
+#      (the cron ticker below sends it as a bearer to POST /_cron).
+#   2. docker compose up -d
+#   3. open http://localhost:8080
+#
+# Ships the worker + Redis (the short-link / file POINTER store — replaces CF KV)
+# + MinIO (the file BLOB store — replaces Cloudflare R2) + a reclaim ticker
+# (replaces the Cloudflare cron trigger). The browser still loads the UI assets
+# from jsDelivr exactly like the Cloudflare deployment.
+#
+# Short links work with just Redis; FILE SHARING also needs the blob store (MinIO
+# here). To point at Cloudflare R2 (or any S3) instead of the bundled MinIO, set
+# BOS to that endpoint's S3 URL and drop the minio / minio-init services.
+#
+# NOTE: if you change MINIO_USER / MINIO_PASS / BUCKET, update BOS to match.
+
+services:
+  shurl:
+    image: ghcr.io/onegbnet/shurl:latest
+    ports:
+      # host:container. Change the host side (left) to expose a different port.
+      - "${PORT:-8080}:8080"
+    environment:
+      # Each value is `${VAR:-default}`: VAR from .env / your shell if set, else
+      # the default after ":-". To hardcode, replace the whole `${...}`.
+      #
+      # ── pointer store (required) — the bundled Redis below ──
+      DATA: ${DATA:-redis://redis:6379}
+      PREFIX: ${PREFIX:-}                  # optional Redis key prefix
+      # ── blob store (required for FILE SHARING) — the bundled MinIO below ──
+      # http://<accessKey>:<secretKey>@<host>:<port>/<bucket> (must match MinIO).
+      BOS: ${BOS:-http://shurl:shurlsecret@minio:9000/shurl}
+      # ── admin + limits ──
+      ADMIN: ${ADMIN:-}                    # admin password — enables admin UI/API
+      LIMIT: ${LIMIT:-100}                 # per-window create rate limit
+      CRON: ${CRON:-}                      # cron bearer — drives the background blob-reclaim sweep (set it!)
+      # ── optional ──
+      BASE: ${BASE:-}                      # public base URL for short links; empty = request origin
+      DEFAULT: ${DEFAULT:-}
+      TTL: ${TTL:-}
+    depends_on:
+      redis:
+        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # Redis — the short-link / file-pointer store (replaces Cloudflare KV). Data
+  # persists in the volume (appendonly). MUST be non-evicting: the blob-reclaim
+  # sweep treats a missing pointer as "link is dead, delete its file blobs", so
+  # an evicted-but-still-referenced pointer would let it delete a LIVE link's
+  # files (permanent 404). --maxmemory-policy noeviction makes Redis refuse
+  # writes when full instead of silently dropping live keys.
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  # MinIO — the file BLOB store (S3-compatible; replaces Cloudflare R2). Data
+  # persists in the volume. Console on :9001 (optional; expose if you want it).
+  minio:
+    image: minio/minio
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER:-shurl}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASS:-shurlsecret}
+    volumes:
+      - minio-data:/data
+    restart: unless-stopped
+
+  # One-shot: create the bucket the worker writes blobs to, then exit. The
+  # shurl service waits for this to complete successfully.
+  minio-init:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_started
+    environment:
+      MINIO_USER: ${MINIO_USER:-shurl}
+      MINIO_PASS: ${MINIO_PASS:-shurlsecret}
+      BUCKET: ${BUCKET:-shurl}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        until mc alias set local http://minio:9000 "$$MINIO_USER" "$$MINIO_PASS"; do sleep 1; done
+        mc mb --ignore-existing "local/$$BUCKET"
+    restart: "no"
+
+  # Reclaim ticker. Independent workerd has no managed cron, so an external
+  # ticker curls the token-gated POST /_cron periodically; the worker then sweeps
+  # the blob store and deletes the file blobs of expired/deleted links (a blob is
+  # removed only after confirming its pointer is gone in Redis — the pointer is
+  # authoritative). Swap this for supercronic / ofelia / your host crond / a k8s
+  # CronJob if you already run one — it just needs to hit /_cron with the CRON
+  # bearer. ($$CRON escapes to a literal $ so the shell expands it.)
+  cron:
+    image: curlimages/curl:latest
+    depends_on:
+      shurl:
+        condition: service_started
+    environment:
+      CRON: ${CRON:-}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        while true; do
+          curl -fsS -X POST -H "Authorization: Bearer $$CRON" http://shurl:8080/_cron >/dev/null 2>&1 || true
+          sleep 300
+        done
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  minio-data:

@@ -400,6 +400,8 @@ If commit never arrives:
 - **Create flow** — the pending entry expires after 1 hour and the slug is free again
 - **Modify flow** — `uploadToken` and `pendingSession` stay until commit; `PUT` and `DELETE` on the slug return `UPLOAD_IN_PROGRESS` until then
 
+When a file link expires (TTL) or is deleted, its pointer is removed immediately (precise); the underlying file bytes are then reclaimed by a background sweep within about a day or two.
+
 #### POST /_u/reserve — start an upload session
 
 Reserves a slug and plans a new upload session. Used for both **create** (no `slug`, or unknown `slug`) and **modify** (existing file slug, correct `X-Password`).
@@ -921,6 +923,8 @@ X-Password: slug-password
 - **创建流程** —— 待提交条目 1 小时后过期，短码再次空闲
 - **修改流程** —— `uploadToken` 与 `pendingSession` 一直保留到 commit；期间对该短码的 `PUT` / `DELETE` 都会返回 `UPLOAD_IN_PROGRESS`
 
+当文件链接过期（TTL）或被删除时，其指针会立即移除（精确）；底层文件字节随后由后台扫描在约一两天内回收。
+
 #### POST /_u/reserve — 启动上传会话
 
 预留短码并规划新一次上传会话。同时支持**创建**（不带 `slug` 或带未知 `slug`）和**修改**（已有文件短码 + 正确 `X-Password`）。
@@ -1441,6 +1445,8 @@ X-Password: slug-password
 
 - **建立流程** —— 待提交條目 1 小時後過期，短碼再次空閒
 - **修改流程** —— `uploadToken` 與 `pendingSession` 一直保留到 commit；期間對該短碼的 `PUT` / `DELETE` 都會回傳 `UPLOAD_IN_PROGRESS`
+
+當檔案連結過期（TTL）或被刪除時，其指標會立即移除（精確）；底層檔案位元組隨後由背景掃描在約一兩天內回收。
 
 #### POST /_u/reserve — 啟動上傳工作階段
 
